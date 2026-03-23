@@ -1,0 +1,184 @@
+{
+  "kind": "collectionType",
+  "collectionName": "products",
+  "info": {
+    "singularName": "product",
+    "pluralName": "products",
+    "displayName": "Product"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "image": {
+      "type": "media",
+      "multiple": false,
+      "required": true,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "galleryImages": {
+      "type": "media",
+      "multiple": true,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "videoUrl": {
+      "type": "string"
+    },
+    "shortDescription": {
+      "type": "text"
+    },
+    "longDescription": {
+      "type": "text"
+    },
+    "benefits": {
+      "type": "text"
+    },
+    "sku": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "unitMeasure": {
+      "type": "enumeration",
+      "required": true,
+      "enum": [
+        "Gramos",
+        "Kilogramos",
+        "Unidad",
+        "Litros",
+        "Mililitros"
+      ]
+    },
+    "price": {
+      "type": "decimal",
+      "required": true
+    },
+    "oldPrice": {
+      "type": "decimal"
+    },
+    "availableToday": {
+      "type": "boolean",
+      "default": false
+    },
+    "stock": {
+      "type": "integer",
+      "required": true,
+      "default": 0
+    },
+    "immediateDeliveryStock": {
+      "type": "integer",
+      "default": 0
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "launchDate": {
+      "type": "date"
+    },
+    "priorityOrder": {
+      "type": "integer"
+    },
+    "averageRating": {
+      "type": "decimal"
+    },
+    "reviewCount": {
+      "type": "integer",
+      "default": 0
+    },
+    "externalProductUrl": {
+      "type": "string"
+    },
+    "brand": {
+      "type": "string"
+    },
+    "metaDescription": {
+      "type": "text"
+    },
+    "categories": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::category.category",
+      "mappedBy": "products"
+    },
+    "metaTitle": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::tag.tag",
+      "inversedBy": "products"
+    },
+    "relatedProducts": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::product.product",
+      "inversedBy": "relatedFromProducts"
+    },
+    "relatedFromProducts": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::product.product",
+      "mappedBy": "relatedProducts"
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "name"
+    },
+    "contentPerUnit": {
+      "type": "integer",
+      "required": true,
+      "default": 0
+    },
+    "unitAbbreviation": {
+      "type": "enumeration",
+      "enum": [
+        "g",
+        "kg",
+        "und",
+        "ml",
+        "L"
+      ]
+    },
+    "bannerImage": {
+      "type": "media",
+      "multiple": true,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "supplierBatchSize": {
+      "type": "integer",
+      "default": 1
+    },
+    "minStockAlert": {
+      "type": "integer",
+      "default": 0
+    },
+    "batches": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::batch.batch",
+      "mappedBy": "product"
+    }
+  }
+}

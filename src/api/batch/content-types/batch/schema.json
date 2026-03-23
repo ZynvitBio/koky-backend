@@ -1,0 +1,35 @@
+{
+  "kind": "collectionType",
+  "collectionName": "batches",
+  "info": {
+    "singularName": "batch",
+    "pluralName": "batches",
+    "displayName": "Batch"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "arrivalDate": {
+      "type": "date",
+      "required": true
+    },
+    "quantityReceived": {
+      "type": "integer",
+      "required": true
+    },
+    "currentStock": {
+      "type": "integer"
+    },
+    "expirationDate": {
+      "type": "date"
+    },
+    "product": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::product.product",
+      "inversedBy": "batches"
+    }
+  }
+}

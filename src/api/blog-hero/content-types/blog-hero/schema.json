@@ -1,0 +1,31 @@
+{
+  "kind": "singleType",
+  "collectionName": "blog_heroes",
+  "info": {
+    "singularName": "blog-hero",
+    "pluralName": "blog-heroes",
+    "displayName": "BlogHero"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "imageBanner": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "subtitle": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    }
+  }
+}

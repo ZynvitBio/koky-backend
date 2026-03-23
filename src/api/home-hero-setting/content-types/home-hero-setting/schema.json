@@ -1,0 +1,25 @@
+{
+  "kind": "collectionType",
+  "collectionName": "home_hero_settings",
+  "info": {
+    "singularName": "home-hero-setting",
+    "pluralName": "home-hero-settings",
+    "displayName": "HomeHeroSetting"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "heroImage": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    }
+  }
+}

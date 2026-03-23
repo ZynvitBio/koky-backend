@@ -1,0 +1,39 @@
+{
+  "kind": "collectionType",
+  "collectionName": "home_hero_messages",
+  "info": {
+    "singularName": "home-hero-message",
+    "pluralName": "home-hero-messages",
+    "displayName": "HomeHeroMessage"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "h1Prefix": {
+      "type": "string"
+    },
+    "h1HighlightedText": {
+      "type": "string"
+    },
+    "subtitle": {
+      "type": "string"
+    },
+    "description": {
+      "type": "text"
+    },
+    "linkText": {
+      "type": "string"
+    },
+    "linkUrl": {
+      "type": "string"
+    },
+    "h1_suffix": {
+      "type": "string"
+    },
+    "order": {
+      "type": "integer"
+    }
+  }
+}

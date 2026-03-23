@@ -1,0 +1,42 @@
+{
+  "kind": "collectionType",
+  "collectionName": "orders",
+  "info": {
+    "singularName": "order",
+    "pluralName": "orders",
+    "displayName": "Order"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "whatsapp_id": {
+      "type": "string"
+    },
+    "customer_name": {
+      "type": "string"
+    },
+    "total_amount": {
+      "type": "decimal"
+    },
+    "wompi_reference": {
+      "type": "string"
+    },
+    "items": {
+      "type": "json"
+    },
+    "users_permissions_users": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "plugin::users-permissions.user",
+      "mappedBy": "order"
+    },
+    "source": {
+      "type": "string"
+    },
+    "payment_method": {
+      "type": "string"
+    }
+  }
+}
