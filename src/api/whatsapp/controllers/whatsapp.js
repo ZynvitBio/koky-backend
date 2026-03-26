@@ -71,6 +71,7 @@ module.exports = {
           let user = await this.getOrCreateUser(from, waName, 'whatsapp');
           const textoBotonRegistro = "registrarme aquí"; 
 
+          // 1. LÓGICA DE REGISTRO EXITOSO (CUANDO PRESIONA EL BOTÓN)
           if (msgText === textoBotonRegistro && !user.is_founder) {
             user = await strapi.entityService.update('plugin::users-permissions.user', user.id, {
               data: { is_founder: true, whatsapp_id: from },
@@ -88,6 +89,7 @@ module.exports = {
             return ctx.body = 'EVENT_RECEIVED'; 
           }
 
+          // 2. GUARDAR MENSAJE Y CARGAR HISTORIAL
           await strapi.entityService.create('api::chat.chat', {
             data: { sender: from, message: msgText, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
           });
@@ -100,6 +102,7 @@ module.exports = {
 
           const chatContext = history.reverse().map(h => `${h.sender === from ? 'Cliente' : 'Kira'}: ${h.message}`).join('\n');
 
+          // 3. GENERAR RESPUESTA CON GEMINI
           const systemPrompt = `
 ### ROLE
 Eres Kira de Koky en Bogotá. Tu objetivo es que el usuario se enamore del proyecto antes de pedirle nada.
@@ -107,42 +110,61 @@ Eres Kira de Koky en Bogotá. Tu objetivo es que el usuario se enamore del proye
 - NOMBRE: ${waName}
 - ¿ES MIEMBRO: ${user.is_founder ? 'SÍ (VIP)' : 'NO (PROSPECTO)'}
 ### LÓGICA DE LANZAMIENTO (45 DÍAS)
-- **ESTADO**: Estamos en fase de lanzamiento de comunidad (45 días).
-- **WEB (koky.food)**: Se puede navegar y ver fotos de productos, pero las compras están desactivadas por ahora. 
-- **OBJETIVO**: Registrar Miembros Fundadores para el lanzamiento oficial.
+- **ESTADO**: Fase de lanzamiento (45 días).
+- **WEB (koky.food)**: Solo para ver fotos. Compras desactivadas.
 ### LOGICA DE VENTA (FUNDAMENTAL)
 1. SI EL USUARIO NO ES MIEMBRO:
-   - **PROHIBIDO** dar la URL de entrada. Explica que estamos en preventa VIP.
-   - Explica el beneficio: "1 envío gratis al mes de por vida" cuando abramos ventas.
-   - **CIERRE**: "¿Te gustaría asegurar tus envíos gratis antes de que abramos ventas?" o "¿Te interesa ser fundador?".
-2. SOLO SI DICE QUE SÍ (O SIMILARES):
-   - Menciona la palabra "registro" y el sitio koky.food. Invítalo a ver las fotos de los productos allí.
+   - **PROHIBIDO** dar la URL de entrada. Explica la preventa VIP.
+   - Beneficio: "1 envío gratis al mes de por vida".
+   - **CIERRE CRÍTICO**: Debes preguntar "¿Te interesa ser Miembro Fundador?" o "¿Quieres asegurar tus envíos gratis?".
+2. SI DICE QUE SÍ:
+   - Dile que le enviarás una tarjeta de invitación con un video para completar su registro.
 ### CONTEXTO KOKY
-- Productos: Tofu (fresco, firme, ahumado, frito, lámina) y leche de soya. Solo en Bogotá.
+- Productos: Tofu (fresco, firme, ahumado, rollo, frito, lámina, nata) y leche de soya. Solo en Bogotá.
 ### REGLAS DE ESTILO
-- Máximo 30 palabras. Usa el nombre "${waName}". Tono bogotano y amable.
+- Máximo 30 palabras. Tono bogotano amable. Usa el nombre "${waName}".
 ### HISTORIAL
 ${chatContext}
-### MENSAJE DE ${waName.toUpperCase()}:
-"${msgText}"
-`;    
+### MENSAJE: "${msgText}"`;
+
           const result = await model.generateContent(systemPrompt);
           const aiResponse = result.response.text();
 
+          // Guardamos la respuesta de Kira en la BD
           await strapi.entityService.create('api::chat.chat', {
             data: { sender: 'Kira', message: aiResponse, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
           });
 
-          await axios({
-            method: "POST",
-            url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-            data: {
-              messaging_product: "whatsapp",
-              to: from,
-              text: { body: aiResponse },
-            },
-            headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
-          });
+          // 4. DECIDIR SI ENVIAMOS PLANTILLA DE VIDEO O SOLO TEXTO
+          if (!user.is_founder && (msgText.includes("si") || msgText.includes("fundador") || msgText.includes("interesa") || msgText.includes("registro"))) {
+            await axios({
+              method: "POST",
+              url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+              data: {
+                messaging_product: "whatsapp",
+                to: from,
+                type: "template",
+                template: {
+                  name: "invitation",
+                  language: { code: "es" },
+                  components: [{ type: "header", parameters: [{ type: "video", video: { link: "https://storage.googleapis.com/kokyfood/kirakoky202614759.mp4" } }] }]
+                }
+              },
+              headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
+            });
+          } else {
+            // Charla normal o usuario ya es fundador
+            await axios({
+              method: "POST",
+              url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+              data: {
+                messaging_product: "whatsapp",
+                to: from,
+                text: { body: aiResponse },
+              },
+              headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
+            });
+          }
 
         } catch (error) { console.error("❌ Error WA:", error.message); }
       }
@@ -150,7 +172,8 @@ ${chatContext}
       ctx.body = 'EVENT_RECEIVED';
 
     } 
-  else if (body.object === 'page' || body.object === 'instagram') {
+    // --- BLOQUE INSTAGRAM / MESSENGER ---
+    else if (body.object === 'page' || body.object === 'instagram') {
       const entry = body.entry?.[0];
       const messaging = entry?.messaging?.[0];
       
@@ -164,61 +187,37 @@ ${chatContext}
       const msgText = rawText.toLowerCase().trim();
 
       try {
-        const plataformaNombre = body.object === 'instagram' ? "Cliente Instagram" : "Cliente Messenger";
         const plataformaKey = body.object === 'instagram' ? 'instagram' : 'facebook';
-        
-        let user = await this.getOrCreateUser(from, plataformaNombre, plataformaKey);
+        let user = await this.getOrCreateUser(from, "Cliente", plataformaKey);
 
-        // --- LA CASCADA DE DIAMANTE (FILTRO TOTAL) ---
         const trimmedText = rawText.trim();
 
-        // PUERTA 1: ¿Empieza con '+'?
         if (trimmedText.startsWith('+')) {
           try {
             const phoneNumber = phoneUtil.parseAndKeepRawInput(trimmedText);
-            
-            // PUERTA 2: ¿Es CELULAR (Type 1) Y además es un número VÁLIDO?
-            // Esto rebota los +57 800 (fijos) y los +57 978 (inválidos)
             const isMobile = phoneUtil.getNumberType(phoneNumber) === 1;
             const isValid = phoneUtil.isValidNumber(phoneNumber);
 
             if (isMobile && isValid) {
               const formattedPhone = phoneUtil.format(phoneNumber, 1);
-
-              // PUERTA 3: ¿Aún no es Miembro Fundador?
               if (!user.is_founder) {
-                console.log("✅ REGISTRO EXITOSO:", formattedPhone);
-                
-                // Actualizamos Strapi (Solo llegamos aquí si pasó las 3 puertas)
                 user = await strapi.entityService.update('plugin::users-permissions.user', user.id, {
                   data: { is_founder: true, whatsapp_id: formattedPhone },
                 });
-
                 const confirmMsg = "¡Excelente! He vinculado tu número móvil. ¡Ya eres Miembro Fundador de Koky! 🥦";
-                
                 await axios.post(`https://graph.facebook.com/v21.0/me/messages`,
                   { recipient: { id: from }, message: { text: confirmMsg } },
                   { headers: { Authorization: `Bearer ${process.env.MESSENGER_PAGE_TOKEN}` } }
                 );
-
                 await strapi.entityService.create('api::chat.chat', {
                   data: { sender: 'Kira', message: confirmMsg, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
                 });
-
-                // CORTAMOS EL FLUJO: No llega a Gemini porque ya terminamos con éxito.
                 return ctx.body = 'EVENT_RECEIVED'; 
               }
-            } else {
-              console.log("🚫 RECHAZADO: No es móvil o es inválido (ej: +57 978 o fijo).");
             }
-          } catch (e) {
-            console.log("🚫 RECHAZADO: Error de formato crítico.");
-          }
+          } catch (e) { console.log("🚫 Error formato."); }
         }
 
-        // --- SALIDA A GEMINI (KIRA) ---
-        // Si el código llegó aquí, es porque el número NO era válido o no se registró.
-        // Guardamos el mensaje del usuario y dejamos que Kira responda.
         await strapi.entityService.create('api::chat.chat', {
           data: { sender: from, message: msgText, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
         });
@@ -232,13 +231,15 @@ ${chatContext}
         const chatContext = history.reverse().map(h => `${h.sender === from ? 'Cliente' : 'Kira'}: ${h.message}`).join('\n');
 
         const systemPrompt = `
-### ROLE: Kira de Koky en Bogotá.
+### ROLE: Kira de Koky en Bogotá (Lanzamiento 45 días).
 ### USER: ${user.username}, MIEMBRO: ${user.is_founder ? 'SÍ' : 'NO'}.
-### LÓGICA DE REGISTRO: 
-1. Si no es miembro, ofrece envíos gratis. 
-2. Si dice que sí, pide WhatsApp con + y código país. 
-3. ERROR: Si envió un número y NO se registró (is_founder sigue siendo NO), dile que debe ser un CELULAR real y empezar con +.
-### REGLAS: Máximo 30 palabras. Tono bogotano.
+### CONTEXTO: Preventa VIP. Web koky.food solo para ver fotos, compras desactivadas.
+### LÓGICA DE REGISTRO (FUNDAMENTAL): 
+1. SI NO ES MIEMBRO: Ofrece "1 envío gratis al mes de por vida". 
+2. SI DICE QUE SÍ: Pide su WhatsApp con + y código país (ej: +57...).
+3. ERROR: Si mandó un número pero NO se registró (is_founder: NO), dile que debe ser CELULAR real y empezar con +.
+### PRODUCTOS: Tofu (fresco, firme, ahumado, rollo, frito, lámina, nata) y leche de soya.
+### REGLAS: Máximo 30 palabras. Tono bogotano amable.
 ### HISTORIAL:
 ${chatContext}
 ### MENSAJE: "${msgText}"`;
@@ -258,5 +259,6 @@ ${chatContext}
       } catch (e) { console.error("❌ Error Proceso Redes:", e.message); } 
       ctx.status = 200;
       ctx.body = 'EVENT_RECEIVED';
-    }}
+    }
+  }
 };
