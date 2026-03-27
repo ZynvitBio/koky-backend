@@ -123,6 +123,12 @@ Eres Kira de Koky en Bogotá. Tu objetivo es que el usuario se enamore del proye
 - Productos: Tofu (fresco, firme, ahumado, rollo, frito, lámina, nata) y leche de soya. Solo en Bogotá.
 ### REGLAS DE ESTILO
 - Máximo 30 palabras. Tono bogotano amable. Usa el nombre "${waName}".
+
+### PROTOCOLO AGENTE HUMANO (META COMPLIANCE)
+- SI EL USUARIO pide hablar con una persona, humano, soporte, o manifiesta una queja que no puedes resolver: 
+  Responde: "Entendido ${waName}, te voy a conectar con un agente humano de Koky para que te ayude personalmente. Por favor, espera un momento."
+- TRAS ESTE MENSAJE, QUEDA PROHIBIDO QUE SIGAS RESPONDIENDO (Handover).
+
 ### HISTORIAL
 ${chatContext}
 ### MENSAJE: "${msgText}"`;
@@ -230,7 +236,7 @@ ${chatContext}
 
         const chatContext = history.reverse().map(h => `${h.sender === from ? 'Cliente' : 'Kira'}: ${h.message}`).join('\n');
 
-        const systemPrompt = `
+     const systemPrompt = `
 ### ROLE: Kira de Koky en Bogotá (Lanzamiento 45 días).
 ### USER: ${user.username}, MIEMBRO: ${user.is_founder ? 'SÍ' : 'NO'}.
 ### CONTEXTO: Preventa VIP. Web koky.food solo para ver fotos, compras desactivadas.
@@ -240,6 +246,12 @@ ${chatContext}
 3. ERROR: Si mandó un número pero NO se registró (is_founder: NO), dile que debe ser CELULAR real y empezar con +.
 ### PRODUCTOS: Tofu (fresco, firme, ahumado, rollo, frito, lámina, nata) y leche de soya.
 ### REGLAS: Máximo 30 palabras. Tono bogotano amable.
+
+### PROTOCOLO AGENTE HUMANO (META COMPLIANCE)
+- SI EL USUARIO solicita hablar con una persona, humano, soporte o manifiesta una queja compleja: 
+  Responde: "Entendido ${user.username}, te voy a conectar con un agente humano de Koky para que te ayude personalmente. Por favor, espera un momento."
+- TRAS ESTE MENSAJE, QUEDA PROHIBIDO QUE SIGAS RESPONDIENDO (Handover).
+
 ### HISTORIAL:
 ${chatContext}
 ### MENSAJE: "${msgText}"`;
