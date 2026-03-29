@@ -4,32 +4,46 @@ module.exports = {
   async afterCreate(event) {
     const { result } = event;
 
-    // Solo procesamos si el remitente es Agent
     if (result.sender !== 'Agent') return;
-
-    // 1. BLOQUEO DE SEGURIDAD: Si ya se marcó como enviado, no hacemos nada
     if (result.sent_to_meta === true) return;
 
-    // 2. Buscamos el usuario y cargamos los datos necesarios
     const chatConUsuario = await strapi.entityService.findOne('api::chat.chat', result.id, {
       populate: ['users_permissions_user'],
     });
 
-    // Tu línea exacta para evitar errores de undefined
     const usuario = chatConUsuario ? chatConUsuario['users_permissions_user'] : null;
-    
     if (!usuario) return;
 
-    // 3. MARCADO DE IDEMPOTENCIA: 
-    // Actualizamos el campo ANTES del envío para que el segundo proceso rebote
+    // --- INTENTO DE OBTENER AVATAR (Segundo Plano) ---
+    if (!usuario.avatar_url) {
+      setImmediate(async () => {
+        try {
+          const externalId = (usuario.whatsapp_id || usuario.username).replace(/\D/g, '');
+          const platform = usuario.email.includes('wa.koky') ? 'whatsapp' : 'messenger';
+          
+          // Llamamos al servicio (asegúrate que exista o comenta esta línea si quieres probar solo el flujo)
+          const profile = await strapi.service('api::whatsapp.whatsapp').getUserProfile(externalId, platform);
+          
+          if (profile && profile.profile_picture_url) {
+            await strapi.entityService.update('plugin::users-permissions.user', usuario.id, {
+              data: { avatar_url: profile.profile_picture_url }
+            });
+            console.log(`✅ Avatar actualizado para el usuario ${usuario.id}`);
+          }
+        } catch (e) {
+          // Fallo silencioso: no queremos que un error de avatar detenga el sistema
+        }
+      });
+    }
+
+    // --- BLOQUEO DE ENVÍO DUPLICADO ---
     await strapi.entityService.update('api::chat.chat', result.id, {
       // @ts-ignore
       data: { sent_to_meta: true },
     });
 
     const mensajeTexto = result.message;
-    const rawId = usuario.whatsapp_id || usuario.username;
-    const idExterno = rawId.replace(/\D/g, ''); 
+    const idExterno = (usuario.whatsapp_id || usuario.username).replace(/\D/g, ''); 
     const emailUser = usuario.email || '';
 
     try {

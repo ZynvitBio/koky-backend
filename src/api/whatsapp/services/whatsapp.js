@@ -71,5 +71,32 @@ module.exports = ({ strapi }) => ({
       console.error("❌ [Servicio Social] Error en API de Meta:", error.response ? error.response.data : error.message);
       throw error;
     }
+  },
+  async getUserProfile(externalId, platform) {
+  try {
+    // Usamos tus variables de entorno ya configuradas
+    const token = process.env.WHATSAPP_TOKEN; 
+    
+    // Si es WhatsApp, usamos el endpoint de contactos/perfil
+    // Si es Messenger/Instagram, el endpoint de Graph cambia un poco
+    let url = `https://graph.facebook.com/v19.0/${externalId}?fields=profile_picture_url&access_token=${token}`;
+    
+    if (platform === 'whatsapp') {
+      // Nota: WhatsApp Business API a veces requiere pasos extra, 
+      // pero muchas librerías de Meta ya unifican esto en Graph
+      url = `https://graph.facebook.com/v19.0/${externalId}?fields=profile_picture_url&access_token=${token}`;
+    }
+
+   
+    const response = await axios.get(url);
+
+    return {
+      profile_picture_url: response.data.profile_picture_url || null
+    };
+  } catch (error) {
+    console.error('--- [SERVICIO WA] Error obteniendo perfil:', error.response?.data || error.message);
+    return null;
   }
+}
+  
 });
