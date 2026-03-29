@@ -1,14 +1,21 @@
 'use strict';
 
+// 1. Definimos una memoria temporal fuera de la función para rastrear mensajes ya procesados
+const mensajesProcesados = new Set();
+
 module.exports = {
   async afterCreate(event) {
     const { result } = event;
 
-    // 1. LOG DE ENTRADA AL CICLO
-    console.log(`--- [LIFECYCLE] Nuevo mensaje detectado: ID ${result.id}, Sender: ${result.sender} ---`);
+    // 2. FILTRO ANTI-DUPLICADOS: Si el ID del mensaje ya se procesó hace poco, ignoramos el reintento de Strapi
+    if (mensajesProcesados.has(result.id)) return;
 
     if (result.sender === 'Agent') {
-      console.log(`[LIFECYCLE] Procesando mensaje de AGENT para el usuario...`);
+      // Marcamos este mensaje como "en proceso"
+      mensajesProcesados.add(result.id);
+      
+      // Limpiamos la memoria del ID después de 10 segundos para mantener el Set ligero
+      setTimeout(() => mensajesProcesados.delete(result.id), 10000);
 
       const chatConUsuario = await strapi.entityService.findOne('api::chat.chat', result.id, {
         populate: ['users_permissions_user'],
@@ -17,33 +24,28 @@ module.exports = {
       const usuario = chatConUsuario ? chatConUsuario['users_permissions_user'] : null;
       
       if (!usuario) {
-        console.error('❌ [LIFECYCLE] ERROR: No se encontró usuario asociado al chat.');
+        console.error('❌ [LIFECYCLE] Error: Usuario no asociado al mensaje ID:', result.id);
         return;
       }
 
       const mensajeTexto = result.message;
-      const idExterno = usuario.whatsapp_id || usuario.username; 
+      // Saneamos el ID: solo números para evitar errores de Meta (131009)
+      const rawId = usuario.whatsapp_id || usuario.username; 
+      const idExterno = rawId.replace(/\D/g, ''); 
       const emailUser = usuario.email || '';
-
-      console.log(`[LIFECYCLE] Datos destino: ID ${idExterno}, Email: ${emailUser}`);
 
       try {
         if (emailUser.includes('wa.koky')) {
-          console.log(`[LIFECYCLE] Intentando enviar a WHATSAPP vía Service...`);
+          // Envío a WhatsApp
           await strapi.service('api::whatsapp.whatsapp').sendText(idExterno, mensajeTexto);
-          console.log(`✅ [LIFECYCLE] Service sendText ejecutado.`);
         } else if (emailUser.includes('instagram.koky') || emailUser.includes('facebook.koky')) {
-          console.log(`[LIFECYCLE] Intentando enviar a REDES vía Service...`);
+          // Envío a Instagram o Messenger
           await strapi.service('api::whatsapp.whatsapp').sendDirectMessage(idExterno, mensajeTexto);
-          console.log(`✅ [LIFECYCLE] Service sendDirectMessage ejecutado.`);
-        } else {
-          console.log(`⚠️ [LIFECYCLE] El email no coincide con dominios Koky. No se envía nada.`);
         }
       } catch (error) {
-        console.error('❌ [LIFECYCLE] Error Crítico en el puente de salida:', error.message);
+        // Solo dejamos el log de error crítico por si la API de Meta falla
+        console.error('❌ [LIFECYCLE] Error en envío a Meta:', error.message);
       }
-    } else {
-      console.log(`[LIFECYCLE] Mensaje ignorado (no es Agent).`);
     }
   },
 };
