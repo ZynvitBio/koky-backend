@@ -567,6 +567,7 @@ export interface ApiChatChat extends Struct.CollectionTypeSchema {
     message: Schema.Attribute.Text;
     publishedAt: Schema.Attribute.DateTime;
     sender: Schema.Attribute.String;
+    sent_to_meta: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     timestamp: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
