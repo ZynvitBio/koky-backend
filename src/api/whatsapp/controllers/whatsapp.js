@@ -9,8 +9,7 @@ const model = genAI.getGenerativeModel({
 }, { apiVersion: 'v1' });
 
 module.exports = {
-  // SE AGREGA PARÁMETRO avatarUrl Y LÓGICA DE ACTUALIZACIÓN
-  async getOrCreateUser(identifier, waName, platform = 'whatsapp', avatarUrl = null) {
+  async getOrCreateUser(identifier, waName, platform = 'whatsapp') {
     let domain = 'wa.koky';
     if (platform === 'instagram') domain = 'instagram.koky';
     if (platform === 'facebook') domain = 'facebook.koky';
@@ -32,14 +31,7 @@ module.exports = {
         email: virtualEmail,
         password: 'Password123!',
         confirmed: true,
-        is_founder: false,
-        avatar_url: avatarUrl // SE AGREGA AQUÍ
-      });
-    } else if (avatarUrl && user.avatar_url !== avatarUrl) {
-      // ACTUALIZA SI LA FOTO CAMBIA
-      user = await strapi.entityService.update('plugin::users-permissions.user', user.id, {
-        // @ts-ignore
-        data: { avatar_url: avatarUrl },
+        is_founder: false 
       });
     }
     return user;
@@ -79,13 +71,11 @@ module.exports = {
             const phone_number_id = entry.metadata.phone_number_id;
             const from = message.from;
             const waName = contact?.profile?.name || "Cliente Koky";
-            const waAvatar = contact?.profile?.picture || null; // CAPTURA FOTO WA
             const rawText = message.text?.body || message.button?.text || "";
             const msgText = rawText.toLowerCase().trim();
 
             try {
-              // SE PASA waAvatar A LA FUNCIÓN
-              let user = await this.getOrCreateUser(from, waName, 'whatsapp', waAvatar);
+              let user = await this.getOrCreateUser(from, waName, 'whatsapp');
               const textoBotonRegistro = "registrarme aquí";
 
               // 1. LÓGICA DE REGISTRO EXITOSO
@@ -204,10 +194,7 @@ ${chatContext}
 
           try {
             const plataformaKey = body.object === 'instagram' ? 'instagram' : 'facebook';
-            // SI META ENVÍA FOTO EN EL OBJETO SENDER, LA TOMAMOS
-            const netAvatar = messaging.sender?.profile_pic || null; 
-
-            let user = await this.getOrCreateUser(from, "Cliente", plataformaKey, netAvatar);
+            let user = await this.getOrCreateUser(from, "Cliente", plataformaKey);
 
             const trimmedText = rawText.trim();
 
