@@ -63,35 +63,28 @@ module.exports = ({ strapi }) => ({
 
   async getUserProfile(externalId, platform) {
     try {
-      const token = process.env.WHATSAPP_TOKEN; 
-      
-      // LOGICA SOLO PARA WHATSAPP
+      // Mantenemos los tokens para que IG/FB sigan funcionando
+      const waToken = process.env.WHATSAPP_TOKEN; 
+      const igToken = process.env.MESSENGER_PAGE_TOKEN; 
+
+      // LIMPIEZA: Si es WhatsApp, ya sabemos que Meta no da la foto.
+      // Retornamos null de inmediato para evitar el Error 400 y ahorrar recursos.
       if (platform === 'whatsapp') {
-        // En WhatsApp Business, la URL de la foto de perfil se puede construir así:
-        // https://pps.whatsapp.net/v/t61.2488-24/... (pero requiere un token dinámico)
-        // La forma más estable sin descomponer nada es usar el motor de búsqueda de contactos de Meta
-        
-        console.log(`🔍 [SERVICIO WA] Intentando obtener avatar de WhatsApp para: ${externalId}`);
-        
-        // Intentamos el endpoint de contacto que es el permitido para WA Business
-        const urlWA = `https://graph.facebook.com/v22.0/${externalId}?fields=about,profile_picture_url&access_token=${token}`;
-        
-        const response = await axios.get(urlWA);
-        return {
-          profile_picture_url: response.data.profile_picture_url || null
-        };
+        return null; 
       }
 
-      // LOGICA PARA OTRAS PLATAFORMAS (Se mantiene igual)
-      let urlSocial = `https://graph.facebook.com/v19.0/${externalId}?fields=profile_picture_url&access_token=${token}`;
+      // INTACTO: Instagram y Facebook siguen intentando traer la foto
+      // porque sus APIs sí lo permiten.
+      let urlSocial = `https://graph.facebook.com/v19.0/${externalId}?fields=profile_picture_url&access_token=${igToken || waToken}`;
       const responseSocial = await axios.get(urlSocial);
+      
       return {
         profile_picture_url: responseSocial.data.profile_picture_url || null
       };
 
     } catch (error) {
-      // Log más limpio para no llenar Railway de errores si el usuario no tiene foto pública
-      console.log(`--- [SERVICIO WA] No se pudo obtener avatar para ${externalId}: ${error.message}`);
+      // Si falla en IG/FB, simplemente no ponemos foto, pero no rompemos el flujo
+      console.log(`--- [SERVICIO SOCIAL] No se pudo obtener avatar para ${externalId}`);
       return null;
     }
   }
