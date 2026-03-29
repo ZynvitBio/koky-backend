@@ -1,35 +1,49 @@
 'use strict';
 
+// Bloqueo de memoria para evitar la doble ejecución del Hook por el mismo ID
+const idsEnProceso = new Set();
+
 module.exports = {
   async afterCreate(event) {
     const { result } = event;
-    const time = new Date().toISOString();
 
     if (result.sender === 'Agent') {
-      // ESTE LOG ES VITAL: Nos dirá si Strapi entra aquí una o dos veces por el mismo ID
-      console.log(`[AUDITORIA ${time}] Ejecutando afterCreate para ID: ${result.id}`);
+      // 1. Si el ID ya se está procesando en este ciclo, abortamos el duplicado
+      if (idsEnProceso.has(result.id)) {
+        return;
+      }
+
+      // Marcamos el ID como ocupado
+      idsEnProceso.add(result.id);
+
+      // Limpiamos el ID después de 10 segundos
+      setTimeout(() => idsEnProceso.delete(result.id), 10000);
 
       const chatConUsuario = await strapi.entityService.findOne('api::chat.chat', result.id, {
         populate: ['users_permissions_user'],
       });
 
-      const usuario = chatConUsuario?chatConUsuario['users_permissions_user'] : null;
-      if (!usuario) return;
+      // 2. Extracción de usuario exactamente como me indicaste para evitar errores
+      const usuario = chatConUsuario ? chatConUsuario['users_permissions_user'] : null;
+      
+      if (!usuario) {
+        return;
+      }
 
-      const idExterno = (usuario.whatsapp_id || usuario.username).replace(/\D/g, ''); 
+      const mensajeTexto = result.message;
+      // Saneamos el ID: solo números para la API de Meta
+      const rawId = usuario.whatsapp_id || usuario.username; 
+      const idExterno = rawId.replace(/\D/g, ''); 
       const emailUser = usuario.email || '';
 
       try {
         if (emailUser.includes('wa.koky')) {
-          console.log(`[AUDITORIA ${time}] Llamando a sendText para ID: ${result.id}`);
-          await strapi.service('api::whatsapp.whatsapp').sendText(idExterno, result.message);
-          console.log(`[AUDITORIA ${time}] API Meta respondió OK para ID: ${result.id}`);
+          await strapi.service('api::whatsapp.whatsapp').sendText(idExterno, mensajeTexto);
         } else if (emailUser.includes('instagram.koky') || emailUser.includes('facebook.koky')) {
-          console.log(`[AUDITORIA ${time}] Llamando a sendDirectMessage para ID: ${result.id}`);
-          await strapi.service('api::whatsapp.whatsapp').sendDirectMessage(idExterno, result.message);
+          await strapi.service('api::whatsapp.whatsapp').sendDirectMessage(idExterno, mensajeTexto);
         }
       } catch (error) {
-        console.error(`[AUDITORIA ${time}] ERROR en ID ${result.id}:`, error.message);
+        console.error('❌ Error en el envío a Meta:', error.message);
       }
     }
   },
