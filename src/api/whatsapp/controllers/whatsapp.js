@@ -58,8 +58,8 @@ module.exports = {
     ctx.status = 200;
     ctx.body = 'EVENT_RECEIVED';
 
-    // 2. PROCESAMIENTO EN SEGUNDO PLANO
-    (async () => {
+    // 2. PROCESAMIENTO EN SEGUNDO PLANO USANDO SETIMMEDIATE
+    setImmediate(async () => {
       try {
         // --- BLOQUE WHATSAPP ---
         if (body.object === 'whatsapp_business_account') {
@@ -273,6 +273,6 @@ ${chatContext}
       } catch (globalError) {
         console.error("❌ Error Crítico Webhook:", globalError.message);
       }
-    })();
+    });
   }
 };
