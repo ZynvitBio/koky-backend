@@ -31,7 +31,8 @@ module.exports = {
         email: virtualEmail,
         password: 'Password123!',
         confirmed: true,
-        is_founder: false 
+        is_founder: false,
+        whatsapp_id: identifier
       });
     }
     return user;
@@ -76,6 +77,12 @@ module.exports = {
 
             try {
               let user = await this.getOrCreateUser(from, waName, 'whatsapp');
+              // SI EL ID ESTÁ EN BLANCO EN LA BD, LO REPARAMOS AQUÍ MISMO
+          if (!user.whatsapp_id) {
+            user = await strapi.entityService.update('plugin::users-permissions.user', user.id, {
+              data: { whatsapp_id: from }
+            });
+          }
               const textoBotonRegistro = "registrarme aquí";
 
               // 1. LÓGICA DE REGISTRO EXITOSO
