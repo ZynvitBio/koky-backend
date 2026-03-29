@@ -84,6 +84,9 @@
       "relation": "oneToMany",
       "target": "api::chat.chat",
       "mappedBy": "users_permissions_user"
+    },
+    "avatar_url": {
+      "type": "string"
     }
   }
 }
