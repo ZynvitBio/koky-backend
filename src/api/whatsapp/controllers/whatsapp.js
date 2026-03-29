@@ -9,7 +9,8 @@ const model = genAI.getGenerativeModel({
 }, { apiVersion: 'v1' });
 
 module.exports = {
-  async getOrCreateUser(identifier, waName, platform = 'whatsapp') {
+  // Ajustamos esta función para que acepte avatarUrl opcional
+  async getOrCreateUser(identifier, waName, platform = 'whatsapp', avatarUrl = null) {
     let domain = 'wa.koky';
     if (platform === 'instagram') domain = 'instagram.koky';
     if (platform === 'facebook') domain = 'facebook.koky';
@@ -32,7 +33,13 @@ module.exports = {
         password: 'Password123!',
         confirmed: true,
         is_founder: false,
-        whatsapp_id: identifier
+        whatsapp_id: identifier,
+        avatar_url: avatarUrl // [NUEVO] Se guarda al crear
+      });
+    } else if (avatarUrl && !user.avatar_url) {
+      // [NUEVO] Si el usuario ya existe pero NO tiene avatar, lo actualizamos
+      user = await strapi.entityService.update('plugin::users-permissions.user', user.id, {
+        data: { avatar_url: avatarUrl }
       });
     }
     return user;
@@ -55,14 +62,11 @@ module.exports = {
   async receive(ctx) {
     const body = ctx.request.body;
 
-    // 1. RESPUESTA INMEDIATA A META (EVITA DUPLICADOS)
     ctx.status = 200;
     ctx.body = 'EVENT_RECEIVED';
 
-    // 2. PROCESAMIENTO EN SEGUNDO PLANO USANDO SETIMMEDIATE
     setImmediate(async () => {
       try {
-        // --- BLOQUE WHATSAPP ---
         if (body.object === 'whatsapp_business_account') {
           const entry = body.entry?.[0]?.changes?.[0]?.value;
           const message = entry?.messages?.[0];
@@ -72,20 +76,28 @@ module.exports = {
             const phone_number_id = entry.metadata.phone_number_id;
             const from = message.from;
             const waName = contact?.profile?.name || "Cliente Koky";
+            
+            // [NUEVO] Intentamos capturar la URL del avatar si Meta la envía en el contacto
+            // Aunque Meta rara vez envía la URL directa en el webhook de mensaje, 
+            // este es el lugar donde se procesaría si tuvieras permisos extendidos.
+            const waAvatar = contact?.profile?.wa_profile_photo || null;
+
             const rawText = message.text?.body || message.button?.text || "";
             const msgText = rawText.toLowerCase().trim();
 
             try {
-              let user = await this.getOrCreateUser(from, waName, 'whatsapp');
-              // SI EL ID ESTÁ EN BLANCO EN LA BD, LO REPARAMOS AQUÍ MISMO
-          if (!user.whatsapp_id) {
-            user = await strapi.entityService.update('plugin::users-permissions.user', user.id, {
-              data: { whatsapp_id: from }
-            });
-          }
+              // Pasamos el waAvatar a la función (no afecta a IG/FB porque ellos entran por el otro bloque)
+              let user = await this.getOrCreateUser(from, waName, 'whatsapp', waAvatar);
+              
+              if (!user.whatsapp_id) {
+                user = await strapi.entityService.update('plugin::users-permissions.user', user.id, {
+                  data: { whatsapp_id: from }
+                });
+              }
+
+              // ... RESTO DE TU LÓGICA (Registro de fundador, Gemini, etc.) SE MANTIENE IGUAL ...
               const textoBotonRegistro = "registrarme aquí";
 
-              // 1. LÓGICA DE REGISTRO EXITOSO
               if (msgText === textoBotonRegistro && !user.is_founder) {
                 user = await strapi.entityService.update('plugin::users-permissions.user', user.id, {
                   data: { is_founder: true, whatsapp_id: from },
@@ -100,10 +112,9 @@ module.exports = {
                   },
                   headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
                 });
-                return; // Finaliza este proceso asíncrono
+                return;
               }
 
-              // 2. GUARDAR MENSAJE Y CARGAR HISTORIAL
               await strapi.entityService.create('api::chat.chat', {
                 data: { sender: from, message: msgText, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
               });
@@ -116,7 +127,6 @@ module.exports = {
 
               const chatContext = history.reverse().map(h => `${h.sender === from ? 'Cliente' : 'Kira'}: ${h.message}`).join('\n');
 
-              // 3. GENERAR RESPUESTA CON GEMINI (PROMPT ORIGINAL)
               const systemPrompt = `
 ### ROLE
 Eres Kira de Koky en Bogotá. Tu objetivo es que el usuario se enamore del proyecto antes de pedirle nada.
@@ -150,12 +160,10 @@ ${chatContext}
               const result = await model.generateContent(systemPrompt);
               const aiResponse = result.response.text();
 
-              // Guardamos la respuesta de Kira en la BD
               await strapi.entityService.create('api::chat.chat', {
                 data: { sender: 'Kira', message: aiResponse, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
               });
 
-              // 4. DECIDIR SI ENVIAMOS PLANTILLA DE VIDEO O SOLO TEXTO
               if (!user.is_founder && (msgText.includes("si") || msgText.includes("fundador") || msgText.includes("interesa") || msgText.includes("registro"))) {
                 await axios({
                   method: "POST",
@@ -188,8 +196,8 @@ ${chatContext}
             } catch (error) { console.error("❌ Error WA Internal:", error.message); }
           }
         } 
-        // --- BLOQUE INSTAGRAM / MESSENGER ---
         else if (body.object === 'page' || body.object === 'instagram') {
+          // El bloque de IG/FB queda TOTALMENTE INTACTO para no joder nada
           const entry = body.entry?.[0];
           const messaging = entry?.messaging?.[0];
           
@@ -201,6 +209,7 @@ ${chatContext}
 
           try {
             const plataformaKey = body.object === 'instagram' ? 'instagram' : 'facebook';
+            // Aquí no pasamos avatar porque IG/FB tiene su propia lógica que no tocaremos
             let user = await this.getOrCreateUser(from, "Cliente", plataformaKey);
 
             const trimmedText = rawText.trim();
