@@ -2,12 +2,11 @@
 const axios = require('axios');
 
 module.exports = ({ strapi }) => ({
+  // 1. ENVÍO WHATSAPP (Intacto y Seguro)
   async sendText(to, message) {
     const accessToken = process.env.WHATSAPP_TOKEN;
     const phoneNumberId = "1037050959491352"; 
     const url = `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`;
-
-    console.log(`📡 [Servicio WA] Enviando mensaje a: ${to}`);
 
     try {
       const response = await axios({
@@ -25,19 +24,17 @@ module.exports = ({ strapi }) => ({
           'Content-Type': 'application/json'
         },
       });
-      console.log('✅ [Servicio WA] Mensaje entregado a Meta correctamente');
       return response.data;
     } catch (error) {
-      console.error("❌ [Servicio WA] Error en API de Meta:", error.response ? error.response.data : error.message);
+      console.error("❌ [Servicio WA] Error:", error.response ? error.response.data : error.message);
       throw error;
     }
   },
 
+  // 2. ENVÍO INSTAGRAM/FACEBOOK (Configurado para el Token de Redes)
   async sendDirectMessage(recipientId, message) {
     const accessToken = process.env.MESSENGER_PAGE_TOKEN;
     const url = `https://graph.facebook.com/v21.0/me/messages`;
-
-    console.log(`📡 [Servicio Social] Enviando DM a: ${recipientId}`);
 
     try {
       const response = await axios.post(
@@ -53,38 +50,36 @@ module.exports = ({ strapi }) => ({
           }
         }
       );
-      console.log('✅ [Servicio Social] DM enviado correctamente');
       return response.data;
     } catch (error) {
-      console.error("❌ [Servicio Social] Error en API de Meta:", error.response ? error.response.data : error.message);
+      console.error("❌ [Servicio Social] Error:", error.response ? error.response.data : error.message);
       throw error;
     }
   },
 
+  // 3. CAPTURA DE PERFIL (La clave para el video y la BD)
   async getUserProfile(externalId, platform) {
     try {
-      // Mantenemos los tokens para que IG/FB sigan funcionando
-      const waToken = process.env.WHATSAPP_TOKEN; 
+      // Si es WhatsApp, retorno inmediato (Principio de Privacidad/Velocidad)
+      if (platform === 'whatsapp') return null;
+
       const igToken = process.env.MESSENGER_PAGE_TOKEN; 
-
-      // LIMPIEZA: Si es WhatsApp, ya sabemos que Meta no da la foto.
-      // Retornamos null de inmediato para evitar el Error 400 y ahorrar recursos.
-      if (platform === 'whatsapp') {
-        return null; 
-      }
-
-      // INTACTO: Instagram y Facebook siguen intentando traer la foto
-      // porque sus APIs sí lo permiten.
-      let urlSocial = `https://graph.facebook.com/v19.0/${externalId}?fields=profile_picture_url&access_token=${igToken || waToken}`;
+      
+      // Usamos los campos que confirmamos en el log: 'name' y 'profile_pic'
+      // Bajamos a v21.0 para total compatibilidad
+      let urlSocial = `https://graph.facebook.com/v21.0/${externalId}?fields=name,profile_pic&access_token=${igToken}`;
+      
       const responseSocial = await axios.get(urlSocial);
       
+      // Retornamos el objeto mapeado exactamente a lo que espera tu BD
       return {
-        profile_picture_url: responseSocial.data.profile_picture_url || null
+        name: responseSocial.data.name || null,
+        avatar_url: responseSocial.data.profile_pic || null
       };
 
     } catch (error) {
-      // Si falla en IG/FB, simplemente no ponemos foto, pero no rompemos el flujo
-      console.log(`--- [SERVICIO SOCIAL] No se pudo obtener avatar para ${externalId}`);
+      // Fallo silencioso: Si Meta falla, Kira sigue viva (Principio de Estabilidad)
+      console.log(`⚠️ [SERVICIO SOCIAL] No se pudo obtener perfil para ${externalId}: ${error.message}`);
       return null;
     }
   }

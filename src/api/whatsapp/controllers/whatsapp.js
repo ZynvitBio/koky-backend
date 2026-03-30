@@ -10,13 +10,14 @@ const model = genAI.getGenerativeModel({
 
 module.exports = {
   // Simplificamos quitando el avatarUrl que Meta no nos da
-  async getOrCreateUser(identifier, waName, platform = 'whatsapp') {
+async getOrCreateUser(identifier, waName, platform = 'whatsapp', avatarUrl = null) {
     let domain = 'wa.koky';
     if (platform === 'instagram') domain = 'instagram.koky';
     if (platform === 'facebook') domain = 'facebook.koky';
 
     const virtualEmail = `${identifier}@${domain}`;
 
+    // 1. Buscamos si el usuario ya existe por email o ID de WhatsApp
     let user = await strapi.db.query('plugin::users-permissions.user').findOne({
       where: {
         $or: [
@@ -27,18 +28,41 @@ module.exports = {
     });
 
     if (!user) {
+      // 2. CREACIÓN: Si es nuevo, lo creamos con el nombre y avatar de Meta
       user = await strapi.plugins['users-permissions'].services.user.add({
         username: waName,
         email: virtualEmail,
         password: 'Password123!',
         confirmed: true,
         is_founder: false,
-        whatsapp_id: identifier
+        whatsapp_id: identifier,
+        avatar_url: avatarUrl // Guardamos la foto aquí
       });
+      console.log(`✨ Nuevo usuario creado: ${waName} (${platform})`);
+    } else {
+      // 3. ACTUALIZACIÓN: Si ya existe, actualizamos su foto o nombre si cambiaron
+      const updateData = {};
+      
+      // Si nos llegó un avatar nuevo y es distinto al que tenemos, lo actualizamos
+      if (avatarUrl && user.avatar_url !== avatarUrl) {
+        updateData.avatar_url = avatarUrl;
+      }
+
+      // Si el nombre en Meta es real (no "Cliente") y es distinto, lo actualizamos
+      if (waName && waName !== "Cliente" && user.username !== waName) {
+        updateData.username = waName;
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        user = await strapi.entityService.update('plugin::users-permissions.user', user.id, {
+          data: updateData
+        });
+        console.log(`🔄 Perfil de ${waName} actualizado con nuevos datos de Meta`);
+      }
     }
+
     return user;
   },
-
   async verify(ctx) {
     const verifyToken = "me_encanta_koky"; 
     const mode = ctx.query['hub.mode'];
