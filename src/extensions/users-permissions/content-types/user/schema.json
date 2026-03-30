@@ -86,7 +86,7 @@
       "mappedBy": "users_permissions_user"
     },
     "avatar_url": {
-      "type": "string"
+    "type": "text"
     }
   }
 }

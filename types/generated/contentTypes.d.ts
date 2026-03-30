@@ -1318,7 +1318,7 @@ export interface PluginUsersPermissionsUser
     draftAndPublish: false;
   };
   attributes: {
-    avatar_url: Schema.Attribute.String;
+    avatar_url: Schema.Attribute.Text;
     blocked: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     chats: Schema.Attribute.Relation<'oneToMany', 'api::chat.chat'>;
     confirmationToken: Schema.Attribute.String & Schema.Attribute.Private;
