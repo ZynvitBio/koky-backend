@@ -36,6 +36,7 @@ module.exports = {
         // Solo guardamos el ID como whatsapp_id si la plataforma es WhatsApp
         whatsapp_id: platform === 'whatsapp' ? identifier : null,
         avatar_url: avatarUrl,
+        social_id: identifier,
         social_handle: handle // Guardamos el @handle por separado
       });
     } else {

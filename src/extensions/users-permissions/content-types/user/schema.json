@@ -90,6 +90,9 @@
     },
     "social_handle": {
   "type": "string"
+},
+ "social_id": {
+  "type": "string"
 }
   }
 }
