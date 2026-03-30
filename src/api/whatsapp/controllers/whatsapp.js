@@ -196,6 +196,16 @@ ${chatContext}
 
           try {
             const plataformaKey = body.object === 'instagram' ? 'instagram' : 'facebook';
+            const tokenSocial = process.env.MESSENGER_PAGE_TOKEN;
+
+            // 1. LANZAMOS LA PETICIÓN DE PRUEBA
+  console.log(`🔍 [INSPECCIÓN] Consultando perfil de ${plataformaKey} para ID: ${from}`);
+  
+const testUrl = `https://graph.facebook.com/v22.0/${from}?fields=profile_pic,name,profile_picture_url&access_token=${tokenSocial}`;
+  const testRes = await axios.get(testUrl);
+
+  // 2. PINTAMOS EL RESULTADO EN RAILWAY
+  console.log(`📸 [RESULTADO META ${plataformaKey.toUpperCase()}]:`, JSON.stringify(testRes.data, null, 2));
             let user = await this.getOrCreateUser(from, "Cliente", plataformaKey);
 
             const trimmedText = rawText.trim();
