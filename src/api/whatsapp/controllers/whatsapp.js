@@ -112,6 +112,7 @@ module.exports = {
               await strapi.entityService.create('api::chat.chat', {
                 data: { sender: from, message: msgText, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
               });
+              if (strapi['io']) { strapi['io'].emit('new_message', { userId: user.id }); }
 
               const history = await strapi.entityService.findMany('api::chat.chat', {
                 filters: { users_permissions_user: { id: user.id } },
@@ -156,7 +157,8 @@ ${chatContext}
 
               await strapi.entityService.create('api::chat.chat', {
                 data: { sender: 'Kira', message: aiResponse, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
-              });
+              }); 
+              if (strapi['io']) { strapi['io'].emit('new_message', { userId: user.id }); }
 
               if (!user.is_founder && (msgText.includes("si") || msgText.includes("fundador") || msgText.includes("interesa") || msgText.includes("registro"))) {
                 await axios({
@@ -243,6 +245,7 @@ ${chatContext}
                     await strapi.entityService.create('api::chat.chat', {
                       data: { sender: 'Kira', message: confirmMsg, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
                     });
+                    if (strapi['io']) { strapi['io'].emit('new_message', { userId: user.id }); }
                     return;
                   }
                 }
@@ -252,6 +255,7 @@ ${chatContext}
             await strapi.entityService.create('api::chat.chat', {
               data: { sender: from, message: msgText, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
             });
+            if (strapi['io']) { strapi['io'].emit('new_message', { userId: user.id }); }
 
             const history = await strapi.entityService.findMany('api::chat.chat', {
               filters: { users_permissions_user: { id: user.id } },
@@ -291,6 +295,7 @@ ${chatContext}
             await strapi.entityService.create('api::chat.chat', {
               data: { sender: 'Kira', message: aiResponse, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
             });
+            if (strapi['io']) { strapi['io'].emit('new_message', { userId: user.id }); }
 
           } catch (e) { console.error("❌ Error Proceso Redes:", e.message); }
         }
