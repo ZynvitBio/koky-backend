@@ -9,8 +9,8 @@ const model = genAI.getGenerativeModel({
 }, { apiVersion: 'v1' });
 
 module.exports = {
-  // Ajustado para recibir avatarUrl y actualizar si cambia, sin borrar nada más
-  async getOrCreateUser(identifier, waName, platform = 'whatsapp', avatarUrl = null) {
+  // Ajustado para integrar social_handle y proteger whatsapp_id
+  async getOrCreateUser(identifier, waName, platform = 'whatsapp', avatarUrl = null, handle = null) {
     let domain = 'wa.koky';
     if (platform === 'instagram') domain = 'instagram.koky';
     if (platform === 'facebook') domain = 'facebook.koky';
@@ -33,14 +33,16 @@ module.exports = {
         password: 'Password123!',
         confirmed: true,
         is_founder: false,
-        whatsapp_id: identifier,
-        avatar_url: avatarUrl // Guardamos la foto inicial
+        // Solo guardamos el ID como whatsapp_id si la plataforma es WhatsApp
+        whatsapp_id: platform === 'whatsapp' ? identifier : null,
+        avatar_url: avatarUrl,
+        social_handle: handle // Guardamos el @handle por separado
       });
     } else {
-      // Si el usuario existe, actualizamos nombre o foto si Meta nos da algo nuevo
       const updateData = {};
       if (avatarUrl && user.avatar_url !== avatarUrl) updateData.avatar_url = avatarUrl;
       if (waName && waName !== "Cliente" && user.username !== waName) updateData.username = waName;
+      if (handle && user.social_handle !== handle) updateData.social_handle = handle;
 
       if (Object.keys(updateData).length > 0) {
         user = await strapi.entityService.update('plugin::users-permissions.user', user.id, {
@@ -87,12 +89,6 @@ module.exports = {
             try {
               let user = await this.getOrCreateUser(from, waName, 'whatsapp');
               
-              if (!user.whatsapp_id) {
-                user = await strapi.entityService.update('plugin::users-permissions.user', user.id, {
-                  data: { whatsapp_id: from }
-                });
-              }
-
               const textoBotonRegistro = "registrarme aquí";
 
               if (msgText === textoBotonRegistro && !user.is_founder) {
@@ -206,22 +202,33 @@ ${chatContext}
           try {
             const plataformaKey = body.object === 'instagram' ? 'instagram' : 'facebook';
             
-            // --- INTEGRACIÓN: Usamos el servicio getUserProfile que ya tienes ---
             const profile = await strapi.service('api::whatsapp.whatsapp').getUserProfile(from, plataformaKey);
-            const metaName = profile?.name || "Cliente";
+            let metaName = profile?.name || "Cliente"; // Nombre Real
             const metaAvatar = profile?.avatar_url || null;
+            let metaHandle = null;
 
-            let user = await this.getOrCreateUser(from, metaName, plataformaKey, metaAvatar);
+            if (plataformaKey === 'instagram') {
+                try {
+                    const tokenSocial = process.env.MESSENGER_PAGE_TOKEN;
+                    const urlUser = `https://graph.facebook.com/v21.0/${from}?fields=username&access_token=${tokenSocial}`;
+                    const resUser = await axios.get(urlUser);
+                    if (resUser.data && resUser.data.username) {
+                        metaHandle = `@${resUser.data.username}`; // Guardamos el @handle
+                    }
+                } catch (e) {
+                    console.log("⚠️ No se pudo obtener @handle.");
+                }
+            }
+
+            // INTEGRACIÓN: Pasamos metaHandle para el campo social_handle
+            let user = await this.getOrCreateUser(from, metaName, plataformaKey, metaAvatar, metaHandle);
 
             const trimmedText = rawText.trim();
 
             if (trimmedText.startsWith('+')) {
               try {
                 const phoneNumber = phoneUtil.parseAndKeepRawInput(trimmedText);
-                const isMobile = phoneUtil.getNumberType(phoneNumber) === 1;
-                const isValid = phoneUtil.isValidNumber(phoneNumber);
-
-                if (isMobile && isValid) {
+                if (phoneUtil.isValidNumber(phoneNumber)) {
                   const formattedPhone = phoneUtil.format(phoneNumber, 1);
                   if (!user.is_founder) {
                     user = await strapi.entityService.update('plugin::users-permissions.user', user.id, {
@@ -253,7 +260,6 @@ ${chatContext}
 
             const chatContext = history.reverse().map(h => `${h.sender === from ? 'Cliente' : 'Kira'}: ${h.message}`).join('\n');
 
-            // --- SYSTEM PROMPT DE REDES SOCIALES (INTACTO) ---
             const systemPrompt = `
 ### ROLE: Kira de Koky en Bogotá (Lanzamiento 45 días).
 ### USER: ${user.username}, MIEMBRO: ${user.is_founder ? 'SÍ' : 'NO'}.
@@ -261,7 +267,6 @@ ${chatContext}
 ### LÓGICA DE REGISTRO (FUNDAMENTAL): 
 1. SI NO ES MIEMBRO: Ofrece "1 envío gratis al mes de por vida". 
 2. SI DICE QUE SÍ: Pide su WhatsApp con + y código país (ej: +57...).
-3. ERROR: Si mandó un número pero NO se registró (is_founder: NO), dile que debe ser CELULAR real y empezar con +.
 ### PRODUCTOS: Tofu (fresco, firme, ahumado, rollo, frito, lámina, nata) y leche de soya.
 ### REGLAS: Máximo 30 palabras. Tono bogotano amable.
 

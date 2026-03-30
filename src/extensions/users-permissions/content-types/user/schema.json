@@ -87,6 +87,9 @@
     },
     "avatar_url": {
     "type": "text"
-    }
+    },
+    "social_handle": {
+  "type": "string"
+}
   }
 }
