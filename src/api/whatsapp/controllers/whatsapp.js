@@ -194,93 +194,41 @@ ${chatContext}
           const rawText = messaging.message?.text || messaging.postback?.title || "";
           const msgText = rawText.toLowerCase().trim();
 
-          try {
-            const plataformaKey = body.object === 'instagram' ? 'instagram' : 'facebook';
-            const tokenSocial = process.env.MESSENGER_PAGE_TOKEN;
+         try {
+    const plataformaKey = body.object === 'instagram' ? 'instagram' : 'facebook';
+    const tokenSocial = process.env.MESSENGER_PAGE_TOKEN;
 
-            // 1. LANZAMOS LA PETICIÓN DE PRUEBA
-  console.log(`🔍 [INSPECCIÓN] Consultando perfil de ${plataformaKey} para ID: ${from}`);
-  
-const testUrl = `https://graph.facebook.com/v22.0/${from}?fields=profile_pic,name,profile_picture_url&access_token=${tokenSocial}`;
-  const testRes = await axios.get(testUrl);
+    let metadataSocial = { name: "Cliente Koky", avatar: null };
 
-  // 2. PINTAMOS EL RESULTADO EN RAILWAY
-  console.log(`📸 [RESULTADO META ${plataformaKey.toUpperCase()}]:`, JSON.stringify(testRes.data, null, 2));
-            let user = await this.getOrCreateUser(from, "Cliente", plataformaKey);
+    try {
+        console.log(`🔍 [INSPECCIÓN] Intentando obtener perfil de ${plataformaKey}...`);
 
-            const trimmedText = rawText.trim();
+        const url = `https://graph.facebook.com/v21.0/${from}?fields=name,profile_pic&access_token=${tokenSocial}`;
+        const res = await axios.get(url);
 
-            if (trimmedText.startsWith('+')) {
-              try {
-                const phoneNumber = phoneUtil.parseAndKeepRawInput(trimmedText);
-                const isMobile = phoneUtil.getNumberType(phoneNumber) === 1;
-                const isValid = phoneUtil.isValidNumber(phoneNumber);
+        if (res.data && !res.data.error) {
+            console.log(`📸 [EXITO META]:`, JSON.stringify(res.data, null, 2));
 
-                if (isMobile && isValid) {
-                  const formattedPhone = phoneUtil.format(phoneNumber, 1);
-                  if (!user.is_founder) {
-                    user = await strapi.entityService.update('plugin::users-permissions.user', user.id, {
-                      data: { is_founder: true, whatsapp_id: formattedPhone },
-                    });
-                    const confirmMsg = "¡Excelente! He vinculado tu número móvil. ¡Ya eres Miembro Fundador de Koky! 🥦";
-                    await axios.post(`https://graph.facebook.com/v21.0/me/messages`,
-                      { recipient: { id: from }, message: { text: confirmMsg } },
-                      { headers: { Authorization: `Bearer ${process.env.MESSENGER_PAGE_TOKEN}` } }
-                    );
-                    await strapi.entityService.create('api::chat.chat', {
-                      data: { sender: 'Kira', message: confirmMsg, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
-                    });
-                    return;
-                  }
-                }
-              } catch (e) { console.log("🚫 Error formato."); }
-            }
+            metadataSocial.name = res.data.name ?? "Cliente Koky";
+            metadataSocial.avatar = res.data.profile_pic ?? null;
+        } else {
+            console.log(`⚠️ Respuesta inválida de Meta:`, res.data);
+        }
 
-            await strapi.entityService.create('api::chat.chat', {
-              data: { sender: from, message: msgText, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
-            });
+    } catch (errPerfil) {
+        console.log(`⚠️ Meta no entregó perfil (Error: ${errPerfil.message})`);
+    }
 
-            const history = await strapi.entityService.findMany('api::chat.chat', {
-              filters: { users_permissions_user: { id: user.id } },
-              sort: { timestamp: 'desc' },
-              limit: 6,
-            });
+    let user = await this.getOrCreateUser(
+        from,
+        metadataSocial.name,
+        plataformaKey,
+      
+    );
 
-            const chatContext = history.reverse().map(h => `${h.sender === from ? 'Cliente' : 'Kira'}: ${h.message}`).join('\n');
-
-            const systemPrompt = `
-### ROLE: Kira de Koky en Bogotá (Lanzamiento 45 días).
-### USER: ${user.username}, MIEMBRO: ${user.is_founder ? 'SÍ' : 'NO'}.
-### CONTEXTO: Preventa VIP. Web koky.food solo para ver fotos, compras desactivadas.
-### LÓGICA DE REGISTRO (FUNDAMENTAL): 
-1. SI NO ES MIEMBRO: Ofrece "1 envío gratis al mes de por vida". 
-2. SI DICE QUE SÍ: Pide su WhatsApp con + y código país (ej: +57...).
-3. ERROR: Si mandó un número pero NO se registró (is_founder: NO), dile que debe ser CELULAR real y empezar con +.
-### PRODUCTOS: Tofu (fresco, firme, ahumado, rollo, frito, lámina, nata) y leche de soya.
-### REGLAS: Máximo 30 palabras. Tono bogotano amable.
-
-### PROTOCOLO AGENTE HUMANO (META COMPLIANCE)
-- SI EL USUARIO solicita hablar con una persona, humano, soporte o manifiesta una queja compleja: 
-  Responde: "Entendido ${user.username}, te voy a conectar con un agente humano de Koky para que te ayude personalmente. Por favor, espera un momento."
-- TRAS ESTE MENSAJE, QUEDA PROHIBIDO QUE SIGAS RESPONDIENDO (Handover).
-
-### HISTORIAL:
-${chatContext}
-### MENSAJE: "${msgText}"`;
-
-            const result = await model.generateContent(systemPrompt);
-            const aiResponse = result.response.text();
-
-            await axios.post(`https://graph.facebook.com/v21.0/me/messages`,
-              { recipient: { id: from }, message: { text: aiResponse } },
-              { headers: { Authorization: `Bearer ${process.env.MESSENGER_PAGE_TOKEN}` } }
-            );
-
-            await strapi.entityService.create('api::chat.chat', {
-              data: { sender: 'Kira', message: aiResponse, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
-            });
-
-          } catch (e) { console.error("❌ Error Proceso Redes:", e.message); }
+} catch (err) {
+    console.error("❌ Error general:", err);
+}
         }
       } catch (globalError) {
         console.error("❌ Error Crítico Webhook:", globalError.message);
