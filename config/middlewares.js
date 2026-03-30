@@ -22,6 +22,7 @@ module.exports = [
             'blob:',
             'market-assets.strapi.io',
             'koky-backend-production.up.railway.app',
+            'res.cloudinary.com',
           ],
           upgradeInsecureRequests: null,
         },
