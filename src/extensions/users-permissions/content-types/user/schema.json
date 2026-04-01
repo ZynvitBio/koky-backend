@@ -93,6 +93,10 @@
 },
  "social_id": {
   "type": "string"
-}
+},
+    "kira_active": {
+      "type": "boolean",
+      "default": true
+    }
   }
 }

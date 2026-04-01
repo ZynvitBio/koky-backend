@@ -27,17 +27,20 @@ module.exports = {
     });
 
     const mensajeTexto = result.message;
-    // Limpiamos el ID para que solo queden números (especialmente para WhatsApp)
-    const idExterno = (usuario.whatsapp_id || usuario.username).replace(/\D/g, ''); 
+    let idExterno;
     const emailUser = usuario.email || '';
 
-    // 4. ENVÍO REAL A META: Decidimos si va por WhatsApp o por Redes Sociales.
     try {
       if (emailUser.includes('wa.koky')) {
-        // Envío a WhatsApp
+        // Para WhatsApp: Solo números
+        idExterno = (usuario.whatsapp_id || usuario.username).replace(/\D/g, ''); 
         await strapi.service('api::whatsapp.whatsapp').sendText(idExterno, mensajeTexto);
+        
       } else if (emailUser.includes('instagram.koky') || emailUser.includes('facebook.koky')) {
-        // Envío a Instagram o Facebook Messenger
+        // Para Redes Sociales: El ID de Meta (social_id) SIN limpiar números
+        // Usamos el username o social_id que guardamos originalmente
+        idExterno = usuario.social_id || usuario.username; 
+        
         await strapi.service('api::whatsapp.whatsapp').sendDirectMessage(idExterno, mensajeTexto);
       }
     } catch (error) {

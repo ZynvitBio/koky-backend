@@ -68,7 +68,7 @@ module.exports = {
     }
   },
   
-  async receive(ctx) {
+ async receive(ctx) {
     const body = ctx.request.body;
     ctx.status = 200;
     ctx.body = 'EVENT_RECEIVED';
@@ -87,9 +87,27 @@ module.exports = {
             const rawText = message.text?.body || message.button?.text || "";
             const msgText = rawText.toLowerCase().trim();
 
+            // --- INICIO COMANDO ADMIN WHATSAPP ---
+            if (from === '3007979419' && rawText.startsWith('CONFIG')) {
+              const match = rawText.match(/CONFIG\s+(\w+):\s+([\s\S]+)/);
+              if (match) {
+                const [, field, newValue] = match;
+                await strapi.entityService.update('plugin::users-permissions.user', 1, { // Asumiendo ID 1 para el config central o el usuario admin
+                  data: { [field]: newValue.trim() }
+                });
+                await axios({
+                  method: "POST",
+                  url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+                  data: { messaging_product: "whatsapp", to: from, text: { body: `✅ Bloque "${field}" actualizado.` } },
+                  headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
+                });
+                return;
+              }
+            }
+            // --- FIN COMANDO ADMIN WHATSAPP ---
+
             try {
               let user = await this.getOrCreateUser(from, waName, 'whatsapp');
-              
               const textoBotonRegistro = "registrarme aquí";
 
               if (msgText === textoBotonRegistro && !user.is_founder) {
@@ -114,15 +132,17 @@ module.exports = {
               });
               if (strapi['io']) { strapi['io'].emit('new_message', { userId: user.id }); }
 
-              const history = await strapi.entityService.findMany('api::chat.chat', {
-                filters: { users_permissions_user: { id: user.id } },
-                sort: { timestamp: 'desc' },
-                limit: 6,
-              });
+              // --- LÓGICA DE ACTIVACIÓN KIRA ---
+              if (user.kira_active !== false) {
+                const history = await strapi.entityService.findMany('api::chat.chat', {
+                  filters: { users_permissions_user: { id: user.id } },
+                  sort: { timestamp: 'desc' },
+                  limit: 6,
+                });
 
-              const chatContext = history.reverse().map(h => `${h.sender === from ? 'Cliente' : 'Kira'}: ${h.message}`).join('\n');
+                const chatContext = history.reverse().map(h => `${h.sender === from ? 'Cliente' : 'Kira'}: ${h.message}`).join('\n');
 
-              const systemPrompt = `
+                const systemPrompt = `
 ### ROLE
 Eres Kira de Koky en Bogotá. Tu objetivo es que el usuario se enamore del proyecto antes de pedirle nada.
 ### USER CONTEXT
@@ -152,42 +172,44 @@ Eres Kira de Koky en Bogotá. Tu objetivo es que el usuario se enamore del proye
 ${chatContext}
 ### MENSAJE: "${msgText}"`;
 
-              const result = await model.generateContent(systemPrompt);
-              const aiResponse = result.response.text();
+                const result = await model.generateContent(systemPrompt);
+                const aiResponse = result.response.text();
 
-              await strapi.entityService.create('api::chat.chat', {
-                data: { sender: 'Kira', message: aiResponse, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
-              }); 
-              if (strapi['io']) { strapi['io'].emit('new_message', { userId: user.id }); }
+                await strapi.entityService.create('api::chat.chat', {
+                  data: { sender: 'Kira', message: aiResponse, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
+                }); 
+                if (strapi['io']) { strapi['io'].emit('new_message', { userId: user.id }); }
 
-              if (!user.is_founder && (msgText.includes("si") || msgText.includes("fundador") || msgText.includes("interesa") || msgText.includes("registro"))) {
-                await axios({
-                  method: "POST",
-                  url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-                  data: {
-                    messaging_product: "whatsapp",
-                    to: from,
-                    type: "template",
-                    template: {
-                      name: "invitation",
-                      language: { code: "es" },
-                      components: [{ type: "header", parameters: [{ type: "video", video: { link: "https://storage.googleapis.com/kokyfood/kirakoky202614759.mp4" } }] }]
-                    }
-                  },
-                  headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
-                });
-              } else {
-                await axios({
-                  method: "POST",
-                  url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-                  data: {
-                    messaging_product: "whatsapp",
-                    to: from,
-                    text: { body: aiResponse },
-                  },
-                  headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
-                });
+                if (!user.is_founder && (msgText.includes("si") || msgText.includes("fundador") || msgText.includes("interesa") || msgText.includes("registro"))) {
+                  await axios({
+                    method: "POST",
+                    url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+                    data: {
+                      messaging_product: "whatsapp",
+                      to: from,
+                      type: "template",
+                      template: {
+                        name: "invitation",
+                        language: { code: "es" },
+                        components: [{ type: "header", parameters: [{ type: "video", video: { link: "https://storage.googleapis.com/kokyfood/kirakoky202614759.mp4" } }] }]
+                      }
+                    },
+                    headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
+                  });
+                } else {
+                  await axios({
+                    method: "POST",
+                    url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+                    data: {
+                      messaging_product: "whatsapp",
+                      to: from,
+                      text: { body: aiResponse },
+                    },
+                    headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
+                  });
+                }
               }
+              // --- FIN LÓGICA DE ACTIVACIÓN KIRA ---
 
             } catch (error) { console.error("❌ Error WA Internal:", error.message); }
           }
@@ -204,9 +226,8 @@ ${chatContext}
 
           try {
             const plataformaKey = body.object === 'instagram' ? 'instagram' : 'facebook';
-            
             const profile = await strapi.service('api::whatsapp.whatsapp').getUserProfile(from, plataformaKey);
-            let metaName = profile?.name || "Cliente"; // Nombre Real
+            let metaName = profile?.name || "Cliente";
             const metaAvatar = profile?.avatar_url || null;
             let metaHandle = null;
 
@@ -216,16 +237,12 @@ ${chatContext}
                     const urlUser = `https://graph.facebook.com/v21.0/${from}?fields=username&access_token=${tokenSocial}`;
                     const resUser = await axios.get(urlUser);
                     if (resUser.data && resUser.data.username) {
-                        metaHandle = `@${resUser.data.username}`; // Guardamos el @handle
+                        metaHandle = `@${resUser.data.username}`;
                     }
-                } catch (e) {
-                    console.log("⚠️ No se pudo obtener @handle.");
-                }
+                } catch (e) { console.log("⚠️ No se pudo obtener @handle."); }
             }
 
-            // INTEGRACIÓN: Pasamos metaHandle para el campo social_handle
             let user = await this.getOrCreateUser(from, metaName, plataformaKey, metaAvatar, metaHandle);
-
             const trimmedText = rawText.trim();
 
             if (trimmedText.startsWith('+')) {
@@ -257,15 +274,17 @@ ${chatContext}
             });
             if (strapi['io']) { strapi['io'].emit('new_message', { userId: user.id }); }
 
-            const history = await strapi.entityService.findMany('api::chat.chat', {
-              filters: { users_permissions_user: { id: user.id } },
-              sort: { timestamp: 'desc' },
-              limit: 6,
-            });
+            // --- LÓGICA DE ACTIVACIÓN KIRA REDES ---
+            if (user.kira_active !== false) {
+              const history = await strapi.entityService.findMany('api::chat.chat', {
+                filters: { users_permissions_user: { id: user.id } },
+                sort: { timestamp: 'desc' },
+                limit: 6,
+              });
 
-            const chatContext = history.reverse().map(h => `${h.sender === from ? 'Cliente' : 'Kira'}: ${h.message}`).join('\n');
+              const chatContext = history.reverse().map(h => `${h.sender === from ? 'Cliente' : 'Kira'}: ${h.message}`).join('\n');
 
-            const systemPrompt = `
+              const systemPrompt = `
 ### ROLE: Kira de Koky en Bogotá (Lanzamiento 45 días).
 ### USER: ${user.username}, MIEMBRO: ${user.is_founder ? 'SÍ' : 'NO'}.
 ### CONTEXTO: Preventa VIP. Web koky.food solo para ver fotos, compras desactivadas.
@@ -284,18 +303,20 @@ ${chatContext}
 ${chatContext}
 ### MENSAJE: "${msgText}"`;
 
-            const result = await model.generateContent(systemPrompt);
-            const aiResponse = result.response.text();
+              const result = await model.generateContent(systemPrompt);
+              const aiResponse = result.response.text();
 
-            await axios.post(`https://graph.facebook.com/v21.0/me/messages`,
-              { recipient: { id: from }, message: { text: aiResponse } },
-              { headers: { Authorization: `Bearer ${process.env.MESSENGER_PAGE_TOKEN}` } }
-            );
+              await axios.post(`https://graph.facebook.com/v21.0/me/messages`,
+                { recipient: { id: from }, message: { text: aiResponse } },
+                { headers: { Authorization: `Bearer ${process.env.MESSENGER_PAGE_TOKEN}` } }
+              );
 
-            await strapi.entityService.create('api::chat.chat', {
-              data: { sender: 'Kira', message: aiResponse, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
-            });
-            if (strapi['io']) { strapi['io'].emit('new_message', { userId: user.id }); }
+              await strapi.entityService.create('api::chat.chat', {
+                data: { sender: 'Kira', message: aiResponse, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
+              });
+              if (strapi['io']) { strapi['io'].emit('new_message', { userId: user.id }); }
+            }
+            // --- FIN LÓGICA DE ACTIVACIÓN KIRA REDES ---
 
           } catch (e) { console.error("❌ Error Proceso Redes:", e.message); }
         }
