@@ -87,25 +87,6 @@ module.exports = {
             const rawText = message.text?.body || message.button?.text || "";
             const msgText = rawText.toLowerCase().trim();
 
-            // --- INICIO COMANDO ADMIN WHATSAPP ---
-            if (from === '3007979419' && rawText.startsWith('CONFIG')) {
-              const match = rawText.match(/CONFIG\s+(\w+):\s+([\s\S]+)/);
-              if (match) {
-                const [, field, newValue] = match;
-                await strapi.entityService.update('plugin::users-permissions.user', 1, { // Asumiendo ID 1 para el config central o el usuario admin
-                  data: { [field]: newValue.trim() }
-                });
-                await axios({
-                  method: "POST",
-                  url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-                  data: { messaging_product: "whatsapp", to: from, text: { body: `✅ Bloque "${field}" actualizado.` } },
-                  headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
-                });
-                return;
-              }
-            }
-            // --- FIN COMANDO ADMIN WHATSAPP ---
-
             try {
               let user = await this.getOrCreateUser(from, waName, 'whatsapp');
               const textoBotonRegistro = "registrarme aquí";
@@ -132,7 +113,7 @@ module.exports = {
               });
               if (strapi['io']) { strapi['io'].emit('new_message', { userId: user.id }); }
 
-              // --- LÓGICA DE ACTIVACIÓN KIRA ---
+              // --- CONTROL DE KIRA ---
               if (user.kira_active !== false) {
                 const history = await strapi.entityService.findMany('api::chat.chat', {
                   filters: { users_permissions_user: { id: user.id } },
@@ -209,7 +190,6 @@ ${chatContext}
                   });
                 }
               }
-              // --- FIN LÓGICA DE ACTIVACIÓN KIRA ---
 
             } catch (error) { console.error("❌ Error WA Internal:", error.message); }
           }
@@ -274,7 +254,7 @@ ${chatContext}
             });
             if (strapi['io']) { strapi['io'].emit('new_message', { userId: user.id }); }
 
-            // --- LÓGICA DE ACTIVACIÓN KIRA REDES ---
+            // --- CONTROL DE KIRA REDES ---
             if (user.kira_active !== false) {
               const history = await strapi.entityService.findMany('api::chat.chat', {
                 filters: { users_permissions_user: { id: user.id } },
@@ -316,7 +296,6 @@ ${chatContext}
               });
               if (strapi['io']) { strapi['io'].emit('new_message', { userId: user.id }); }
             }
-            // --- FIN LÓGICA DE ACTIVACIÓN KIRA REDES ---
 
           } catch (e) { console.error("❌ Error Proceso Redes:", e.message); }
         }
