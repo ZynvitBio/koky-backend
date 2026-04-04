@@ -96,16 +96,32 @@ module.exports = {
                 user = await strapi.entityService.update('plugin::users-permissions.user', user.id, {
                   data: { is_founder: true, whatsapp_id: from },
                 });
+                
+                const welcomeMsg = "¡Genial! Ya eres oficialmente Miembro Fundador. ¡Bienvenido a la familia Koky! 🥦";
+                
                 await axios({
                   method: "POST",
                   url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
                   data: {
                     messaging_product: "whatsapp",
                     to: from,
-                    text: { body: "¡Genial! Ya eres oficialmente Miembro Fundador. ¡Bienvenido a la familia Koky! 🥦" },
+                    text: { body: welcomeMsg },
                   },
                   headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
                 });
+
+                // AGREGADO: Guardar el mensaje de bienvenida en la UI
+                await strapi.entityService.create('api::chat.chat', {
+                  data: { 
+                    sender: 'Kira', 
+                    message: welcomeMsg, 
+                    timestamp: new Date(), 
+                    publishedAt: new Date(), 
+                    users_permissions_user: user.id 
+                  },
+                });
+                if (strapi['io']) { strapi['io'].emit('new_message', { userId: user.id }); }
+                
                 return;
               }
 
@@ -198,6 +214,7 @@ ${chatContext}
           }
         } 
         else if (body.object === 'page' || body.object === 'instagram') {
+          // ... (Resto del código de Redes Sociales sin cambios)
           const entry = body.entry?.[0];
           const messaging = entry?.messaging?.[0];
           
