@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use strict';
 const axios = require('axios');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
@@ -155,13 +156,10 @@ ${chatContext}
 
                 const result = await model.generateContent(systemPrompt);
                 const aiResponse = result.response.text();
-
-                await strapi.entityService.create('api::chat.chat', {
-                  data: { sender: 'Kira', message: aiResponse, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
-                }); 
-                if (strapi['io']) { strapi['io'].emit('new_message', { userId: user.id }); }
+                let messageToSave = aiResponse;
 
                 if (!user.is_founder && (msgText.includes("si") || msgText.includes("fundador") || msgText.includes("interesa") || msgText.includes("registro"))) {
+                  messageToSave = "📋 [Invitación enviada: Plantilla de Miembro Fundador]";
                   await axios({
                     method: "POST",
                     url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
@@ -189,6 +187,11 @@ ${chatContext}
                     headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
                   });
                 }
+
+                await strapi.entityService.create('api::chat.chat', {
+                  data: { sender: 'Kira', message: messageToSave, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
+                }); 
+                if (strapi['io']) { strapi['io'].emit('new_message', { userId: user.id }); }
               }
 
             } catch (error) { console.error("❌ Error WA Internal:", error.message); }
