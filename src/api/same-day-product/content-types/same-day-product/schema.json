@@ -1,0 +1,33 @@
+{
+  "kind": "collectionType",
+  "collectionName": "same_day_products",
+  "info": {
+    "singularName": "same-day-product",
+    "pluralName": "same-day-products",
+    "displayName": "sameDayProduct"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string"
+    },
+    "quantity": {
+      "type": "string"
+    },
+    "unit": {
+      "type": "string"
+    },
+    "deliveryMessage": {
+      "type": "string"
+    },
+    "linkText": {
+      "type": "string"
+    },
+    "linkUrl": {
+      "type": "string"
+    }
+  }
+}
