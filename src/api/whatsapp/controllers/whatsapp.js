@@ -6,48 +6,9 @@ const phoneUtil = require('google-libphonenumber').PhoneNumberUtil.getInstance()
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
 const model = genAI.getGenerativeModel({ 
-  model: "gemini-2.5-flash", 
-  tools: [
-    {
-      functionDeclarations: [
-        {
-          name: "consultarCatalogoKoky",
-          description: "Consulta el catálogo de productos de Koky (tofu, leches, etc.) para dar detalles exactos de precios, bondades y disponibilidad.",
-          parameters: {
-            type: "OBJECT",
-            properties: {
-              busqueda: {
-                type: "STRING",
-                description: "El nombre o tipo de producto que el cliente busca."
-              }
-            }
-          }
-        }
-      ]
-    }
-  ]
+  model: "gemini-2.5-flash" 
 }, { apiVersion: 'v1' });
 
-
-// NUEVA FUNCIÓN: Kira consulta la base de datos de Koky
-const consultarCatalogoKoky = async (args) => {
-  const busqueda = args.busqueda || "";
-  try {
-    const productos = await strapi.entityService.findMany('api::product.product', {
-      filters: { 
-        active: true,
-        name: { $contains: busqueda } 
-      },
-      fields: ['name', 'shortDescription', 'benefits', 'price', 'unitMeasure', 'contentPerUnit', 'availableToday'],
-    });
-
-    if (productos.length === 0) return "No encontré productos con ese nombre, pero dile al usuario que estamos lanzando nuevos sabores pronto.";
-    
-    return JSON.stringify(productos);
-  } catch (error) {
-    return "Error al consultar el catálogo.";
-  }
-};
 module.exports = {
   // Ajustado para integrar social_handle y proteger whatsapp_id
   async getOrCreateUser(identifier, waName, platform = 'whatsapp', avatarUrl = null, handle = null) {
@@ -149,6 +110,7 @@ module.exports = {
                   headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
                 });
 
+                // AGREGADO: Guardar el mensaje de bienvenida en la UI
                 await strapi.entityService.create('api::chat.chat', {
                   data: { 
                     sender: 'Kira', 
@@ -159,6 +121,7 @@ module.exports = {
                   },
                 });
                 if (strapi['io']) { strapi['io'].emit('new_message', { userId: user.id }); }
+                
                 return;
               }
 
@@ -167,69 +130,48 @@ module.exports = {
               });
               if (strapi['io']) { strapi['io'].emit('new_message', { userId: user.id }); }
 
+              // --- CONTROL DE KIRA ---
               if (user.kira_active !== false) {
                 const history = await strapi.entityService.findMany('api::chat.chat', {
                   filters: { users_permissions_user: { id: user.id } },
                   sort: { timestamp: 'desc' },
-                  limit: 16,
+                  limit: 6,
                 });
 
                 const chatContext = history.reverse().map(h => `${h.sender === from ? 'Cliente' : 'Kira'}: ${h.message}`).join('\n');
 
                 const systemPrompt = `
-### ROLE Y PERSONALIDAD
-Eres Kira, la cara y el alma de Koky Food en Bogotá. No eres un chatbot, eres una emprendedora apasionada que está cumpliendo el sueño de traer tofu artesanal fresco a la ciudad. Tu tono es "Rolo" (bogotano), extremadamente cálido, educado y profundamente agradecido.
-
-### LA FILOSOFÍA DE KOKY
-- **Un Sueño Compartido**: Koky es un sueño de comida sana, consciente y de producción local que solo se está cumpliendo gracias al apoyo de personas como el usuario. 
-- **Valores**: Defendemos la producción honesta y el respeto por la vida (comida sin maltrato animal, ética y pura). Es proteína que hace bien al cuerpo y al alma.
-
-### ESTRATEGIA DE PERSUASIÓN (EL CAMINO AL FUNDADOR)
-1. **Valor y Bondad**: Antes de hablar de registros, menciona siempre una bondad del tofu (proteína completa, calcio, o que el nuestro es fresco del día, sin procesos industriales).
-2. **El Agradecimiento de Por Vida**: Premiamos a los que confían en nosotros desde el comienzo. "Como gracias a ti este sueño es posible, nuestro agradecimiento será de por vida: tendrás 1 envío gratis al mes para siempre". Es un vínculo de gratitud eterna.
-3. **Urgencia Suave**: Solo buscamos a los primeros 100 fundadores para este lanzamiento.
-
-### PROTOCOLO AGENTE HUMANO (HANDOVER)
-- SI EL USUARIO pide hablar con una persona, humano, soporte, o manifiesta una queja compleja:
-  Responde: "Entendido ${waName}, te voy a conectar con un integrante de nuestro equipo humano para que te ayude personalmente. Por favor, danos un momento."
-- REGLA CRÍTICA: Tras enviar este mensaje, queda estrictamente prohibido que sigas respondiendo (Handover).
-
-### FLUJO DE REGISTRO ESPECÍFICO (WHATSAPP)
-- Cuando el usuario muestre interés real o diga que sí, dile con entusiasmo que le enviarás una tarjeta de invitación con un video especial para completar su registro y ser oficialmente uno de los 100.
-
+### ROLE
+Eres Kira de Koky en Bogotá. Tu objetivo es que el usuario se enamore del proyecto antes de pedirle nada.
+### USER CONTEXT
+- NOMBRE: ${waName}
+- ¿ES MIEMBRO: ${user.is_founder ? 'SÍ (VIP)' : 'NO (PROSPECTO)'}
+### LÓGICA DE LANZAMIENTO (45 DÍAS)
+- **ESTADO**: Fase de lanzamiento (45 días).
+- **WEB (koky.food)**: Solo para ver fotos. Compras desactivadas.
+### LOGICA DE VENTA (FUNDAMENTAL)
+1. SI EL USUARIO NO ES MIEMBRO:
+   - **PROHIBIDO** dar la URL de entrada. Explica la preventa VIP.
+   - Beneficio: "1 envío gratis al mes de por vida".
+   - **CIERRE CRÍTICO**: Debes preguntar "¿Te interesa ser Miembro Fundador?" o "¿Quieres asegurar tus envíos gratis?".
+2. SI DICE QUE SÍ:
+   - Dile que le enviarás una tarjeta de invitación con un video para completar su registro.
+### CONTEXTO KOKY
+- Productos: Tofu (fresco, firme, ahumado, rollo, frito, lámina, nata) y leche de soya. Solo en Bogotá.
 ### REGLAS DE ESTILO
-- Dirígete siempre a ${waName}.
-- Contexto: Web koky.food solo para fotos. Productos: Tofu Tofu (fresco, firme, ahumado, rollo, frito, lámina, nata) y leche de soya.
+- Máximo 30 palabras. Tono bogotano amable. Usa el nombre "${waName}".
 
-### HISTORIAL:
+### PROTOCOLO AGENTE HUMANO (META COMPLIANCE)
+- SI EL USUARIO pide hablar con una persona, humano, soporte, o manifiesta una queja que no puedes resolver: 
+  Responde: "Entendido ${waName}, te voy a conectar con un agente humano de Koky para que te ayude personalmente. Por favor, espera un momento."
+- TRAS ESTE MENSAJE, QUEDA PROHIBIDO QUE SIGAS RESPONDIENDO (Handover).
+
+### HISTORIAL
 ${chatContext}
-### MENSAJE DE ${waName}: "${msgText}"
-`;
+### MENSAJE: "${msgText}"`;
 
-                // --- INTEGRACIÓN DE HERRAMIENTA ---
-                const result = await model.generateContent({
-                  contents: [{ role: 'user', parts: [{ text: systemPrompt }] }]
-                });
-
-                const response = result.response;
-                const call = response.functionCalls()?.[0];
-                let aiResponse;
-
-                if (call && call.name === "consultarCatalogoKoky") {
-                  const toolData = await consultarCatalogoKoky(call.args);
-                  const secondResult = await model.generateContent({
-                    contents: [
-                      { role: 'user', parts: [{ text: systemPrompt }] },
-                      { role: 'model', parts: [{ functionCall: call }] },
-                      { role: 'function', parts: [{ functionResponse: { name: 'consultarCatalogoKoky', response: { content: toolData } } }] }
-                    ]
-                  });
-                  aiResponse = secondResult.response.text();
-                } else {
-                  aiResponse = response.text();
-                }
-                // --- FIN INTEGRACIÓN ---
-
+                const result = await model.generateContent(systemPrompt);
+                const aiResponse = result.response.text();
                 let messageToSave = aiResponse;
 
                 if (!user.is_founder && (msgText.includes("si") || msgText.includes("fundador") || msgText.includes("interesa") || msgText.includes("registro"))) {
@@ -272,6 +214,7 @@ ${chatContext}
           }
         } 
         else if (body.object === 'page' || body.object === 'instagram') {
+          // ... (Resto del código de Redes Sociales sin cambios)
           const entry = body.entry?.[0];
           const messaging = entry?.messaging?.[0];
           
@@ -331,66 +274,37 @@ ${chatContext}
             });
             if (strapi['io']) { strapi['io'].emit('new_message', { userId: user.id }); }
 
+            // --- CONTROL DE KIRA REDES ---
             if (user.kira_active !== false) {
               const history = await strapi.entityService.findMany('api::chat.chat', {
                 filters: { users_permissions_user: { id: user.id } },
                 sort: { timestamp: 'desc' },
-                limit: 16,
+                limit: 6,
               });
 
               const chatContext = history.reverse().map(h => `${h.sender === from ? 'Cliente' : 'Kira'}: ${h.message}`).join('\n');
 
               const systemPrompt = `
-### ROLE Y PERSONALIDAD
-Eres Kira de Koky. Eres una emprendedora apasionada cumpliendo el sueño de traer tofu artesanal y sano a la ciudad. Tu tono es "Rolo", cercano, honesto y muy agradecido.
+### ROLE: Kira de Koky en Bogotá (Lanzamiento 45 días).
+### USER: ${user.username}, MIEMBRO: ${user.is_founder ? 'SÍ' : 'NO'}.
+### CONTEXTO: Preventa VIP. Web koky.food solo para ver fotos, compras desactivadas.
+### LÓGICA DE REGISTRO (FUNDAMENTAL): 
+1. SI NO ES MIEMBRO: Ofrece "1 envío gratis al mes de por vida". 
+2. SI DICE QUE SÍ: Pide su WhatsApp con + y código país (ej: +57...).
+### PRODUCTOS: Tofu (fresco, firme, ahumado, rollo, frito, lámina, nata) y leche de soya.
+### REGLAS: Máximo 30 palabras. Tono bogotano amable.
 
-### LA FILOSOFÍA DE KOKY
-- **Sueño y Producción Local**: Koky nace como un sueño de comida sana y respeto animal que se hace realidad gracias a la comunidad. Es producción local hecha con amor en Bogotá.
-- **Ética**: Comida sin maltrato, consciente y saludable. 
-
-### ESTRATEGIA DE PERSUASIÓN (EL CAMINO AL FUNDADOR)
-1. **Valor y Bondad**: Antes de invitarlo a ser miembro, menciona un beneficio del tofu (es versátil, ideal para deportistas o delicioso y fresco).
-2. **El Agradecimiento de Por Vida**: "Queremos premiar a los que creen en este sueño desde el primer día. Como gracias a tu apoyo Koky será una realidad, tu agradecimiento será de por vida: tendrás Delivery gratis mensual para siempre".
-
-### PROTOCOLO AGENTE HUMANO (HANDOVER)
-- SI EL USUARIO pide hablar con un humano, persona, soporte o manifiesta molestia:
-  Responde: "Entendido ${user.username}, te voy a conectar con alguien de nuestro equipo humano para que te ayude personalmente. ¡Dame un segundo!"
-- REGLA CRÍTICA: Tras este mensaje, deja de responder automáticamente.
-
-### FLUJO DE REGISTRO ESPECÍFICO (IG/FB)
-- Cuando el usuario acepte o esté listo, pídele su número de WhatsApp con el + y código de país (ej: +57...). Explícale que al facilitarte el número, quedará registrado automáticamente como Miembro Fundador.
-
-### REGLAS DE ESTILO
-- Dirígete siempre a ${user.username}.
-- Contexto: Web koky.food solo para fotos. Productos: Tofu Tofu (fresco, firme, ahumado, rollo, frito, lámina, nata) y leche de soya.
+### PROTOCOLO AGENTE HUMANO (META COMPLIANCE)
+- SI EL USUARIO solicita hablar con una persona, humano, soporte o manifiesta una queja compleja: 
+  Responde: "Entendido ${user.username}, te voy a conectar con un agente humano de Koky para que te ayude personalmente. Por favor, espera un momento."
+- TRAS ESTE MENSAJE, QUEDA PROHIBIDO QUE SIGAS RESPONDIENDO (Handover).
 
 ### HISTORIAL:
 ${chatContext}
-### MENSAJE DE ${user.username}: "${msgText}"
-`;
+### MENSAJE: "${msgText}"`;
 
-              // --- INTEGRACIÓN DE HERRAMIENTA REDES ---
-              const result = await model.generateContent({
-                contents: [{ role: 'user', parts: [{ text: systemPrompt }] }]
-              });
-
-              const response = result.response;
-              const call = response.functionCalls()?.[0];
-              let aiResponse;
-
-              if (call && call.name === "consultarCatalogoKoky") {
-                const toolData = await consultarCatalogoKoky(call.args);
-                const secondResult = await model.generateContent({
-                  contents: [
-                    { role: 'user', parts: [{ text: systemPrompt }] },
-                    { role: 'model', parts: [{ functionCall: call }] },
-                    { role: 'function', parts: [{ functionResponse: { name: 'consultarCatalogoKoky', response: { content: toolData } } }] }
-                  ]
-                });
-                aiResponse = secondResult.response.text();
-              } else {
-                aiResponse = response.text();
-              }
+              const result = await model.generateContent(systemPrompt);
+              const aiResponse = result.response.text();
 
               await axios.post(`https://graph.facebook.com/v21.0/me/messages`,
                 { recipient: { id: from }, message: { text: aiResponse } },
@@ -410,5 +324,4 @@ ${chatContext}
       }
     });
   }
-  
 };
