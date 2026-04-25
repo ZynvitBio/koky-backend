@@ -1400,6 +1400,12 @@ export interface PluginUsersPermissionsUser
       Schema.Attribute.Configurable &
       Schema.Attribute.DefaultTo<false>;
     kira_active: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    kira_score: Schema.Attribute.JSON &
+      Schema.Attribute.DefaultTo<{
+        curiosity: 0;
+        high_intent: 0;
+        interest: 0;
+      }>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',

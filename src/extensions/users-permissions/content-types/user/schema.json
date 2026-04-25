@@ -97,6 +97,14 @@
     "kira_active": {
       "type": "boolean",
       "default": true
-    }
+    },
+    "kira_score": {
+  "type": "json",
+  "default": {
+    "curiosity": 0,
+    "interest": 0,
+    "high_intent": 0
+  }
+}
   }
 }
