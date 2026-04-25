@@ -4,7 +4,7 @@ const axios = require('axios');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const phoneUtil = require('google-libphonenumber').PhoneNumberUtil.getInstance();
 // IMPORTANTE: Asegúrate de que la ruta al archivo KiraPrompts sea la correcta
-const KiraPrompts = require('./KiraPrompts'); 
+const KiraPrompts = require('./kiraPrompts'); 
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
 const model = genAI.getGenerativeModel({ 
