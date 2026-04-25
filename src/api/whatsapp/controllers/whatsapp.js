@@ -145,37 +145,52 @@ module.exports = {
                 const result = await model.generateContent(systemPrompt);
                 const aiResponse = result.response.text();
                 let messageToSave = aiResponse;
+              const userScore = user.kira_score || 0;
 
-                if (!user.is_founder && (msgText.includes("si") || msgText.includes("fundador") || msgText.includes("interesa") || msgText.includes("registro"))) {
-                  messageToSave = "📋 [Invitación enviada: Plantilla de Miembro Fundador]";
-                  await axios({
-                    method: "POST",
-                    url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-                    data: {
-                      messaging_product: "whatsapp",
-                      to: from,
-                      type: "template",
-                      template: {
-                        name: "invitation",
-                        language: { code: "es" },
-                        components: [{ type: "header", parameters: [{ type: "video", video: { link: "https://storage.googleapis.com/koky_food/KiraInvitation2.5.mp4" } }] }]
-                      }
-                    },
-                    headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
-                  });
-                } else {
-                  await axios({
-                    method: "POST",
-                    url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-                    data: {
-                      messaging_product: "whatsapp",
-                      to: from,
-                      text: { body: aiResponse },
-                    },
-                    headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
-                  });
-                }
+// Definimos palabras que indican que el usuario quiere EL PRODUCTO ya mismo
+const quiereEntrarYa = msgText.includes("fundador") || 
+                       msgText.includes("registrar") || 
+                       msgText.includes("miembro") ||
+                       msgText.includes("unirme");
 
+// El IF ahora tiene un "O" (||). Se cumple si pasa cualquiera de las dos cosas.
+if (!user.is_founder && (quiereEntrarYa || userScore >= 8)) {
+  messageToSave = "📋 [Invitación enviada: Plantilla de Miembro Fundador]";
+  await axios({
+    method: "POST",
+    url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+    data: {
+      messaging_product: "whatsapp",
+      to: from,
+      type: "template",
+      template: {
+        name: "invitation",
+        language: { code: "es" },
+        components: [{ 
+          type: "header", 
+          parameters: [{ 
+            type: "video", 
+            video: { link: "https://storage.googleapis.com/koky_food/KiraInvitation2.5.mp4" } 
+          }] 
+        }]
+      }
+    },
+    headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
+  });
+} else {
+  // Si no pidió entrar y el score es bajo (como el del restaurante chino), 
+  // Kira responde normal.
+  await axios({
+    method: "POST",
+    url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+    data: {
+      messaging_product: "whatsapp",
+      to: from,
+      text: { body: aiResponse },
+    },
+    headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
+  });
+}
                 await strapi.entityService.create('api::chat.chat', {
                   data: { sender: 'Kira', message: messageToSave, timestamp: new Date(), publishedAt: new Date(), users_permissions_user: user.id },
                 }); 
