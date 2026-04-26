@@ -423,36 +423,23 @@ module.exports = {
       },
     });
 
-/* =========================
-        SCORE REDES (CORREGIDO)
-    ========================= */
-    const currentMetaScore = Number(user.kira_score) || 0;
-    const newScore = calculateScore(msgText, currentMetaScore);
-
-    user = await strapi.entityService.update(
-      'plugin::users-permissions.user',
-      user.id,
-      {
-        data: { kira_score: Number(newScore) },
-      }
-    );
 
   /* =========================
         SCORE REDES (CORREGIDO)
     ========================= */
-    const currentMetaScore = Number(user.kira_score) || 0;
-    const newScore = calculateScore(msgText, currentMetaScore);
+  const metaScoreActual = Number(user.kira_score) || 0;
+    const metaScoreNuevo = calculateScore(msgText, metaScoreActual);
 
     user = await strapi.entityService.update(
       'plugin::users-permissions.user',
       user.id,
       {
-        data: { kira_score: Number(newScore) },
+        data: { kira_score: Number(metaScoreNuevo) },
       }
     );
 
-    // DEJA SOLO ESTAS DOS LÍNEAS:
-    const userScore = Number(newScore);
+    // Estas variables son las que Kira necesita
+    const userScore = Number(metaScoreNuevo);
     const scoreInfo = { total: userScore };
 
     if (user.kira_active !== false) {
