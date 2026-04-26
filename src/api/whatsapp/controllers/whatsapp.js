@@ -180,17 +180,22 @@ module.exports = {
       /* =========================
          SCORE (AQUI ES DONDE DEBE ESTAR)
       ========================= */
-   const currentScore = Number(user.kira_score) || 0;
-      const newScore = calculateScore(msgText, currentScore);
+  const currentScore = Number(user.kira_score?.curiosity) || 0;
+const newScore = calculateScore(msgText, currentScore);
 
-      // 2. Actualizamos al usuario forzando que sea Number
-      user = await strapi.entityService.update(
-        'plugin::users-permissions.user',
-        user.id,
-        {
-          data: { kira_score: Number(newScore) },
-        }
-      );
+user = await strapi.entityService.update(
+  'plugin::users-permissions.user',
+  user.id,
+  {
+    data: { 
+      kira_score: { 
+        curiosity: Number(newScore),
+        interest: 0,
+        high_intent: 0 
+      } 
+    },
+  }
+);
 
       const scoreInfo = { total: Number(newScore) };
       const userScore = Number(newScore);
@@ -427,16 +432,22 @@ module.exports = {
   /* =========================
         SCORE REDES (CORREGIDO)
     ========================= */
-  const metaScoreActual = Number(user.kira_score) || 0;
-    const metaScoreNuevo = calculateScore(msgText, metaScoreActual);
+ const metaScoreActual = Number(user.kira_score?.curiosity) || 0;
+const metaScoreNuevo = calculateScore(msgText, metaScoreActual);
 
-    user = await strapi.entityService.update(
-      'plugin::users-permissions.user',
-      user.id,
-      {
-        data: { kira_score: Number(metaScoreNuevo) },
-      }
-    );
+user = await strapi.entityService.update(
+  'plugin::users-permissions.user',
+  user.id,
+  {
+    data: { 
+      kira_score: { 
+        curiosity: Number(metaScoreNuevo),
+        interest: 0,
+        high_intent: 0 
+      } 
+    },
+  }
+);
 
     // Estas variables son las que Kira necesita
     const userScore = Number(metaScoreNuevo);
