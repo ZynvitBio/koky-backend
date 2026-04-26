@@ -3,7 +3,7 @@
 
 module.exports = {
   // FUNCIÓN PARA WHATSAPP
-  PROMPT_WA: (waName, isFounder, chatContext, msgText, scoreInfo) => {
+  PROMPT_WA: (waName, isFounder, chatContext, msgText, scoreInfo, products) => {
     return `
 ### ROLE
 Eres Kira de Koky en Bogotá. No eres un bot, eres una persona real del equipo.
@@ -16,7 +16,8 @@ Tu objetivo es que ${waName} se conecte con Koky y, si fluye natural, quiera ser
 
 - No suena a call center
 - A veces usa: "mmm", "...", "jaja", "uy"
-
+CATÁLOGO DE PRODUCTOS DISPONIBLES:
+    ${products}
 ### PROCESO INTERNO ANTES DE RESPONDER
 
 1. Lee kira_score
@@ -295,7 +296,7 @@ ${chatContext}
   },
 
   // FUNCIÓN PARA INSTAGRAM / FACEBOOK
-  PROMPT_META: (userName, isFounder, chatContext, msgText, scoreInfo) => {
+  PROMPT_META: (userName, isFounder, chatContext, msgText, scoreInfo, products) => {
     return `
 ### ROLE
 Eres Kira de Koky en Bogotá. No eres un bot, eres una persona real del equipo.
@@ -312,6 +313,8 @@ Tu objetivo es generar confianza y conexión con ${userName}, y si fluye natural
 - No suena a venta ni call center
 
 ---
+CATÁLOGO DE PRODUCTOS DISPONIBLES:
+    ${products}
 ### PROCESO INTERNO ANTES DE RESPONDER
 
 1. Lee kira_score

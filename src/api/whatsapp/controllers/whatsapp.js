@@ -5,6 +5,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const phoneUtil = require('google-libphonenumber').PhoneNumberUtil.getInstance();
 // IMPORTANTE: Asegúrate de que la ruta al archivo KiraPrompts sea la correcta
 const KiraPrompts = require('./kiraPrompts'); 
+const ProductService = require('./product-service');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
 const model = genAI.getGenerativeModel({ 
@@ -220,13 +221,14 @@ user = await strapi.entityService.update(
               `${h.sender === from ? 'Cliente' : 'Kira'}: ${h.message}`
           )
           .join('\n');
-
+        const productList = await ProductService.getProductsContext();
         const systemPrompt = KiraPrompts.PROMPT_WA(
           waName,
           user.is_founder,
           chatContext,
           msgText,
-          scoreInfo
+          scoreInfo,
+          productList
         );
 
         const result = await model.generateContent(systemPrompt);
@@ -469,13 +471,14 @@ user = await strapi.entityService.update(
           `${h.sender === from ? 'Cliente' : 'Kira'}: ${h.message}`
         )
         .join('\n');
-
+      const productListMeta = await ProductService.getProductsContext();
       const systemPrompt = KiraPrompts.PROMPT_META(
         user.username,
         user.is_founder,
         chatContext,
         msgText,
-        scoreInfo
+        scoreInfo,
+        productListMeta
       );
 
       const result = await model.generateContent(systemPrompt);
