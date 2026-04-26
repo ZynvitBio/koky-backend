@@ -11,43 +11,30 @@ const model = genAI.getGenerativeModel({
   model: "gemini-2.5-flash" 
 }, { apiVersion: 'v1' });
 function calculateScore(msgText, previousScore = 0) {
-  let score = previousScore;
-  const text = msgText.toLowerCase();
+  let score = Number(previousScore) || 0; // Forzamos que sea número
+  const text = msgText.toLowerCase();
 
-  if (
-    text.includes("quiero") ||
-    text.includes("me interesa") ||
-    text.includes("cómo entro") ||
-    text.includes("precio") ||
-    text.includes("comprar") ||
-    text.includes("unirme")
-  ) {
-    score += 2;
-  }
+  if (
+    text.includes("quiero") || text.includes("me interesa") ||
+    text.includes("cómo entro") || text.includes("precio") ||
+    text.includes("comprar") || text.includes("unirme")
+  ) { score += 2; }
 
-  if (
-    text.includes("fundador") ||
-    text.includes("miembro") ||
-    text.includes("invitación")
-  ) {
-    score += 3;
-  }
+  if (
+    text.includes("fundador") || text.includes("miembro") ||
+    text.includes("invitación")
+  ) { score += 3; }
 
-  if (text.includes("?")) {
-    score += 1;
-  }
+  if (text.includes("?")) { score += 1; }
 
-  if (
-    text.includes("no gracias") ||
-    text.includes("no me interesa")
-  ) {
-    score -= 2;
-  }
+  if (
+    text.includes("no gracias") || text.includes("no me interesa")
+  ) { score -= 2; }
 
-  if (score < 0) score = 0;
-  if (score > 10) score = 10;
+  if (score < 0) score = 0;
+  if (score > 10) score = 10;
 
-  return score;
+  return Math.floor(score); // Siempre retorna un entero
 }
 
 module.exports = {
@@ -193,18 +180,20 @@ module.exports = {
       /* =========================
          SCORE (AQUI ES DONDE DEBE ESTAR)
       ========================= */
-      const newScore = calculateScore(msgText, user.kira_score || 0);
+   const currentScore = Number(user.kira_score) || 0;
+      const newScore = calculateScore(msgText, currentScore);
 
+      // 2. Actualizamos al usuario forzando que sea Number
       user = await strapi.entityService.update(
         'plugin::users-permissions.user',
         user.id,
         {
-          data: { kira_score: newScore },
+          data: { kira_score: Number(newScore) },
         }
       );
 
-      const scoreInfo = { total: newScore };
-      const userScore = newScore;
+      const scoreInfo = { total: Number(newScore) };
+      const userScore = Number(newScore);
 
       /* =========================
          IA SOLO SI ACTIVA
@@ -434,18 +423,37 @@ module.exports = {
       },
     });
 
-    const newScore = calculateScore(msgText, user.kira_score || 0);
+/* =========================
+        SCORE REDES (CORREGIDO)
+    ========================= */
+    const currentMetaScore = Number(user.kira_score) || 0;
+    const newScore = calculateScore(msgText, currentMetaScore);
 
     user = await strapi.entityService.update(
       'plugin::users-permissions.user',
       user.id,
       {
-        data: { kira_score: newScore },
+        data: { kira_score: Number(newScore) },
       }
     );
 
-    const userScore = newScore;
-    const scoreInfo = { total: newScore };
+  /* =========================
+        SCORE REDES (CORREGIDO)
+    ========================= */
+    const currentMetaScore = Number(user.kira_score) || 0;
+    const newScore = calculateScore(msgText, currentMetaScore);
+
+    user = await strapi.entityService.update(
+      'plugin::users-permissions.user',
+      user.id,
+      {
+        data: { kira_score: Number(newScore) },
+      }
+    );
+
+    // DEJA SOLO ESTAS DOS LÍNEAS:
+    const userScore = Number(newScore);
+    const scoreInfo = { total: userScore };
 
     if (user.kira_active !== false) {
       const history = await strapi.entityService.findMany(
