@@ -343,20 +343,16 @@ user = await strapi.entityService.update(
     const metaAvatar = profile?.avatar_url || null;
     let metaHandle = null;
 
-   if (plataformaKey === 'instagram') {
+    if (plataformaKey === 'instagram') {
       try {
         const tokenSocial = process.env.MESSENGER_PAGE_TOKEN;
-        // Agregamos un timeout y un manejo de error robusto
         const urlUser = `https://graph.facebook.com/v21.0/${from}?fields=username&access_token=${tokenSocial}`;
-        const resUser = await axios.get(urlUser, { timeout: 3000 }); 
-        
+        const resUser = await axios.get(urlUser);
         if (resUser.data?.username) {
           metaHandle = `@${resUser.data.username}`;
         }
       } catch (e) {
-        // Si Meta da Error 400, 403 o lo que sea, NO MATAMOS el proceso
-        console.log("⚠️ Meta bloqueó la consulta de username (400), continuando como Cliente...");
-        metaHandle = "Cliente"; 
+        console.log("⚠️ No se pudo obtener @handle.");
       }
     }
 
@@ -387,7 +383,7 @@ user = await strapi.entityService.update(
               "¡Excelente! He vinculado tu número móvil. ¡Ya eres Miembro Fundador de Koky! 🥦";
 
             await axios.post(
-              `https://graph.facebook.com/v21.0/525381880653634/messages`,
+              `https://graph.facebook.com/v21.0/me/messages`,
               {
                 recipient: { id: from },
                 message: { text: confirmMsg },
