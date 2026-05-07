@@ -387,7 +387,7 @@ user = await strapi.entityService.update(
               "¡Excelente! He vinculado tu número móvil. ¡Ya eres Miembro Fundador de Koky! 🥦";
 
             await axios.post(
-              `https://graph.facebook.com/v21.0/me/messages`,
+              `https://graph.facebook.com/v21.0/525381880653634/messages`,
               {
                 recipient: { id: from },
                 message: { text: confirmMsg },
