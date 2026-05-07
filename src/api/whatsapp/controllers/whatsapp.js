@@ -3,7 +3,7 @@
 const axios = require('axios');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const phoneUtil = require('google-libphonenumber').PhoneNumberUtil.getInstance();
-
+// IMPORTANTE: Asegúrate de que la ruta al archivo KiraPrompts sea la correcta
 const KiraPrompts = require('./kiraPrompts'); 
 const ProductService = require('./product-service');
 
@@ -352,7 +352,7 @@ user = await strapi.entityService.update(
           metaHandle = `@${resUser.data.username}`;
         }
       } catch (e) {
-        console.log(" No se pudo obtener @handle.");
+        console.log("⚠️ No se pudo obtener @handle.");
       }
     }
 
@@ -383,7 +383,7 @@ user = await strapi.entityService.update(
               "¡Excelente! He vinculado tu número móvil. ¡Ya eres Miembro Fundador de Koky! 🥦";
 
             await axios.post(
-              `https://graph.facebook.com/v21.0/525381880653634/messages`,
+              `https://graph.facebook.com/v21.0/me/messages`,
               {
                 recipient: { id: from },
                 message: { text: confirmMsg },
@@ -484,11 +484,8 @@ user = await strapi.entityService.update(
       const result = await model.generateContent(systemPrompt);
       const aiResponse = result.response.text();
 
-     // SUSTITUYE TU BLOQUE DE AXIOS.POST POR ESTE:
-      console.log("🚀 Enviando respuesta a ID:", from);
-      
       await axios.post(
-        `https://graph.facebook.com/v21.0/525381880653634/messages`, // ID DE TU PÁGINA KOKY
+        `https://graph.facebook.com/v21.0/me/messages`,
         {
           recipient: { id: from },
           message: { text: aiResponse },
@@ -496,7 +493,6 @@ user = await strapi.entityService.update(
         {
           headers: {
             Authorization: `Bearer ${process.env.MESSENGER_PAGE_TOKEN}`,
-            'Content-Type': 'application/json'
           },
         }
       );
