@@ -352,7 +352,7 @@ user = await strapi.entityService.update(
           metaHandle = `@${resUser.data.username}`;
         }
       } catch (e) {
-        console.log("⚠️ No se pudo obtener @handle.");
+        console.log(" No se pudo obtener @handle.");
       }
     }
 
@@ -383,7 +383,7 @@ user = await strapi.entityService.update(
               "¡Excelente! He vinculado tu número móvil. ¡Ya eres Miembro Fundador de Koky! 🥦";
 
             await axios.post(
-              `https://graph.facebook.com/v21.0/me/messages`,
+              `https://graph.facebook.com/v21.0/525381880653634/messages`,
               {
                 recipient: { id: from },
                 message: { text: confirmMsg },
@@ -485,7 +485,7 @@ user = await strapi.entityService.update(
       const aiResponse = result.response.text();
 
       await axios.post(
-        `https://graph.facebook.com/v21.0/me/messages`,
+        `https://graph.facebook.com/v21.0/525381880653634/messages`,
         {
           recipient: { id: from },
           message: { text: aiResponse },
