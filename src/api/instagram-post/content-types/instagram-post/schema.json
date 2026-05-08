@@ -25,7 +25,7 @@
       "enum": [
         "draft",
         "scheduled",
-        "pulished"
+        "published"
       ]
     },
     "media": {
