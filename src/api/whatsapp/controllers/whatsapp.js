@@ -360,9 +360,7 @@ user = await strapi.entityService.update(
 
     const trimmedText = rawText.trim();
 
-    /* =========================
-       LINK TELEFONO (IG)
-    ========================= */
+
     if (trimmedText.startsWith('+')) {
       try {
         const phoneNumber = phoneUtil.parseAndKeepRawInput(trimmedText);

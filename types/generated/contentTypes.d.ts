@@ -644,6 +644,44 @@ export interface ApiHomeHeroSettingHomeHeroSetting
   };
 }
 
+export interface ApiInstagramPostInstagramPost
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'instagram_posts';
+  info: {
+    displayName: 'Instagram-Post';
+    pluralName: 'instagram-posts';
+    singularName: 'instagram-post';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    caption: Schema.Attribute.Text;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    hashtags: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::instagram-post.instagram-post'
+    > &
+      Schema.Attribute.Private;
+    media: Schema.Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios',
+      true
+    >;
+    post_status: Schema.Attribute.Enumeration<
+      ['draft', 'scheduled', 'pulished']
+    >;
+    publishedAt: Schema.Attribute.DateTime;
+    scheduled_date: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiOrderOrder extends Struct.CollectionTypeSchema {
   collectionName: 'orders';
   info: {
@@ -1458,6 +1496,7 @@ declare module '@strapi/strapi' {
       'api::chat.chat': ApiChatChat;
       'api::home-hero-message.home-hero-message': ApiHomeHeroMessageHomeHeroMessage;
       'api::home-hero-setting.home-hero-setting': ApiHomeHeroSettingHomeHeroSetting;
+      'api::instagram-post.instagram-post': ApiInstagramPostInstagramPost;
       'api::order.order': ApiOrderOrder;
       'api::product.product': ApiProductProduct;
       'api::recipe.recipe': ApiRecipeRecipe;

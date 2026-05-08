@@ -1,0 +1,42 @@
+{
+  "kind": "collectionType",
+  "collectionName": "instagram_posts",
+  "info": {
+    "singularName": "instagram-post",
+    "pluralName": "instagram-posts",
+    "displayName": "Instagram-Post"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "caption": {
+      "type": "text"
+    },
+    "hashtags": {
+      "type": "string"
+    },
+    "scheduled_date": {
+      "type": "datetime"
+    },
+    "post_status": {
+      "type": "enumeration",
+      "enum": [
+        "draft",
+        "scheduled",
+        "pulished"
+      ]
+    },
+    "media": {
+      "type": "media",
+      "multiple": true,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    }
+  }
+}
