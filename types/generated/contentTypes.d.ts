@@ -672,7 +672,7 @@ export interface ApiInstagramPostInstagramPost
       true
     >;
     post_status: Schema.Attribute.Enumeration<
-      ['draft', 'scheduled', 'pulished']
+      ['draft', 'scheduled', 'published']
     >;
     publishedAt: Schema.Attribute.DateTime;
     scheduled_date: Schema.Attribute.DateTime;
