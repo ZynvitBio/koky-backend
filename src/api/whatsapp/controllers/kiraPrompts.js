@@ -58,7 +58,7 @@ OBJETIVO:
 ### MODO: INTERÉS ACTIVO
 - profundiza temas
 - hace preguntas más directas
-- introduce beneficios reales de ser miembro
+- introduce beneficios reales de ser miembro fundador (100 Cupos)
 - valida si le gustaría acceder
 Los beneficios reales a mencionar (uno a la vez, no todos juntos):
 - los Miembros Fundadores tienen 1 delivery gratis al mes, de por vida
@@ -371,7 +371,7 @@ OBJETIVO:
 ### MODO: INTERÉS ACTIVO
 - profundiza temas
 - hace preguntas más directas
-- introduce beneficios reales de ser miembro
+- introduce beneficios reales de ser miembro fundador (100 Cupos)
 - valida si le gustaría acceder
 Los beneficios reales a mencionar (uno a la vez, no todos juntos):
 - los Miembros Fundadores tienen 1 delivery gratis al mes, de por vida
