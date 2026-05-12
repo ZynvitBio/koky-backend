@@ -368,7 +368,7 @@ user = await strapi.entityService.update(
         if (phoneUtil.isValidNumber(phoneNumber)) {
           const formattedPhone = phoneUtil.format(phoneNumber, 1);
 
-          if (!user.is_founder) {
+         if (!user.is_founder) {
             user = await strapi.entityService.update(
               'plugin::users-permissions.user',
               user.id,
@@ -378,7 +378,7 @@ user = await strapi.entityService.update(
             );
 
             const confirmMsg =
-              "¡Excelente! He vinculado tu número móvil. ¡Ya eres Miembro Fundador de Koky! 🥦";
+              "¡Listo! Ya eres Miembro Fundador de Koky 🎉 ese delivery gratis al mes es tuyo de por vida 👀";
 
             await axios.post(
               `https://graph.facebook.com/v21.0/me/messages`,
@@ -397,6 +397,39 @@ user = await strapi.entityService.update(
               data: {
                 sender: 'Kira',
                 message: confirmMsg,
+                timestamp: new Date(),
+                publishedAt: new Date(),
+                users_permissions_user: user.id,
+              },
+            });
+
+            if (strapi['io']) {
+              strapi['io'].emit('new_message', { userId: user.id });
+            }
+
+            return;
+
+          } else {
+
+            const yaEsMiembroMsg = "ese número ya está registrado como Miembro Fundador 🥦 tu delivery gratis ya es tuyo.";
+
+            await axios.post(
+              `https://graph.facebook.com/v21.0/me/messages`,
+              {
+                recipient: { id: from },
+                message: { text: yaEsMiembroMsg },
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${process.env.MESSENGER_PAGE_TOKEN}`,
+                },
+              }
+            );
+
+            await strapi.entityService.create('api::chat.chat', {
+              data: {
+                sender: 'Kira',
+                message: yaEsMiembroMsg,
                 timestamp: new Date(),
                 publishedAt: new Date(),
                 users_permissions_user: user.id,
