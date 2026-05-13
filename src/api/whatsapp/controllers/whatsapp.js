@@ -222,7 +222,7 @@ user = await strapi.entityService.update(
           )
           .join('\n');
         const productList = await ProductService.getProductsContext();
-        const fechaLanzamiento = new Date("2026-05-14T05:00:00.000Z");
+        const fechaLanzamiento = new Date("2026-05-15T05:00:00.000Z");
         const ahora = new Date();
         const diff = fechaLanzamiento - ahora;
         const dias = Math.floor(diff / (1000 * 60 * 60 * 24));
