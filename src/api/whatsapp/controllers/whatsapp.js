@@ -222,13 +222,20 @@ user = await strapi.entityService.update(
           )
           .join('\n');
         const productList = await ProductService.getProductsContext();
+        const fechaLanzamiento = new Date("2026-06-29T05:00:00.000Z");
+        const ahora = new Date();
+        const diff = fechaLanzamiento - ahora;
+        const dias = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const horas = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const infoPreventa = `IMPORTANTE: Quedan exactamente ${dias} días y ${horas} horas de preventa.`;
         const systemPrompt = KiraPrompts.PROMPT_WA(
           waName,
           user.is_founder,
           chatContext,
           msgText,
           scoreInfo,
-          productList
+          productList,
+          infoPreventa
         );
 
         const result = await model.generateContent(systemPrompt);
@@ -503,13 +510,20 @@ user = await strapi.entityService.update(
         )
         .join('\n');
       const productListMeta = await ProductService.getProductsContext();
+      const fechaLanzamientoMeta = new Date("2026-06-29T05:00:00.000Z");
+      const ahoraMeta = new Date();
+      const diffMeta = fechaLanzamientoMeta - ahoraMeta;
+      const diasMeta = Math.floor(diffMeta / (1000 * 60 * 60 * 24));
+      const horasMeta = Math.floor((diffMeta % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const infoPreventaMeta = `IMPORTANTE: Quedan exactamente ${diasMeta} días y ${horasMeta} horas de preventa.`;
       const systemPrompt = KiraPrompts.PROMPT_META(
         user.username,
         user.is_founder,
         chatContext,
         msgText,
         scoreInfo,
-        productListMeta
+        productListMeta,
+        infoPreventaMeta
       );
 
       const result = await model.generateContent(systemPrompt);
@@ -552,5 +566,6 @@ user = await strapi.entityService.update(
       }
     });
   }
+  
   
 };
