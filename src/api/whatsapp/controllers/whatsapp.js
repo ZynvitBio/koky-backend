@@ -222,12 +222,12 @@ user = await strapi.entityService.update(
           )
           .join('\n');
         const productList = await ProductService.getProductsContext();
-        const fechaLanzamiento = new Date("2026-05-15T05:00:00.000Z");
+       const fechaLanzamiento = new Date("2026-06-29T00:00:00-05:00");
         const ahora = new Date();
         const diff = fechaLanzamiento - ahora;
         const dias = Math.floor(diff / (1000 * 60 * 60 * 24));
         const horas = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const infoPreventa = `IMPORTANTE: Quedan exactamente ${dias} días y ${horas} horas de preventa.`;
+       const infoPreventa = `IMPORTANTE: Estamos en preventa de Miembros Fundadores. Quedan exactamente ${dias} días y ${horas} horas para cerrar inscripciones.`;
         const systemPrompt = KiraPrompts.PROMPT_WA(
           waName,
           user.is_founder,
