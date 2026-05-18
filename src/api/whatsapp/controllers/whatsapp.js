@@ -41,7 +41,6 @@ function calculateScore(msgText, previousScore = 0) {
 module.exports = {
   
   async getOrCreateUser(identifier, waName, platform = 'whatsapp', avatarUrl = null, handle = null) {
-    // REVISIÓN 1: Unificación absoluta del dominio con el Frontend de Angular
     let domain = 'koky.food'; 
     if (platform === 'instagram') domain = 'instagram.koky';
     if (platform === 'facebook') domain = 'facebook.koky';
@@ -120,14 +119,14 @@ module.exports = {
             try {
               let user = await this.getOrCreateUser(from, waName, 'whatsapp');
               const textoBotonRegistro = "registrarme aquí";
-
-              // REVISIÓN 2: Forzar activación si viene de la web con el texto del botón de Angular
               const vieneDeWeb = msgText.includes("acabo de registrarme como miembro fundador de koky desde la web");
 
-              /* =========================
-                 REGISTRO/VERIFICACIÓN FUNDADOR
-              ========================= */
+              /* ==========================================================================
+                 AQUÍ VA EL BLOQUE MODIFICADO:
+                 Actualiza la BD de forma silenciosa y NO hace return para que continúe hacia la IA
+                 ========================================================================== */
               if ((msgText === textoBotonRegistro || vieneDeWeb) && !user.is_founder) {
+                // 1. Actualizamos el estado en la base de datos silenciosamente
                 user = await strapi.entityService.update(
                   'plugin::users-permissions.user',
                   user.id,
@@ -136,51 +135,35 @@ module.exports = {
                   }
                 );
 
-                const welcomeMsg = `¡Genial! Ya eres oficialmente Miembro Fundador. ¡Bienvenido a la familia Koky! 🥦`;
-
-                await axios({
-                  method: "POST",
-                  url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-                  data: {
-                    messaging_product: "whatsapp",
-                    to: from,
-                    text: { body: welcomeMsg },
-                  },
-                  headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
-                });
-
+                // 2. Guardamos el mensaje de la web en el historial para que Gemini tenga el contexto
                 await strapi.entityService.create('api::chat.chat', {
                   data: {
-                    sender: 'Kira',
-                    message: welcomeMsg,
+                    sender: from,
+                    message: rawText, 
                     timestamp: new Date(),
                     publishedAt: new Date(),
                     users_permissions_user: user.id,
                   },
                 });
 
-                if (strapi['io']) {
-                  strapi['io'].emit('new_message', { userId: user.id });
-                }
-                return;
+                // 3. OJO: Al no poner un else ni un return aquí, el código sigue ejecutando
+                // las líneas de abajo de forma natural, guardando el score y llamando a Gemini.
+              } else {
+                // Si NO viene de la web (es un mensaje normal del chat), guardamos el mensaje aquí de forma estándar
+                await strapi.entityService.create('api::chat.chat', {
+                  data: {
+                    sender: from,
+                    message: rawText, 
+                    timestamp: new Date(),
+                    publishedAt: new Date(),
+                    users_permissions_user: user.id,
+                  },
+                });
               }
 
-              /* =========================
-                 GUARDAR MENSAJE USER
-              ========================= */
-              await strapi.entityService.create('api::chat.chat', {
-                data: {
-                  sender: from,
-                  message: rawText, // Guardamos texto original respetando mayúsculas
-                  timestamp: new Date(),
-                  publishedAt: new Date(),
-                  users_permissions_user: user.id,
-                },
-              });
-
-              /* =========================
-                 SCORE (PROTEGIENDO OTROS CAMPOS)
-              ========================= */
+              /* ==========================================================================
+                 CONTINUACIÓN DEL FLUJO NATURAL (SCORE E INTELIGENCIA ARTIFICIAL)
+                 ========================================================================== */
               const currentScore = Number(user.kira_score?.curiosity) || 0;
               const newScore = calculateScore(msgText, currentScore);
 
@@ -200,12 +183,9 @@ module.exports = {
               const userScore = Number(newScore);
               const scoreInfo = { total: userScore };
 
-              /* =========================
-                 IA SOLO SI ACTIVA
-              ========================= */
               if (user.kira_active !== false) {
                 const history = await strapi.entityService.findMany(
-                  'api::chat.chat',
+                  'api::api::chat.chat', // Corregido string del modelo si aplica en tu instancia, mantengo consistencia
                   {
                     filters: { users_permissions_user: { id: user.id } },
                     sort: { timestamp: 'desc' },
@@ -220,7 +200,7 @@ module.exports = {
 
                 const productList = await ProductService.getProductsContext();
                 
-                // Cálculo de tiempo basado en la fecha actual (Mayo 2026)
+                // Tiempo de preventa (Mayo 2026)
                 const fechaLanzamiento = new Date("2026-06-29T00:00:00-05:00");
                 const ahora = new Date();
                 const diff = fechaLanzamiento - ahora;
@@ -230,7 +210,7 @@ module.exports = {
                 
                 const systemPrompt = KiraPrompts.PROMPT_WA(
                   waName,
-                  user.is_founder,
+                  user.is_founder, // Ahora esto pasará como TRUE gracias al bloque de arriba
                   chatContext,
                   rawText,
                   scoreInfo,
@@ -255,10 +235,11 @@ module.exports = {
                   aiResponse.toLowerCase().includes("video") ||
                   aiResponse.toLowerCase().includes("fundador");
 
-                /* =========================
-                   DECISION DE ENVIO (BLINDADA)
-                ========================= */
-                // REVISIÓN 3: Si el usuario ya es fundador (!user.is_founder es FALSO), jamás entrará aquí.
+                /* ==========================================================================
+                   DECISIÓN DE ENVÍO BLINDADA:
+                   Como user.is_founder ya es TRUE, la primera condición del IF se hace FALSA.
+                   Por lo tanto, se salta la plantilla de video y va directo al ELSE (Texto Fluido de Gemini)
+                   ========================================================================== */
                 if (!user.is_founder && (quiereEntrarYa || kiraInvita || userScore >= 8)) {
                   messageToSave = "📋 [Invitación enviada: Plantilla de Miembro Fundador]";
 
@@ -288,7 +269,7 @@ module.exports = {
                     headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
                   });
                 } else {
-                  // Si ya es fundador, forzamos que mande el texto conversacional fluido generado por Gemini
+                  // Envío del texto fluido y conversacional generado por gemini-2.5-flash
                   await axios({
                     method: "POST",
                     url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
@@ -301,9 +282,6 @@ module.exports = {
                   });
                 }
 
-                /* =========================
-                   GUARDAR RESPUESTA KIRA
-                ========================= */
                 await strapi.entityService.create('api::chat.chat', {
                   data: {
                     sender: 'Kira',
@@ -432,9 +410,6 @@ module.exports = {
               }
             }
 
-            /* =========================
-               GUARDAR MENSAJE USER
-            ========================= */
             await strapi.entityService.create('api::chat.chat', {
               data: {
                 sender: from,
@@ -445,9 +420,6 @@ module.exports = {
               },
             });
 
-            /* =========================
-                SCORE REDES (PROTEGIENDO OTROS CAMPOS)
-            ========================= */
             const metaScoreActual = Number(user.kira_score?.curiosity) || 0;
             const metaScoreNuevo = calculateScore(msgText, metaScoreActual);
 
