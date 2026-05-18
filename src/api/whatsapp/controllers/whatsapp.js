@@ -104,6 +104,9 @@ module.exports = {
 
     setImmediate(async () => {
       try {
+        // ==========================================
+        // ECOISTEMA 1: WHATSAPP BUSINESS
+        // ==========================================
         if (body.object === 'whatsapp_business_account') {
           const entry = body.entry?.[0]?.changes?.[0]?.value;
           const message = entry?.messages?.[0];
@@ -121,12 +124,7 @@ module.exports = {
               const textoBotonRegistro = "registrarme aquí";
               const vieneDeWeb = msgText.includes("acabo de registrarme como miembro fundador de koky desde la web");
 
-              /* ==========================================================================
-                 AQUÍ VA EL BLOQUE MODIFICADO:
-                 Actualiza la BD de forma silenciosa y NO hace return para que continúe hacia la IA
-                 ========================================================================== */
               if ((msgText === textoBotonRegistro || vieneDeWeb) && !user.is_founder) {
-                // 1. Actualizamos el estado en la base de datos silenciosamente
                 user = await strapi.entityService.update(
                   'plugin::users-permissions.user',
                   user.id,
@@ -134,36 +132,18 @@ module.exports = {
                     data: { is_founder: true, whatsapp_id: from },
                   }
                 );
-
-                // 2. Guardamos el mensaje de la web en el historial para que Gemini tenga el contexto
-                await strapi.entityService.create('api::chat.chat', {
-                  data: {
-                    sender: from,
-                    message: rawText, 
-                    timestamp: new Date(),
-                    publishedAt: new Date(),
-                    users_permissions_user: user.id,
-                  },
-                });
-
-                // 3. OJO: Al no poner un else ni un return aquí, el código sigue ejecutando
-                // las líneas de abajo de forma natural, guardando el score y llamando a Gemini.
-              } else {
-                // Si NO viene de la web (es un mensaje normal del chat), guardamos el mensaje aquí de forma estándar
-                await strapi.entityService.create('api::chat.chat', {
-                  data: {
-                    sender: from,
-                    message: rawText, 
-                    timestamp: new Date(),
-                    publishedAt: new Date(),
-                    users_permissions_user: user.id,
-                  },
-                });
               }
 
-              /* ==========================================================================
-                 CONTINUACIÓN DEL FLUJO NATURAL (SCORE E INTELIGENCIA ARTIFICIAL)
-                 ========================================================================== */
+              await strapi.entityService.create('api::chat.chat', {
+                data: {
+                  sender: from,
+                  message: rawText, 
+                  timestamp: new Date(),
+                  publishedAt: new Date(),
+                  users_permissions_user: user.id,
+                },
+              });
+
               const currentScore = Number(user.kira_score?.curiosity) || 0;
               const newScore = calculateScore(msgText, currentScore);
 
@@ -185,7 +165,7 @@ module.exports = {
 
               if (user.kira_active !== false) {
                 const history = await strapi.entityService.findMany(
-                  'api::api::chat.chat', // Corregido string del modelo si aplica en tu instancia, mantengo consistencia
+                  'api::chat.chat', 
                   {
                     filters: { users_permissions_user: { id: user.id } },
                     sort: { timestamp: 'desc' },
@@ -200,7 +180,6 @@ module.exports = {
 
                 const productList = await ProductService.getProductsContext();
                 
-                // Tiempo de preventa (Mayo 2026)
                 const fechaLanzamiento = new Date("2026-06-29T00:00:00-05:00");
                 const ahora = new Date();
                 const diff = fechaLanzamiento - ahora;
@@ -210,7 +189,7 @@ module.exports = {
                 
                 const systemPrompt = KiraPrompts.PROMPT_WA(
                   waName,
-                  user.is_founder, // Ahora esto pasará como TRUE gracias al bloque de arriba
+                  user.is_founder, 
                   chatContext,
                   rawText,
                   scoreInfo,
@@ -235,12 +214,7 @@ module.exports = {
                   aiResponse.toLowerCase().includes("video") ||
                   aiResponse.toLowerCase().includes("fundador");
 
-                /* ==========================================================================
-                   DECISIÓN DE ENVÍO BLINDADA:
-                   Como user.is_founder ya es TRUE, la primera condición del IF se hace FALSA.
-                   Por lo tanto, se salta la plantilla de video y va directo al ELSE (Texto Fluido de Gemini)
-                   ========================================================================== */
-                if (!user.is_founder && (quiereEntrarYa || kiraInvita || userScore >= 8)) {
+                if (!user.is_founder && (quierreEntrarYa || kiraInvita || userScore >= 8)) {
                   messageToSave = "📋 [Invitación enviada: Plantilla de Miembro Fundador]";
 
                   await axios({
@@ -269,7 +243,6 @@ module.exports = {
                     headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
                   });
                 } else {
-                  // Envío del texto fluido y conversacional generado por gemini-2.5-flash
                   await axios({
                     method: "POST",
                     url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
@@ -301,6 +274,9 @@ module.exports = {
             }
           }
         }
+        // ==========================================
+        // ECOISTEMA 2: MESSENGER (FB) E INSTAGRAM
+        // ==========================================
         else if (body.object === 'page' || body.object === 'instagram') {
           const entry = body.entry?.[0];
           const messaging = entry?.messaging?.[0];
@@ -335,6 +311,7 @@ module.exports = {
             let user = await this.getOrCreateUser(from, metaName, plataformaKey, metaAvatar, metaHandle);
             const trimmedText = rawText.trim();
 
+            // Flujo de registro por número telefónico internacional (+...) recibido por redes sociales
             if (trimmedText.startsWith('+')) {
               try {
                 const phoneNumber = phoneUtil.parseAndKeepRawInput(trimmedText);
