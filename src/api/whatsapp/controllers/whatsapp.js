@@ -3,7 +3,6 @@
 const axios = require('axios');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const phoneUtil = require('google-libphonenumber').PhoneNumberUtil.getInstance();
-// IMPORTANTE: Asegúrate de que la ruta al archivo KiraPrompts sea la correcta
 const KiraPrompts = require('./kiraPrompts'); 
 const ProductService = require('./product-service');
 
@@ -11,37 +10,39 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
 const model = genAI.getGenerativeModel({ 
   model: "gemini-2.5-flash" 
 }, { apiVersion: 'v1' });
+
 function calculateScore(msgText, previousScore = 0) {
-  let score = Number(previousScore) || 0; // Forzamos que sea número
-  const text = msgText.toLowerCase();
+  let score = Number(previousScore) || 0;
+  const text = msgText.toLowerCase();
 
-  if (
-    text.includes("quiero") || text.includes("me interesa") ||
-    text.includes("cómo entro") || text.includes("precio") ||
-    text.includes("comprar") || text.includes("unirme")
-  ) { score += 2; }
+  if (
+    text.includes("quiero") || text.includes("me interesa") ||
+    text.includes("cómo entro") || text.includes("precio") ||
+    text.includes("comprar") || text.includes("unirme")
+  ) { score += 2; }
 
-  if (
-    text.includes("fundador") || text.includes("miembro") ||
-    text.includes("invitación")
-  ) { score += 3; }
+  if (
+    text.includes("fundador") || text.includes("miembro") ||
+    text.includes("invitación")
+  ) { score += 3; }
 
-  if (text.includes("?")) { score += 1; }
+  if (text.includes("?")) { score += 1; }
 
-  if (
-    text.includes("no gracias") || text.includes("no me interesa")
-  ) { score -= 2; }
+  if (
+    text.includes("no gracias") || text.includes("no me interesa")
+  ) { score -= 2; }
 
-  if (score < 0) score = 0;
-  if (score > 10) score = 10;
+  if (score < 0) score = 0;
+  if (score > 10) score = 10;
 
-  return Math.floor(score); // Siempre retorna un entero
+  return Math.floor(score);
 }
 
 module.exports = {
   
   async getOrCreateUser(identifier, waName, platform = 'whatsapp', avatarUrl = null, handle = null) {
-    let domain = 'wa.koky';
+    // REVISIÓN 1: Unificación absoluta del dominio con el Frontend de Angular
+    let domain = 'koky.food'; 
     if (platform === 'instagram') domain = 'instagram.koky';
     if (platform === 'facebook') domain = 'facebook.koky';
 
@@ -104,468 +105,434 @@ module.exports = {
 
     setImmediate(async () => {
       try {
-   if (body.object === 'whatsapp_business_account') {
-  const entry = body.entry?.[0]?.changes?.[0]?.value;
-  const message = entry?.messages?.[0];
-  const contact = entry?.contacts?.[0];
+        if (body.object === 'whatsapp_business_account') {
+          const entry = body.entry?.[0]?.changes?.[0]?.value;
+          const message = entry?.messages?.[0];
+          const contact = entry?.contacts?.[0];
 
-  if (message) {
-    const phone_number_id = entry.metadata.phone_number_id;
-    const from = message.from;
-    const waName = contact?.profile?.name || "Cliente Koky";
-    const rawText = message.text?.body || message.button?.text || "";
-    const msgText = rawText.toLowerCase().trim();
+          if (message) {
+            const phone_number_id = entry.metadata.phone_number_id;
+            const from = message.from;
+            const waName = contact?.profile?.name || "Cliente Koky";
+            const rawText = message.text?.body || message.button?.text || "";
+            const msgText = rawText.toLowerCase().trim();
 
-    try {
-      let user = await this.getOrCreateUser(from, waName, 'whatsapp');
-      const textoBotonRegistro = "registrarme aquí";
+            try {
+              let user = await this.getOrCreateUser(from, waName, 'whatsapp');
+              const textoBotonRegistro = "registrarme aquí";
 
-      /* =========================
-         REGISTRO FUNDADOR
-      ========================= */
-      if (msgText === textoBotonRegistro && !user.is_founder) {
-        user = await strapi.entityService.update(
-          'plugin::users-permissions.user',
-          user.id,
-          {
-            data: { is_founder: true, whatsapp_id: from },
-          }
-        );
+              // REVISIÓN 2: Forzar activación si viene de la web con el texto del botón de Angular
+              const vieneDeWeb = msgText.includes("acabo de registrarme como miembro fundador de koky desde la web");
 
-        const welcomeMsg =
-          "¡Genial! Ya eres oficialmente Miembro Fundador. ¡Bienvenido a la familia Koky! 🥦";
-
-        await axios({
-          method: "POST",
-          url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-          data: {
-            messaging_product: "whatsapp",
-            to: from,
-            text: { body: welcomeMsg },
-          },
-          headers: {
-            Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-          },
-        });
-
-        await strapi.entityService.create('api::chat.chat', {
-          data: {
-            sender: 'Kira',
-            message: welcomeMsg,
-            timestamp: new Date(),
-            publishedAt: new Date(),
-            users_permissions_user: user.id,
-          },
-        });
-
-        if (strapi['io']) {
-          strapi['io'].emit('new_message', { userId: user.id });
-        }
-
-        return;
-      }
-
-      /* =========================
-         GUARDAR MENSAJE USER
-      ========================= */
-      await strapi.entityService.create('api::chat.chat', {
-        data: {
-          sender: from,
-          message: msgText,
-          timestamp: new Date(),
-          publishedAt: new Date(),
-          users_permissions_user: user.id,
-        },
-      });
-
-      /* =========================
-         SCORE (AQUI ES DONDE DEBE ESTAR)
-      ========================= */
-  const currentScore = Number(user.kira_score?.curiosity) || 0;
-const newScore = calculateScore(msgText, currentScore);
-
-user = await strapi.entityService.update(
-  'plugin::users-permissions.user',
-  user.id,
-  {
-    data: { 
-      kira_score: { 
-        curiosity: Number(newScore),
-        interest: 0,
-        high_intent: 0 
-      } 
-    },
-  }
-);
-
-      const scoreInfo = { total: Number(newScore) };
-      const userScore = Number(newScore);
-
-      /* =========================
-         IA SOLO SI ACTIVA
-      ========================= */
-      if (user.kira_active !== false) {
-        const history = await strapi.entityService.findMany(
-          'api::chat.chat',
-          {
-            filters: { users_permissions_user: { id: user.id } },
-            sort: { timestamp: 'desc' },
-            limit: 6,
-          }
-        );
-
-        const chatContext = history
-          .reverse()
-          .map(
-            (h) =>
-              `${h.sender === from ? 'Cliente' : 'Kira'}: ${h.message}`
-          )
-          .join('\n');
-        const productList = await ProductService.getProductsContext();
-       const fechaLanzamiento = new Date("2026-06-29T00:00:00-05:00");
-        const ahora = new Date();
-        const diff = fechaLanzamiento - ahora;
-        const dias = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const horas = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-       const infoPreventa = `IMPORTANTE: Estamos en preventa de Miembros Fundadores. Quedan exactamente ${dias} días y ${horas} horas para cerrar inscripciones.`;
-        const systemPrompt = KiraPrompts.PROMPT_WA(
-          waName,
-          user.is_founder,
-          chatContext,
-          msgText,
-          scoreInfo,
-          productList,
-          infoPreventa
-        );
-
-        const result = await model.generateContent(systemPrompt);
-        const aiResponse = result.response.text();
-
-        let messageToSave = aiResponse;
-
-        const quiereEntrarYa =
-          msgText.includes("fundador") ||
-          msgText.includes("registrar") ||
-          msgText.includes("miembro") ||
-          msgText.includes("invitación") ||
-          msgText.includes("unirme");
-
-        const kiraInvita =
-          aiResponse.toLowerCase().includes("invit") ||
-          aiResponse.toLowerCase().includes("video") ||
-          aiResponse.toLowerCase().includes("fundador");
-
-        /* =========================
-           DECISION DE ENVIO
-        ========================= */
-        if (!user.is_founder && (quiereEntrarYa || kiraInvita || userScore >= 8)) {
-          messageToSave =
-            "📋 [Invitación enviada: Plantilla de Miembro Fundador]";
-
-          await axios({
-            method: "POST",
-            url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-            data: {
-              messaging_product: "whatsapp",
-              to: from,
-              type: "template",
-              template: {
-                name: "invitation",
-                language: { code: "es" },
-                components: [
+              /* =========================
+                 REGISTRO/VERIFICACIÓN FUNDADOR
+              ========================= */
+              if ((msgText === textoBotonRegistro || vieneDeWeb) && !user.is_founder) {
+                user = await strapi.entityService.update(
+                  'plugin::users-permissions.user',
+                  user.id,
                   {
-                    type: "header",
-                    parameters: [
-                      {
-                        type: "video",
-                        video: {
-                          link:
-                            "https://storage.googleapis.com/koky_food/KiraInvitation2.5.mp4",
-                        },
-                      },
-                    ],
+                    data: { is_founder: true, whatsapp_id: from },
+                  }
+                );
+
+                const welcomeMsg = `¡Genial! Ya eres oficialmente Miembro Fundador. ¡Bienvenido a la familia Koky! 🥦`;
+
+                await axios({
+                  method: "POST",
+                  url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+                  data: {
+                    messaging_product: "whatsapp",
+                    to: from,
+                    text: { body: welcomeMsg },
                   },
-                ],
+                  headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
+                });
+
+                await strapi.entityService.create('api::chat.chat', {
+                  data: {
+                    sender: 'Kira',
+                    message: welcomeMsg,
+                    timestamp: new Date(),
+                    publishedAt: new Date(),
+                    users_permissions_user: user.id,
+                  },
+                });
+
+                if (strapi['io']) {
+                  strapi['io'].emit('new_message', { userId: user.id });
+                }
+                return;
+              }
+
+              /* =========================
+                 GUARDAR MENSAJE USER
+              ========================= */
+              await strapi.entityService.create('api::chat.chat', {
+                data: {
+                  sender: from,
+                  message: rawText, // Guardamos texto original respetando mayúsculas
+                  timestamp: new Date(),
+                  publishedAt: new Date(),
+                  users_permissions_user: user.id,
+                },
+              });
+
+              /* =========================
+                 SCORE (PROTEGIENDO OTROS CAMPOS)
+              ========================= */
+              const currentScore = Number(user.kira_score?.curiosity) || 0;
+              const newScore = calculateScore(msgText, currentScore);
+
+              user = await strapi.entityService.update(
+                'plugin::users-permissions.user',
+                user.id,
+                {
+                  data: { 
+                    kira_score: { 
+                      ...user.kira_score, 
+                      curiosity: Number(newScore)
+                    } 
+                  },
+                }
+              );
+
+              const userScore = Number(newScore);
+              const scoreInfo = { total: userScore };
+
+              /* =========================
+                 IA SOLO SI ACTIVA
+              ========================= */
+              if (user.kira_active !== false) {
+                const history = await strapi.entityService.findMany(
+                  'api::chat.chat',
+                  {
+                    filters: { users_permissions_user: { id: user.id } },
+                    sort: { timestamp: 'desc' },
+                    limit: 6,
+                  }
+                );
+
+                const chatContext = history
+                  .reverse()
+                  .map((h) => `${h.sender === from ? 'Cliente' : 'Kira'}: ${h.message}`)
+                  .join('\n');
+
+                const productList = await ProductService.getProductsContext();
+                
+                // Cálculo de tiempo basado en la fecha actual (Mayo 2026)
+                const fechaLanzamiento = new Date("2026-06-29T00:00:00-05:00");
+                const ahora = new Date();
+                const diff = fechaLanzamiento - ahora;
+                const dias = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const horas = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const infoPreventa = `IMPORTANTE: Estamos en preventa de Miembros Fundadores. Quedan exactamente ${dias} días y ${horas} horas para cerrar inscripciones.`;
+                
+                const systemPrompt = KiraPrompts.PROMPT_WA(
+                  waName,
+                  user.is_founder,
+                  chatContext,
+                  rawText,
+                  scoreInfo,
+                  productList,
+                  infoPreventa
+                );
+
+                const result = await model.generateContent(systemPrompt);
+                const aiResponse = result.response.text();
+
+                let messageToSave = aiResponse;
+
+                const quiereEntrarYa =
+                  msgText.includes("fundador") ||
+                  msgText.includes("registrar") ||
+                  msgText.includes("miembro") ||
+                  msgText.includes("invitación") ||
+                  msgText.includes("unirme");
+
+                const kiraInvita =
+                  aiResponse.toLowerCase().includes("invit") ||
+                  aiResponse.toLowerCase().includes("video") ||
+                  aiResponse.toLowerCase().includes("fundador");
+
+                /* =========================
+                   DECISION DE ENVIO (BLINDADA)
+                ========================= */
+                // REVISIÓN 3: Si el usuario ya es fundador (!user.is_founder es FALSO), jamás entrará aquí.
+                if (!user.is_founder && (quiereEntrarYa || kiraInvita || userScore >= 8)) {
+                  messageToSave = "📋 [Invitación enviada: Plantilla de Miembro Fundador]";
+
+                  await axios({
+                    method: "POST",
+                    url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+                    data: {
+                      messaging_product: "whatsapp",
+                      to: from,
+                      type: "template",
+                      template: {
+                        name: "invitation",
+                        language: { code: "es" },
+                        components: [
+                          {
+                            type: "header",
+                            parameters: [
+                              {
+                                type: "video",
+                                video: { link: "https://storage.googleapis.com/koky_food/KiraInvitation2.5.mp4" },
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                    },
+                    headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
+                  });
+                } else {
+                  // Si ya es fundador, forzamos que mande el texto conversacional fluido generado por Gemini
+                  await axios({
+                    method: "POST",
+                    url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+                    data: {
+                      messaging_product: "whatsapp",
+                      to: from,
+                      text: { body: aiResponse },
+                    },
+                    headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` },
+                  });
+                }
+
+                /* =========================
+                   GUARDAR RESPUESTA KIRA
+                ========================= */
+                await strapi.entityService.create('api::chat.chat', {
+                  data: {
+                    sender: 'Kira',
+                    message: messageToSave,
+                    timestamp: new Date(),
+                    publishedAt: new Date(),
+                    users_permissions_user: user.id,
+                  },
+                });
+
+                if (strapi['io']) {
+                  strapi['io'].emit('new_message', { userId: user.id });
+                }
+              }
+            } catch (error) {
+              console.error("❌ Error WA Internal:", error.message);
+            }
+          }
+        }
+        else if (body.object === 'page' || body.object === 'instagram') {
+          const entry = body.entry?.[0];
+          const messaging = entry?.messaging?.[0];
+
+          if (!messaging || messaging.read || messaging.delivery || messaging.message?.is_echo) return;
+
+          const from = messaging.sender.id;
+          const rawText = messaging.message?.text || messaging.postback?.title || "";
+          const msgText = rawText.toLowerCase().trim();
+
+          try {
+            const plataformaKey = body.object === 'instagram' ? 'instagram' : 'facebook';
+            const profile = await strapi.service('api::whatsapp.whatsapp').getUserProfile(from, plataformaKey);
+
+            let metaName = profile?.name || "Cliente";
+            const metaAvatar = profile?.avatar_url || null;
+            let metaHandle = null;
+
+            if (plataformaKey === 'instagram') {
+              try {
+                const tokenSocial = process.env.MESSENGER_PAGE_TOKEN;
+                const urlUser = `https://graph.facebook.com/v21.0/${from}?fields=username&access_token=${tokenSocial}`;
+                const resUser = await axios.get(urlUser);
+                if (resUser.data?.username) {
+                  metaHandle = `@${resUser.data.username}`;
+                }
+              } catch (e) {
+                console.log("⚠️ No se pudo obtener @handle.");
+              }
+            }
+
+            let user = await this.getOrCreateUser(from, metaName, plataformaKey, metaAvatar, metaHandle);
+            const trimmedText = rawText.trim();
+
+            if (trimmedText.startsWith('+')) {
+              try {
+                const phoneNumber = phoneUtil.parseAndKeepRawInput(trimmedText);
+
+                if (phoneUtil.isValidNumber(phoneNumber)) {
+                  const formattedPhone = phoneUtil.format(phoneNumber, 1);
+
+                  if (!user.is_founder) {
+                    user = await strapi.entityService.update(
+                      'plugin::users-permissions.user',
+                      user.id,
+                      {
+                        data: { is_founder: true, whatsapp_id: formattedPhone },
+                      }
+                    );
+
+                    const confirmMsg = "¡Listo! Ya eres Miembro Fundador de Koky 🎉 ese delivery gratis al mes es tuyo de por vida 👀";
+
+                    await axios.post(
+                      `https://graph.facebook.com/v21.0/me/messages`,
+                      {
+                        recipient: { id: from },
+                        message: { text: confirmMsg },
+                      },
+                      { headers: { Authorization: `Bearer ${process.env.MESSENGER_PAGE_TOKEN}` } }
+                    );
+
+                    await strapi.entityService.create('api::chat.chat', {
+                      data: {
+                        sender: 'Kira',
+                        message: confirmMsg,
+                        timestamp: new Date(),
+                        publishedAt: new Date(),
+                        users_permissions_user: user.id,
+                      },
+                    });
+
+                    if (strapi['io']) {
+                      strapi['io'].emit('new_message', { userId: user.id });
+                    }
+                    return;
+
+                  } else {
+                    const yaEsMiembroMsg = "ese número ya está registrado como Miembro Fundador 🥦 tu delivery gratis ya es tuyo.";
+
+                    await axios.post(
+                      `https://graph.facebook.com/v21.0/me/messages`,
+                      {
+                        recipient: { id: from },
+                        message: { text: yaEsMiembroMsg },
+                      },
+                      { headers: { Authorization: `Bearer ${process.env.MESSENGER_PAGE_TOKEN}` } }
+                    );
+
+                    await strapi.entityService.create('api::chat.chat', {
+                      data: {
+                        sender: 'Kira',
+                        message: yaEsMiembroMsg,
+                        timestamp: new Date(),
+                        publishedAt: new Date(),
+                        users_permissions_user: user.id,
+                      },
+                    });
+
+                    if (strapi['io']) {
+                      strapi['io'].emit('new_message', { userId: user.id });
+                    }
+                    return;
+                  }
+                }
+              } catch (e) {
+                console.log("🚫 Error formato.");
+              }
+            }
+
+            /* =========================
+               GUARDAR MENSAJE USER
+            ========================= */
+            await strapi.entityService.create('api::chat.chat', {
+              data: {
+                sender: from,
+                message: rawText,
+                timestamp: new Date(),
+                publishedAt: new Date(),
+                users_permissions_user: user.id,
               },
-            },
-            headers: {
-              Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-            },
-          });
-        } else {
-          await axios({
-            method: "POST",
-            url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-            data: {
-              messaging_product: "whatsapp",
-              to: from,
-              text: { body: aiResponse },
-            },
-            headers: {
-              Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-            },
-          });
-        }
+            });
 
-        /* =========================
-           GUARDAR RESPUESTA KIRA
-        ========================= */
-        await strapi.entityService.create('api::chat.chat', {
-          data: {
-            sender: 'Kira',
-            message: messageToSave,
-            timestamp: new Date(),
-            publishedAt: new Date(),
-            users_permissions_user: user.id,
-          },
-        });
+            /* =========================
+                SCORE REDES (PROTEGIENDO OTROS CAMPOS)
+            ========================= */
+            const metaScoreActual = Number(user.kira_score?.curiosity) || 0;
+            const metaScoreNuevo = calculateScore(msgText, metaScoreActual);
 
-        /* =========================
-           EMIT SOLO UNA VEZ (IMPORTANTE)
-        ========================= */
-        if (strapi['io']) {
-          strapi['io'].emit('new_message', { userId: user.id });
-        }
-      }
-    } catch (error) {
-      console.error("❌ Error WA Internal:", error.message);
-    }
-  }
-}
-      else if (body.object === 'page' || body.object === 'instagram') {
-  const entry = body.entry?.[0];
-  const messaging = entry?.messaging?.[0];
-
-  if (!messaging || messaging.read || messaging.delivery || messaging.message?.is_echo) return;
-
-  const from = messaging.sender.id;
-  const rawText = messaging.message?.text || messaging.postback?.title || "";
-  const msgText = rawText.toLowerCase().trim();
-
-  try {
-    const plataformaKey = body.object === 'instagram' ? 'instagram' : 'facebook';
-    const profile = await strapi.service('api::whatsapp.whatsapp').getUserProfile(from, plataformaKey);
-
-    let metaName = profile?.name || "Cliente";
-    const metaAvatar = profile?.avatar_url || null;
-    let metaHandle = null;
-
-    if (plataformaKey === 'instagram') {
-      try {
-        const tokenSocial = process.env.MESSENGER_PAGE_TOKEN;
-        const urlUser = `https://graph.facebook.com/v21.0/${from}?fields=username&access_token=${tokenSocial}`;
-        const resUser = await axios.get(urlUser);
-        if (resUser.data?.username) {
-          metaHandle = `@${resUser.data.username}`;
-        }
-      } catch (e) {
-        console.log("⚠️ No se pudo obtener @handle.");
-      }
-    }
-
-    let user = await this.getOrCreateUser(from, metaName, plataformaKey, metaAvatar, metaHandle);
-
-    const trimmedText = rawText.trim();
-
-
-    if (trimmedText.startsWith('+')) {
-      try {
-        const phoneNumber = phoneUtil.parseAndKeepRawInput(trimmedText);
-
-        if (phoneUtil.isValidNumber(phoneNumber)) {
-          const formattedPhone = phoneUtil.format(phoneNumber, 1);
-
-         if (!user.is_founder) {
             user = await strapi.entityService.update(
               'plugin::users-permissions.user',
               user.id,
               {
-                data: { is_founder: true, whatsapp_id: formattedPhone },
-              }
-            );
-
-            const confirmMsg =
-              "¡Listo! Ya eres Miembro Fundador de Koky 🎉 ese delivery gratis al mes es tuyo de por vida 👀";
-
-            await axios.post(
-              `https://graph.facebook.com/v21.0/me/messages`,
-              {
-                recipient: { id: from },
-                message: { text: confirmMsg },
-              },
-              {
-                headers: {
-                  Authorization: `Bearer ${process.env.MESSENGER_PAGE_TOKEN}`,
+                data: { 
+                  kira_score: { 
+                    ...user.kira_score, 
+                    curiosity: Number(metaScoreNuevo)
+                  } 
                 },
               }
             );
 
-            await strapi.entityService.create('api::chat.chat', {
-              data: {
-                sender: 'Kira',
-                message: confirmMsg,
-                timestamp: new Date(),
-                publishedAt: new Date(),
-                users_permissions_user: user.id,
-              },
-            });
+            const userScore = Number(metaScoreNuevo);
+            const scoreInfo = { total: userScore };
 
-            if (strapi['io']) {
-              strapi['io'].emit('new_message', { userId: user.id });
-            }
+            if (user.kira_active !== false) {
+              const history = await strapi.entityService.findMany(
+                'api::chat.chat',
+                {
+                  filters: { users_permissions_user: { id: user.id } },
+                  sort: { timestamp: 'desc' },
+                  limit: 6,
+                }
+              );
 
-            return;
+              const chatContext = history
+                .reverse()
+                .map(h => `${h.sender === from ? 'Cliente' : 'Kira'}: ${h.message}`)
+                .join('\n');
 
-          } else {
+              const productListMeta = await ProductService.getProductsContext();
+              const fechaLanzamientoMeta = new Date("2026-06-29T00:00:00-05:00"); 
+              const ahoraMeta = new Date();
+              const diffMeta = fechaLanzamientoMeta - ahoraMeta;
+              const diasMeta = Math.floor(diffMeta / (1000 * 60 * 60 * 24));
+              const horasMeta = Math.floor((diffMeta % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+              const infoPreventaMeta = `IMPORTANTE: Quedan exactamente ${diasMeta} días y ${horasMeta} horas de preventa.`;
+              
+              const systemPrompt = KiraPrompts.PROMPT_META(
+                user.username,
+                user.is_founder,
+                chatContext,
+                rawText,
+                scoreInfo,
+                productListMeta,
+                infoPreventaMeta
+              );
 
-            const yaEsMiembroMsg = "ese número ya está registrado como Miembro Fundador 🥦 tu delivery gratis ya es tuyo.";
+              const result = await model.generateContent(systemPrompt);
+              const aiResponse = result.response.text();
 
-            await axios.post(
-              `https://graph.facebook.com/v21.0/me/messages`,
-              {
-                recipient: { id: from },
-                message: { text: yaEsMiembroMsg },
-              },
-              {
-                headers: {
-                  Authorization: `Bearer ${process.env.MESSENGER_PAGE_TOKEN}`,
+              await axios.post(
+                `https://graph.facebook.com/v21.0/me/messages`,
+                {
+                  recipient: { id: from },
+                  message: { text: aiResponse },
                 },
+                { headers: { Authorization: `Bearer ${process.env.MESSENGER_PAGE_TOKEN}` } }
+              );
+
+              await strapi.entityService.create('api::chat.chat', {
+                data: {
+                  sender: 'Kira',
+                  message: aiResponse,
+                  timestamp: new Date(),
+                  publishedAt: new Date(),
+                  users_permissions_user: user.id,
+                },
+              });
+
+              if (strapi['io']) {
+                strapi['io'].emit('new_message', { userId: user.id });
               }
-            );
-
-            await strapi.entityService.create('api::chat.chat', {
-              data: {
-                sender: 'Kira',
-                message: yaEsMiembroMsg,
-                timestamp: new Date(),
-                publishedAt: new Date(),
-                users_permissions_user: user.id,
-              },
-            });
-
-            if (strapi['io']) {
-              strapi['io'].emit('new_message', { userId: user.id });
             }
-
-            return;
+          } catch (e) {
+            console.error("❌ Error Proceso Redes:", e.message);
           }
         }
-      } catch (e) {
-        console.log("🚫 Error formato.");
-      }
-    }
-
-    /* =========================
-       GUARDAR MENSAJE USER
-    ========================= */
-    await strapi.entityService.create('api::chat.chat', {
-      data: {
-        sender: from,
-        message: msgText,
-        timestamp: new Date(),
-        publishedAt: new Date(),
-        users_permissions_user: user.id,
-      },
-    });
-
-
-  /* =========================
-        SCORE REDES (CORREGIDO)
-    ========================= */
- const metaScoreActual = Number(user.kira_score?.curiosity) || 0;
-const metaScoreNuevo = calculateScore(msgText, metaScoreActual);
-
-user = await strapi.entityService.update(
-  'plugin::users-permissions.user',
-  user.id,
-  {
-    data: { 
-      kira_score: { 
-        curiosity: Number(metaScoreNuevo),
-        interest: 0,
-        high_intent: 0 
-      } 
-    },
-  }
-);
-
-    // Estas variables son las que Kira necesita
-    const userScore = Number(metaScoreNuevo);
-    const scoreInfo = { total: userScore };
-
-    if (user.kira_active !== false) {
-      const history = await strapi.entityService.findMany(
-        'api::chat.chat',
-        {
-          filters: { users_permissions_user: { id: user.id } },
-          sort: { timestamp: 'desc' },
-          limit: 6,
-        }
-      );
-
-      const chatContext = history
-        .reverse()
-        .map(h =>
-          `${h.sender === from ? 'Cliente' : 'Kira'}: ${h.message}`
-        )
-        .join('\n');
-      const productListMeta = await ProductService.getProductsContext();
-      const fechaLanzamientoMeta = new Date("2026-06-29T05:00:00.000Z");
-      const ahoraMeta = new Date();
-      const diffMeta = fechaLanzamientoMeta - ahoraMeta;
-      const diasMeta = Math.floor(diffMeta / (1000 * 60 * 60 * 24));
-      const horasMeta = Math.floor((diffMeta % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const infoPreventaMeta = `IMPORTANTE: Quedan exactamente ${diasMeta} días y ${horasMeta} horas de preventa.`;
-      const systemPrompt = KiraPrompts.PROMPT_META(
-        user.username,
-        user.is_founder,
-        chatContext,
-        msgText,
-        scoreInfo,
-        productListMeta,
-        infoPreventaMeta
-      );
-
-      const result = await model.generateContent(systemPrompt);
-      const aiResponse = result.response.text();
-
-      await axios.post(
-        `https://graph.facebook.com/v21.0/me/messages`,
-        {
-          recipient: { id: from },
-          message: { text: aiResponse },
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.MESSENGER_PAGE_TOKEN}`,
-          },
-        }
-      );
-
-      await strapi.entityService.create('api::chat.chat', {
-        data: {
-          sender: 'Kira',
-          message: aiResponse,
-          timestamp: new Date(),
-          publishedAt: new Date(),
-          users_permissions_user: user.id,
-        },
-      });
-
-      /* ✅ EMIT LIMPIO (UNA SOLA VEZ) */
-      if (strapi['io']) {
-        strapi['io'].emit('new_message', { userId: user.id });
-      }
-    }
-  } catch (e) {
-    console.error("❌ Error Proceso Redes:", e.message);
-  }
-}
       } catch (globalError) {
         console.error("❌ Error Crítico Webhook:", globalError.message);
       }
     });
   }
-  
-  
 };
