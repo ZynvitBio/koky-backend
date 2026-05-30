@@ -266,6 +266,7 @@ module.exports = {
                 });
 
                 if (strapi['io']) {
+                  console.log("📡 Emitiendo evento al socket para el usuario:", user.id);
                   strapi['io'].emit('new_message', { userId: user.id });
                 }
               }
@@ -350,6 +351,7 @@ module.exports = {
                     });
 
                     if (strapi['io']) {
+                      console.log("📡 Emitiendo evento al socket para el usuario:", user.id);
                       strapi['io'].emit('new_message', { userId: user.id });
                     }
                     return;
@@ -377,6 +379,7 @@ module.exports = {
                     });
 
                     if (strapi['io']) {
+                      console.log("📡 Emitiendo evento al socket para el usuario:", user.id);
                       strapi['io'].emit('new_message', { userId: user.id });
                     }
                     return;
@@ -472,6 +475,7 @@ module.exports = {
               });
 
               if (strapi['io']) {
+                console.log("📡 Emitiendo evento al socket para el usuario:", user.id);
                 strapi['io'].emit('new_message', { userId: user.id });
               }
             }
