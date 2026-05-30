@@ -99,6 +99,7 @@ module.exports = {
   
   async receive(ctx) {
     const body = ctx.request.body;
+    console.log("📥 Recibiendo webhook en backend...");
     ctx.status = 200;
     ctx.body = 'EVENT_RECEIVED';
 
