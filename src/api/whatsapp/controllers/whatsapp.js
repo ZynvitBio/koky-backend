@@ -114,13 +114,13 @@ module.exports = {
           const contact = entry?.contacts?.[0];
 
           if (message) {
-            console.log("🔍 Procesando mensaje de:", from);
+         
             const phone_number_id = entry.metadata.phone_number_id;
             const from = message.from;
             const waName = contact?.profile?.name || "Cliente Koky";
             const rawText = message.text?.body || message.button?.text || "";
             const msgText = rawText.toLowerCase().trim();
-
+    console.log("🔍 Procesando mensaje de:", phone_number_id);
             try {
               let user = await this.getOrCreateUser(from, waName, 'whatsapp');
               const textoBotonRegistro = "registrarme aquí";
@@ -332,7 +332,7 @@ module.exports = {
                     );
 
                     const confirmMsg = "¡Listo! Ya eres Miembro Fundador de Koky 🎉 ese delivery gratis al mes es tuyo de por vida 👀";
-console.log("📊 Estado de Kira para este usuario:", user.kira_active);
+
                     await axios.post(
                       `https://graph.facebook.com/v21.0/me/messages`,
                       {
@@ -343,7 +343,6 @@ console.log("📊 Estado de Kira para este usuario:", user.kira_active);
                     );
 
                     await strapi.entityService.create('api::chat.chat', {
-                      
                       data: {
                         sender: 'Kira',
                         message: confirmMsg,
@@ -351,7 +350,7 @@ console.log("📊 Estado de Kira para este usuario:", user.kira_active);
                         publishedAt: new Date(),
                         users_permissions_user: user.id,
                       },
-                    });console.log("✅ Mensaje guardado en BD, intentando emitir...");
+                    });
 
                     if (strapi['io']) {
                       console.log("📡 Emitiendo evento al socket para el usuario:", user.id);
