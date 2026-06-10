@@ -216,7 +216,7 @@ module.exports = {
                   aiResponse.toLowerCase().includes("video") ||
                   aiResponse.toLowerCase().includes("fundador");
 
-                if (!user.is_founder && (quierreEntrarYa || kiraInvita || userScore >= 8)) {
+                if (!user.is_founder && (quiereEntrarYa || kiraInvita || userScore >= 8)) {
                   messageToSave = "📋 [Invitación enviada: Plantilla de Miembro Fundador]";
 
                   await axios({
