@@ -217,6 +217,20 @@ module.exports = {
                   aiResponse.toLowerCase().includes("fundador");
 
                 if (!user.is_founder && (quiereEntrarYa || kiraInvita || userScore >= 8)) {
+
+                  const ultimaInvitacion = await strapi.entityService.findMany('api::chat.chat', {
+    filters: { 
+      users_permissions_user: { id: user.id },
+      message: { $contains: '[Invitación enviada:' }
+    },
+    sort: { timestamp: 'desc' },
+    limit: 1
+  });
+
+  if (ultimaInvitacion.length > 0) {
+    console.log("⚠️ Invitación ya enviada anteriormente, bloqueando envío duplicado.");
+    return; // Detiene la ejecución aquí para que no envíe nada
+  }
                   messageToSave = "📋 [Invitación enviada: Plantilla de Miembro Fundador]";
 
                   await axios({
