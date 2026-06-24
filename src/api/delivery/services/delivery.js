@@ -37,11 +37,9 @@ module.exports = {
   },
 
   async createShipment(parcelData) {
-    // 1. Primero obtenemos el token llamando a la función de arriba
     const auth = await this.testConnection();
     if (!auth.success) throw new Error("No se pudo autenticar con Cabify");
 
-    // 2. Realizamos la creación del envío
     try {
       const response = await axios.post(
         "https://logistics.api.cabify.com/v1/shipments",
@@ -55,11 +53,12 @@ module.exports = {
       );
       return response.data;
     } catch (error) {
-      console.error(
-        "Error creando envío:",
-        error.response?.data || error.message,
-      );
-      throw error;
+      // Esto capturará el detalle del error (404, 400, etc.)
+      const errorMsg = error.response
+        ? JSON.stringify(error.response.data)
+        : error.message;
+      console.error("Error detallado de Cabify:", errorMsg);
+      throw new Error(errorMsg);
     }
   },
 
