@@ -29,20 +29,12 @@ module.exports = {
   },
   async testEstimate(ctx) {
     try {
-      const mockEstimate = {
-        parcels: [
-          {
-            pickup_info: { addr: "Calle de Pradillo, 42, Madrid" },
-            dropoff_info: { addr: "Calle de Alcalá, 100, Madrid" },
-          },
-        ],
-      };
-      const result = await strapi
-        .service("api::delivery.delivery")
-        .getEstimate(mockEstimate);
-      ctx.body = result;
+      // Usamos el servicio que modificamos con el testMyParcel
+      const resultado = await strapi
+        .service("api::tu-api.delivery")
+        .testMyParcel();
+      ctx.body = { success: true, data: resultado };
     } catch (err) {
-      ctx.status = 500;
       ctx.body = { success: false, error: err.message };
     }
   },
