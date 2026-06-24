@@ -1,29 +1,34 @@
 // @ts-nocheck
 "use strict";
 const axios = require("axios");
+const qs = require("qs"); // Asegúrate de tener instalado qs: npm install qs
 
 module.exports = {
   async testConnection() {
     try {
-      // Usamos el endpoint indicado en la documentación oficial
+      // URL de producción según la documentación
       const url = "https://cabify.com/auth/api/authorization";
 
-      // Construimos el encabezado de autenticación Basic
-      const auth = Buffer.from(
-        `${process.env.CABIFY_CLIENT_ID}:${process.env.CABIFY_CLIENT_SECRET}`,
-      ).toString("base64");
+      // La documentación exige este formato específico en el cuerpo de la petición
+      const data = {
+        grant_type: "client_credentials",
+        client_id: process.env.CABIFY_CLIENT_ID,
+        client_secret: process.env.CABIFY_CLIENT_SECRET,
+      };
 
-      const response = await axios.post(url, "grant_type=client_credentials", {
+      const response = await axios({
+        method: "post",
+        url: url,
+        data: qs.stringify(data), // Convierte el objeto a "key=value&key=value"
         headers: {
-          Authorization: `Basic ${auth}`,
           "Content-Type": "application/x-www-form-urlencoded",
         },
       });
 
       return {
         success: true,
-        message: "¡Hermes conectado con éxito!",
-        token: response.data.access_token.substring(0, 8) + "...",
+        message: "¡Conectado exitosamente!",
+        token: response.data.access_token.substring(0, 10) + "...",
       };
     } catch (err) {
       return {
