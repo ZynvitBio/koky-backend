@@ -40,25 +40,27 @@ module.exports = {
     const auth = await this.testConnection();
     if (!auth.success) throw new Error("No se pudo autenticar con Cabify");
 
+    // Ajustamos parcelData para envolverlo en la estructura { parcels: [...] } que pide la API
+    const payload = {
+      parcels: [parcelData],
+    };
+
     try {
       const response = await axios.post(
-        "https://logistics.api.cabify.com/v1/shipments",
-        parcelData,
+        "https://logistics.api.cabify-sandbox.com/v1/parcels",
+        payload, // Enviamos el objeto con el array
         {
           headers: {
             Authorization: `Bearer ${auth.token}`,
             "Content-Type": "application/json",
+            Accept: "application/json",
           },
         },
       );
       return response.data;
     } catch (error) {
-      // Esto capturará el detalle del error (404, 400, etc.)
-      const errorMsg = error.response
-        ? JSON.stringify(error.response.data)
-        : error.message;
-      console.error("Error detallado de Cabify:", errorMsg);
-      throw new Error(errorMsg);
+      // El error ahora será mucho más preciso gracias a la validación de la API
+      throw new Error(JSON.stringify(error.response?.data || error.message));
     }
   },
 
