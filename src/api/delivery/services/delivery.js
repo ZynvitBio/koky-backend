@@ -7,7 +7,7 @@ module.exports = {
     try {
       const response = await axios({
         method: "post",
-        url: "https://api.cabify.com/v1/oauth/token",
+        url: "https://api-logistics.cabify.com/v1/oauth/token",
         headers: {
           "Content-Type": "application/json",
         },
