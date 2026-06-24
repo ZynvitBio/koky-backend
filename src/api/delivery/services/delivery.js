@@ -81,4 +81,25 @@ module.exports = {
       return { success: false, error: err.message };
     }
   },
+  async getEstimate(estimateData) {
+    const auth = await this.testConnection();
+    if (!auth.success) throw new Error("No se pudo autenticar");
+
+    try {
+      const response = await axios.post(
+        "https://logistics.api.cabify-sandbox.com/v1/estimates",
+        estimateData, // Aquí envías el pickup_info y dropoff_info
+        {
+          headers: {
+            Authorization: `Bearer ${auth.token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        },
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(JSON.stringify(error.response?.data || error.message));
+    }
+  },
 };
