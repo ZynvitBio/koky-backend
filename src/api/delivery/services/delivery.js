@@ -82,23 +82,22 @@ module.exports = {
     }
   },
   async getEstimate(estimateData) {
+    // Probamos la combinación del subdominio correcto con el endpoint de estimación
+    const url = "https://logistics.api.cabify-sandbox.com/v1/estimates";
+
     const auth = await this.testConnection();
     if (!auth.success) throw new Error("No se pudo autenticar");
 
     try {
-      const response = await axios.post(
-        "https://logistics.api.cabify-sandbox.com/v1/estimates",
-        estimateData, // Aquí envías el pickup_info y dropoff_info
-        {
-          headers: {
-            Authorization: `Bearer ${auth.token}`,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
+      const response = await axios.post(url, estimateData, {
+        headers: {
+          Authorization: `Bearer ${auth.token}`,
+          "Content-Type": "application/json",
         },
-      );
+      });
       return response.data;
     } catch (error) {
+      // Si sigue dando 404, significa que el endpoint es diferente.
       throw new Error(JSON.stringify(error.response?.data || error.message));
     }
   },
