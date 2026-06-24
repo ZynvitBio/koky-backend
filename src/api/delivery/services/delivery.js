@@ -78,19 +78,27 @@ module.exports = {
   },
   async getPriceEstimate(parcelData) {
     const auth = await this.testConnection();
-
-    // 1. Automatizamos la búsqueda del ID:
-    // Usamos las coordenadas del pickup_location que vienen en parcelData
     const lat = parcelData.pickup_location.lat;
     const lon = parcelData.pickup_location.lon;
 
-    // Obtenemos los tipos disponibles automáticamente
+    // 1. Llamada a tipos disponibles
     const typesResponse = await axios.get(
       `https://logistics.api.cabify.com/v1/shipping_types/available?location=${lat},${lon}`,
       { headers: { Authorization: `Bearer ${auth.token}` } },
     );
 
-    // Seleccionamos el primer ID disponible (usualmente el Express)
+    // DEBUG: Si no hay tipos, lanza el error con toda la respuesta para ver qué pasa
+    if (
+      !typesResponse.data ||
+      !typesResponse.data.shipping_types ||
+      typesResponse.data.shipping_types.length === 0
+    ) {
+      throw new Error(
+        "No hay tipos de envío disponibles. Respuesta completa: " +
+          JSON.stringify(typesResponse.data),
+      );
+    }
+
     const shippingTypeId = typesResponse.data.shipping_types[0].id;
 
     // 2. Ahora lanzamos la estimación con ese ID automático
