@@ -2,7 +2,7 @@
 "use strict";
 
 module.exports = {
-  // Función que ya tenías para probar la conexión
+  // Esta es la función que te está dando error
   async testConnection(ctx) {
     try {
       const result = await strapi
@@ -15,7 +15,19 @@ module.exports = {
     }
   },
 
-  // Nueva función para probar la creación de un envío
+  // La que vamos a probar
+  async testEstimate(ctx) {
+    try {
+      const resultado = await strapi
+        .service("api::delivery.delivery")
+        .testMyParcel(); // Asegurado con el nombre correcto del servicio
+      ctx.body = { success: true, data: resultado };
+    } catch (err) {
+      ctx.body = { success: false, error: err.message };
+    }
+  },
+
+  // Agrega también testCreateShipment si lo necesitas
   async testCreateShipment(ctx) {
     try {
       const result = await strapi
@@ -24,17 +36,6 @@ module.exports = {
       ctx.body = result;
     } catch (err) {
       ctx.status = 500;
-      ctx.body = { success: false, error: err.message };
-    }
-  },
-  async testEstimate(ctx) {
-    try {
-      // Usamos el servicio que modificamos con el testMyParcel
-      const resultado = await strapi
-        .service("api::tu-api.delivery")
-        .testMyParcel();
-      ctx.body = { success: true, data: resultado };
-    } catch (err) {
       ctx.body = { success: false, error: err.message };
     }
   },
