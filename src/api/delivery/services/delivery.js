@@ -5,28 +5,30 @@ const axios = require("axios");
 module.exports = {
   async testConnection() {
     try {
-      const response = await axios({
-        method: "post",
-        url: "https://api-logistics.cabify.com/v1/oauth/token",
-        headers: {
-          "Content-Type": "application/json",
+      // Según la doc: https://cabify.com/auth/api/authorization
+      const response = await axios.post(
+        "https://cabify.com/auth/api/authorization",
+        "grant_type=client_credentials&client_id=" +
+          process.env.CABIFY_CLIENT_ID +
+          "&client_secret=" +
+          process.env.CABIFY_CLIENT_SECRET,
+        {
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
         },
-        data: {
-          grant_type: "client_credentials",
-          client_id: process.env.CABIFY_CLIENT_ID,
-          client_secret: process.env.CABIFY_CLIENT_SECRET,
-        },
-      });
+      );
 
       return {
         success: true,
-        message: "Conexión exitosa",
-        token: response.data.access_token.substring(0, 8) + "...",
+        message: "¡Hermes conectado con éxito!",
+        token: response.data.access_token.substring(0, 10) + "...",
       };
     } catch (err) {
       return {
         success: false,
         error: err.response?.data || err.message,
+        url_used: "https://cabify.com/auth/api/authorization",
       };
     }
   },
