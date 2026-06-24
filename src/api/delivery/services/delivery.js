@@ -49,16 +49,28 @@ module.exports = {
     const payload = { parcels: [parcelData] };
 
     try {
-      const response = await axios.post(`${API_BASE}/parcels`, payload, {
-        headers: {
-          Authorization: `Bearer ${auth.token}`,
-          "Content-Type": "application/json",
+      const response = await axios.post(
+        `https://logistics.api.cabify.com/v3/parcels/estimate`,
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${auth.token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
         },
-      });
-      // Esta respuesta DEBERÍA traer el precio final consolidado
+      );
       return response.data;
     } catch (error) {
-      throw new Error(JSON.stringify(error.response?.data || error.message));
+      // ESTO ES LO QUE NECESITO VER PARA ARREGLARLO
+      console.error(
+        "Error completo de Cabify:",
+        JSON.stringify(error.response?.data, null, 2),
+      );
+      throw new Error(
+        "Detalle del error: " +
+          JSON.stringify(error.response?.data?.errors || error.message),
+      );
     }
   },
   async testMyParcel() {
