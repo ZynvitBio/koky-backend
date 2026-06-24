@@ -76,4 +76,35 @@ module.exports = {
     );
     return response.data;
   },
+  async getPriceEstimate(parcelData) {
+    const auth = await this.testConnection();
+
+    // Según tu documentación, este es el endpoint de estimación
+    // Debes enviar la estructura que pide la API (ver ejemplo en tu doc)
+    const payload = {
+      deliveries: [
+        {
+          parcels: [parcelData],
+        },
+      ],
+    };
+
+    try {
+      const response = await axios.post(
+        `https://logistics.api.cabify.com/v3/parcels/estimate`,
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${auth.token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        },
+      );
+      // AQUÍ vendrá el precio estimado en la respuesta
+      return response.data;
+    } catch (error) {
+      throw new Error(JSON.stringify(error.response?.data || error.message));
+    }
+  },
 };
