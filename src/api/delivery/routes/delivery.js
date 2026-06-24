@@ -5,10 +5,20 @@ module.exports = {
   routes: [
     {
       method: "GET",
-      path: "/delivery/test-cabify", // Esta es la URL que escribirás en el navegador
-      handler: "delivery.testConnection", // Nombre del controlador.método
+      path: "/delivery/test-cabify",
+      handler: "delivery.testConnection",
       config: {
-        auth: false, // Permitir acceso sin token para probar rápido
+        auth: false,
+        policies: [],
+        middlewares: [],
+      },
+    },
+    {
+      method: "GET",
+      path: "/delivery/test-create-shipment",
+      handler: "delivery.testCreateShipment",
+      config: {
+        auth: false,
         policies: [],
         middlewares: [],
       },

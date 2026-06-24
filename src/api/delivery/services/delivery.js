@@ -1,15 +1,12 @@
 // @ts-nocheck
 "use strict";
 const axios = require("axios");
-const qs = require("qs"); // Asegúrate de tener instalado qs: npm install qs
+const qs = require("qs");
 
 module.exports = {
   async testConnection() {
     try {
-      // URL de producción según la documentación
       const url = "https://cabify.com/auth/api/authorization";
-
-      // La documentación exige este formato específico en el cuerpo de la petición
       const data = {
         grant_type: "client_credentials",
         client_id: process.env.CABIFY_CLIENT_ID,
@@ -19,7 +16,7 @@ module.exports = {
       const response = await axios({
         method: "post",
         url: url,
-        data: qs.stringify(data), // Convierte el objeto a "key=value&key=value"
+        data: qs.stringify(data),
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
@@ -28,7 +25,7 @@ module.exports = {
       return {
         success: true,
         message: "¡Conectado exitosamente!",
-        token: response.data.access_token.substring(0, 10) + "...",
+        token: response.data.access_token, // Guardamos el token completo aquí
       };
     } catch (err) {
       return {
@@ -36,6 +33,51 @@ module.exports = {
         error: err.response?.data || err.message,
         tried: "https://cabify.com/auth/api/authorization",
       };
+    }
+  },
+
+  async createShipment(parcelData) {
+    // 1. Primero obtenemos el token llamando a la función de arriba
+    const auth = await this.testConnection();
+    if (!auth.success) throw new Error("No se pudo autenticar con Cabify");
+
+    // 2. Realizamos la creación del envío
+    try {
+      const response = await axios.post(
+        "https://logistics.api.cabify.com/v1/shipments",
+        parcelData,
+        {
+          headers: {
+            Authorization: `Bearer ${auth.token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      return response.data;
+    } catch (error) {
+      console.error(
+        "Error creando envío:",
+        error.response?.data || error.message,
+      );
+      throw error;
+    }
+  },
+
+  async testCreateShipment() {
+    const mockParcel = {
+      shipment: {
+        pickup_address: "Calle 93 # 12-10, Bogotá",
+        dropoff_address: "Carrera 15 # 90-20, Bogotá",
+        contact_name: "Cliente de Prueba",
+        contact_phone: "+573000000000",
+      },
+    };
+
+    try {
+      const result = await this.createShipment(mockParcel);
+      return { success: true, data: result };
+    } catch (err) {
+      return { success: false, error: err.message };
     }
   },
 };
