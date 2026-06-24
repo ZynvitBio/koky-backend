@@ -81,27 +81,29 @@ module.exports = {
     const lat = parcelData.pickup_location.lat;
     const lon = parcelData.pickup_location.lon;
 
-    // 1. Llamada a tipos disponibles
+    // 1. Obtener tipos de envío disponibles para la ubicación
     const typesResponse = await axios.get(
       `https://logistics.api.cabify.com/v1/shipping_types/available?location=${lat},${lon}`,
       { headers: { Authorization: `Bearer ${auth.token}` } },
     );
 
-    // DEBUG: Si no hay tipos, lanza el error con toda la respuesta para ver qué pasa
-    if (
-      !typesResponse.data ||
-      !typesResponse.data.shipping_types ||
-      typesResponse.data.shipping_types.length === 0
-    ) {
+    const shippingTypes = typesResponse.data.available_shipping_types;
+
+    // Validación de seguridad: buscamos el ID del servicio "express"
+    const expressType = shippingTypes
+      ? shippingTypes.find((t) => t.modality === "express")
+      : null;
+
+    if (!expressType) {
       throw new Error(
-        "No hay tipos de envío disponibles. Respuesta completa: " +
+        "No se encontró un tipo de envío 'express' disponible. Respuesta de la API: " +
           JSON.stringify(typesResponse.data),
       );
     }
 
-    const shippingTypeId = typesResponse.data.shipping_types[0].id;
+    const shippingTypeId = expressType.id;
 
-    // 2. Ahora lanzamos la estimación con ese ID automático
+    // 2. Ejecutar la estimación con el ID del servicio express
     const payload = {
       shipping_type_id: shippingTypeId,
       deliveries: [
