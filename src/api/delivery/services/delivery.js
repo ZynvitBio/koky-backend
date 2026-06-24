@@ -79,9 +79,23 @@ module.exports = {
   async getPriceEstimate(parcelData) {
     const auth = await this.testConnection();
 
-    // Según tu documentación, este es el endpoint de estimación
-    // Debes enviar la estructura que pide la API (ver ejemplo en tu doc)
+    // 1. Automatizamos la búsqueda del ID:
+    // Usamos las coordenadas del pickup_location que vienen en parcelData
+    const lat = parcelData.pickup_location.lat;
+    const lon = parcelData.pickup_location.lon;
+
+    // Obtenemos los tipos disponibles automáticamente
+    const typesResponse = await axios.get(
+      `https://logistics.api.cabify.com/v1/shipping_types/available?location=${lat},${lon}`,
+      { headers: { Authorization: `Bearer ${auth.token}` } },
+    );
+
+    // Seleccionamos el primer ID disponible (usualmente el Express)
+    const shippingTypeId = typesResponse.data.shipping_types[0].id;
+
+    // 2. Ahora lanzamos la estimación con ese ID automático
     const payload = {
+      shipping_type_id: shippingTypeId,
       deliveries: [
         {
           parcels: [parcelData],
@@ -89,22 +103,18 @@ module.exports = {
       ],
     };
 
-    try {
-      const response = await axios.post(
-        `https://logistics.api.cabify.com/v3/parcels/estimate`,
-        payload,
-        {
-          headers: {
-            Authorization: `Bearer ${auth.token}`,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
+    const response = await axios.post(
+      `https://logistics.api.cabify.com/v3/parcels/estimate`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${auth.token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
         },
-      );
-      // AQUÍ vendrá el precio estimado en la respuesta
-      return response.data;
-    } catch (error) {
-      throw new Error(JSON.stringify(error.response?.data || error.message));
-    }
+      },
+    );
+
+    return response.data;
   },
 };
