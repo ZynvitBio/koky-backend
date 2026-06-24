@@ -5,15 +5,24 @@ const axios = require("axios");
 module.exports = {
   async testConnection() {
     try {
-      // Usamos la URL que SÍ respondió (cabify.com) pero cambiamos el formato de envío
-      // A veces, aunque la doc diga body, requieren que se pase como parámetros de URL
-      const url = `https://cabify.com/auth/api/authorization?grant_type=client_credentials&client_id=${process.env.CABIFY_CLIENT_ID}&client_secret=${process.env.CABIFY_CLIENT_SECRET}`;
+      // Usamos el endpoint indicado en la documentación oficial
+      const url = "https://cabify.com/auth/api/authorization";
 
-      const response = await axios.post(url);
+      // Construimos el encabezado de autenticación Basic
+      const auth = Buffer.from(
+        `${process.env.CABIFY_CLIENT_ID}:${process.env.CABIFY_CLIENT_SECRET}`,
+      ).toString("base64");
+
+      const response = await axios.post(url, "grant_type=client_credentials", {
+        headers: {
+          Authorization: `Basic ${auth}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      });
 
       return {
         success: true,
-        message: "¡Hermes conectado!",
+        message: "¡Hermes conectado con éxito!",
         token: response.data.access_token.substring(0, 8) + "...",
       };
     } catch (err) {
