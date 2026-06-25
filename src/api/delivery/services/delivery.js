@@ -103,18 +103,24 @@ module.exports = {
 
     // 2. Preparar el payload estrictamente como lo pide la API v3
     const payload = {
-      shipping_type_id: expressType.id,
-      deliveries: [
+      parcels: [
         {
-          // Probemos cambiando 'parcels' por 'parcel'
-          parcel: {
-            pickup_location: parcelData.pickup_location,
-            dropoff_location: parcelData.dropoff_location,
-            dimensions: parcelData.dimensions,
-            weight: parcelData.weight,
+          external_id: parcelData.external_id || "parcel_001",
+          pickup_location: {
+            lat: parcelData.pickup_location.lat,
+            lon: parcelData.pickup_location.lon,
           },
+          dropoff_location: {
+            lat: parcelData.dropoff_location.lat,
+            lon: parcelData.dropoff_location.lon,
+          },
+          dimensions: parcelData.dimensions,
+          weight: parcelData.weight,
         },
       ],
+      shipping_type_id: expressType.id,
+      // Si la API lo requiere, puedes añadir el pickup_time aquí:
+      pickup_time: new Date().toISOString(),
     };
 
     // 3. Ejecutar estimación con el detector de errores que querías
