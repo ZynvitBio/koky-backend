@@ -100,7 +100,7 @@ module.exports = {
           JSON.stringify(typesResponse.data),
       );
     }
-
+    const futureTime = new Date(Date.now() + 30 * 60000).toISOString();
     // 2. Preparar el payload estrictamente como lo pide la API v3
     const payload = {
       parcels: [
@@ -120,9 +120,9 @@ module.exports = {
       ],
       shipping_type_id: expressType.id,
       // Si la API lo requiere, puedes añadir el pickup_time aquí:
-      pickup_time: new Date().toISOString(),
+      pickup_time: futureTime,
     };
-
+    console.log("PAYLOAD FINAL ENVIADO A CABIFY:", JSON.stringify(payload));
     // 3. Ejecutar estimación con el detector de errores que querías
     try {
       const response = await axios.post(
