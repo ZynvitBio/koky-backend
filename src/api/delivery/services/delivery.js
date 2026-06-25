@@ -49,28 +49,16 @@ module.exports = {
     const payload = { parcels: [parcelData] };
 
     try {
-      const response = await axios.post(
-        `https://logistics.api.cabify.com/v3/parcels/estimate`,
-        payload,
-        {
-          headers: {
-            Authorization: `Bearer ${auth.token}`,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
+      const response = await axios.post(`${API_BASE}/parcels`, payload, {
+        headers: {
+          Authorization: `Bearer ${auth.token}`,
+          "Content-Type": "application/json",
         },
-      );
+      });
+      // Esta respuesta DEBERÍA traer el precio final consolidado
       return response.data;
     } catch (error) {
-      // ESTO ES LO QUE NECESITO VER PARA ARREGLARLO
-      console.error(
-        "Error completo de Cabify:",
-        JSON.stringify(error.response?.data, null, 2),
-      );
-      throw new Error(
-        "Detalle del error: " +
-          JSON.stringify(error.response?.data?.errors || error.message),
-      );
+      throw new Error(JSON.stringify(error.response?.data || error.message));
     }
   },
   async testMyParcel() {
@@ -90,34 +78,32 @@ module.exports = {
   },
   async getPriceEstimate(parcelData) {
     const auth = await this.testConnection();
+
+    // Obtenemos coordenadas para buscar tipos disponibles
     const lat = parcelData.pickup_location.lat;
     const lon = parcelData.pickup_location.lon;
 
-    // 1. Obtener tipos de envío disponibles para la ubicación
+    // 1. Obtener tipos de envío
     const typesResponse = await axios.get(
       `https://logistics.api.cabify.com/v1/shipping_types/available?location=${lat},${lon}`,
       { headers: { Authorization: `Bearer ${auth.token}` } },
     );
 
     const shippingTypes = typesResponse.data.available_shipping_types;
-
-    // Validación de seguridad: buscamos el ID del servicio "express"
     const expressType = shippingTypes
       ? shippingTypes.find((t) => t.modality === "express")
       : null;
 
     if (!expressType) {
       throw new Error(
-        "No se encontró un tipo de envío 'express' disponible. Respuesta de la API: " +
+        "No se encontró tipo 'express'. Respuesta: " +
           JSON.stringify(typesResponse.data),
       );
     }
 
-    const shippingTypeId = expressType.id;
-
-    // 2. Ejecutar la estimación con el ID del servicio express
+    // 2. Preparar el payload estrictamente como lo pide la API v3
     const payload = {
-      shipping_type_id: shippingTypeId,
+      shipping_type_id: expressType.id,
       deliveries: [
         {
           parcels: [parcelData],
@@ -125,18 +111,29 @@ module.exports = {
       ],
     };
 
-    const response = await axios.post(
-      `https://logistics.api.cabify.com/v3/parcels/estimate`,
-      payload,
-      {
-        headers: {
-          Authorization: `Bearer ${auth.token}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
+    // 3. Ejecutar estimación con el detector de errores que querías
+    try {
+      const response = await axios.post(
+        `https://logistics.api.cabify.com/v3/parcels/estimate`,
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${auth.token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
         },
-      },
-    );
-
-    return response.data;
+      );
+      return response.data;
+    } catch (error) {
+      if (error.response) {
+        // Aquí capturamos el JSON real del error de Cabify
+        const detailedError = JSON.stringify(error.response.data);
+        console.error("Error detallado de Cabify:", detailedError);
+        throw new Error(detailedError);
+      } else {
+        throw new Error(error.message);
+      }
+    }
   },
 };
