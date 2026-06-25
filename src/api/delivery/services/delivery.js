@@ -77,70 +77,52 @@ module.exports = {
     return response.data;
   },
   async getPriceEstimate(parcelData) {
+    // 1. Obtener tipos de envío para la zona de Bogotá
     const auth = await this.testConnection();
 
-    // 1. Obtener tipos de envío
+    // Coordenadas reales dentro de Bogotá
+    const pickup = { lat: 4.6097, lon: -74.0817 }; // Cerca del centro
+    const dropoff = { lat: 4.628, lon: -74.065 }; // Unos km al norte
+
     const typesResponse = await axios.get(
-      `https://logistics.api.cabify.com/v1/shipping_types/available?location=${parcelData.pickup_location.lat},${parcelData.pickup_location.lon}`,
+      `https://logistics.api.cabify.com/v1/shipping_types/available?location=${pickup.lat},${pickup.lon}`,
       { headers: { Authorization: `Bearer ${auth.token}` } },
     );
 
-    const shippingTypes = typesResponse.data.available_shipping_types;
+    const expressType = typesResponse.data.available_shipping_types?.find(
+      (t) => t.modality === "express",
+    );
+    if (!expressType) throw new Error("No hay modalidad express en esta zona.");
 
-    // FILTRO ESTRICTO: Buscamos el ID que sea modalidad 'express'
-    const expressType = shippingTypes
-      ? shippingTypes.find((t) => t.modality === "express")
-      : null;
-
-    if (!expressType) {
-      throw new Error(
-        "No se encontró tipo 'express'. IDs disponibles: " +
-          JSON.stringify(shippingTypes),
-      );
-    }
-
-    // 2. FORZAR DESTINO A 1KM DE DISTANCIA (aprox. 0.01 grados de latitud)
-    const pickup = { lat: 4.7053, lon: -74.0688 };
-    const dropoff = { lat: 4.7153, lon: -74.0788 };
-
+    // 2. Payload con coordenadas de Bogotá
     const payload = {
       parcels: [
         {
           external_id: "parcel_" + Date.now(),
           pickup_location: pickup,
           dropoff_location: dropoff,
-          dimensions: { height: 20, length: 20, width: 20, unit: "cm" },
+          dimensions: { height: 30, length: 30, width: 30, unit: "cm" },
           weight: { value: 2000, unit: "g" },
         },
       ],
-      shipping_type_id: expressType.id, // Asegúrate de que este ID sea el de "Express"
+      shipping_type_id: expressType.id,
       pickup_time: new Date().toISOString(),
     };
 
-    console.log(
-      "PAYLOAD FINAL (Express ID: " + expressType.id + "):",
-      JSON.stringify(payload),
-    );
+    console.log("PAYLOAD CON COORDENADAS BOGOTÁ:", JSON.stringify(payload));
 
     // 3. Ejecutar estimación
-    try {
-      const response = await axios.post(
-        `https://logistics.api.cabify.com/v3/parcels/estimate`,
-        payload,
-        {
-          headers: {
-            Authorization: `Bearer ${auth.token}`,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
+    const response = await axios.post(
+      `https://logistics.api.cabify.com/v3/parcels/estimate`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${auth.token}`,
+          "Content-Type": "application/json",
         },
-      );
-      return response.data;
-    } catch (error) {
-      const detailedError = error.response
-        ? JSON.stringify(error.response.data)
-        : error.message;
-      throw new Error("Error de Cabify: " + detailedError);
-    }
+      },
+    );
+
+    return response.data;
   },
 };
