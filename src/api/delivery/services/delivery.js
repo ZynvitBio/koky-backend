@@ -79,51 +79,52 @@ module.exports = {
   async getPriceEstimate(parcelData) {
     const auth = await this.testConnection();
 
-    // Obtenemos coordenadas para buscar tipos disponibles
-    const lat = parcelData.pickup_location.lat;
-    const lon = parcelData.pickup_location.lon;
-
     // 1. Obtener tipos de envío
     const typesResponse = await axios.get(
-      `https://logistics.api.cabify.com/v1/shipping_types/available?location=${lat},${lon}`,
+      `https://logistics.api.cabify.com/v1/shipping_types/available?location=${parcelData.pickup_location.lat},${parcelData.pickup_location.lon}`,
       { headers: { Authorization: `Bearer ${auth.token}` } },
     );
 
     const shippingTypes = typesResponse.data.available_shipping_types;
+
+    // FILTRO ESTRICTO: Buscamos el ID que sea modalidad 'express'
     const expressType = shippingTypes
       ? shippingTypes.find((t) => t.modality === "express")
       : null;
 
     if (!expressType) {
       throw new Error(
-        "No se encontró tipo 'express'. Respuesta: " +
-          JSON.stringify(typesResponse.data),
+        "No se encontró tipo 'express'. IDs disponibles: " +
+          JSON.stringify(shippingTypes),
       );
     }
-    const futureTime = new Date(Date.now() + 30 * 60000).toISOString();
-    // 2. Preparar el payload estrictamente como lo pide la API v3
+
+    // 2. FORZAR DESTINO A 1KM DE DISTANCIA (aprox. 0.01 grados de latitud)
+    const dropoff = {
+      lat: parcelData.pickup_location.lat + 0.01,
+      lon: parcelData.pickup_location.lon,
+    };
+
     const payload = {
       parcels: [
         {
-          external_id: parcelData.external_id || "parcel_001",
-          pickup_location: {
-            lat: parcelData.pickup_location.lat,
-            lon: parcelData.pickup_location.lon,
-          },
-          dropoff_location: {
-            lat: parcelData.dropoff_location.lat,
-            lon: parcelData.dropoff_location.lon,
-          },
+          external_id: "parcel_" + Date.now(),
+          pickup_location: parcelData.pickup_location,
+          dropoff_location: dropoff, // Ahora tiene 1km de diferencia
           dimensions: parcelData.dimensions,
           weight: parcelData.weight,
         },
       ],
       shipping_type_id: expressType.id,
-      // Si la API lo requiere, puedes añadir el pickup_time aquí:
-      pickup_time: futureTime,
+      pickup_time: new Date(Date.now() + 30 * 60000).toISOString(),
     };
-    console.log("PAYLOAD FINAL ENVIADO A CABIFY:", JSON.stringify(payload));
-    // 3. Ejecutar estimación con el detector de errores que querías
+
+    console.log(
+      "PAYLOAD FINAL (Express ID: " + expressType.id + "):",
+      JSON.stringify(payload),
+    );
+
+    // 3. Ejecutar estimación
     try {
       const response = await axios.post(
         `https://logistics.api.cabify.com/v3/parcels/estimate`,
@@ -138,14 +139,10 @@ module.exports = {
       );
       return response.data;
     } catch (error) {
-      if (error.response) {
-        // Aquí capturamos el JSON real del error de Cabify
-        const detailedError = JSON.stringify(error.response.data);
-        console.error("Error detallado de Cabify:", detailedError);
-        throw new Error(detailedError);
-      } else {
-        throw new Error(error.message);
-      }
+      const detailedError = error.response
+        ? JSON.stringify(error.response.data)
+        : error.message;
+      throw new Error("Error de Cabify: " + detailedError);
     }
   },
 };
