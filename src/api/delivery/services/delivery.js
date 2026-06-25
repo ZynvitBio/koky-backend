@@ -106,16 +106,13 @@ module.exports = {
       shipping_type_id: expressType.id,
       deliveries: [
         {
-          parcels: [
-            {
-              // Asegúrate de que parcelData contenga estos campos exactamente
-              external_id: parcelData.external_id || "test_id_001",
-              pickup_location: parcelData.pickup_location,
-              dropoff_location: parcelData.dropoff_location,
-              dimensions: parcelData.dimensions,
-              weight: parcelData.weight,
-            },
-          ],
+          // Probemos cambiando 'parcels' por 'parcel'
+          parcel: {
+            pickup_location: parcelData.pickup_location,
+            dropoff_location: parcelData.dropoff_location,
+            dimensions: parcelData.dimensions,
+            weight: parcelData.weight,
+          },
         },
       ],
     };
