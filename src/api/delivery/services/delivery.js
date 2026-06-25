@@ -100,23 +100,21 @@ module.exports = {
     }
 
     // 2. FORZAR DESTINO A 1KM DE DISTANCIA (aprox. 0.01 grados de latitud)
-    const dropoff = {
-      lat: parcelData.pickup_location.lat + 0.01,
-      lon: parcelData.pickup_location.lon,
-    };
+    const pickup = { lat: 4.7053, lon: -74.0688 };
+    const dropoff = { lat: 4.7153, lon: -74.0788 };
 
     const payload = {
       parcels: [
         {
           external_id: "parcel_" + Date.now(),
-          pickup_location: parcelData.pickup_location,
-          dropoff_location: dropoff, // Ahora tiene 1km de diferencia
-          dimensions: parcelData.dimensions,
-          weight: parcelData.weight,
+          pickup_location: pickup,
+          dropoff_location: dropoff,
+          dimensions: { height: 20, length: 20, width: 20, unit: "cm" },
+          weight: { value: 2000, unit: "g" },
         },
       ],
-      shipping_type_id: expressType.id,
-      pickup_time: new Date(Date.now() + 30 * 60000).toISOString(),
+      shipping_type_id: expressType.id, // Asegúrate de que este ID sea el de "Express"
+      pickup_time: new Date().toISOString(),
     };
 
     console.log(
