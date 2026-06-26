@@ -5,8 +5,8 @@ module.exports = {
   routes: [
     {
       method: "GET",
-      path: "/delivery/test-cabify",
-      handler: "delivery.testConnection",
+      path: "/cabify-delivery/test-cabify", // Actualizado
+      handler: "cabify-delivery.testConnection", // Actualizado (nombre de archivo.nombre de método)
       config: {
         auth: false,
         policies: [],
@@ -15,8 +15,8 @@ module.exports = {
     },
     {
       method: "GET",
-      path: "/delivery/test-create-shipment",
-      handler: "delivery.testCreateShipment",
+      path: "/cabify-delivery/test-create-shipment", // Actualizado
+      handler: "cabify-delivery.testCreateShipment", // Actualizado
       config: {
         auth: false,
         policies: [],
@@ -25,8 +25,8 @@ module.exports = {
     },
     {
       method: "GET",
-      path: "/delivery/test-estimate",
-      handler: "delivery.testEstimate",
+      path: "/cabify-delivery/test-estimate", // Actualizado
+      handler: "cabify-delivery.testEstimate", // Actualizado
       config: {
         auth: false,
         policies: [],
@@ -35,8 +35,8 @@ module.exports = {
     },
     {
       method: "GET",
-      path: "/delivery/get-price",
-      handler: "delivery.getPrice",
+      path: "/cabify-delivery/get-price", // Actualizado
+      handler: "cabify-delivery.getPrice", // Actualizado
       config: {
         auth: false,
         policies: [],

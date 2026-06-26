@@ -2,11 +2,11 @@
 "use strict";
 
 module.exports = {
-  // Esta es la función que te está dando error
+  // 1. Corregido el servicio a 'api::cabify-delivery.cabify-delivery'
   async testConnection(ctx) {
     try {
       const result = await strapi
-        .service("api::delivery.delivery")
+        .service("api::cabify-delivery.cabify-delivery")
         .testConnection();
       ctx.body = result;
     } catch (err) {
@@ -15,23 +15,24 @@ module.exports = {
     }
   },
 
-  // La que vamos a probar
+  // 2. Corregida la lógica de ejecución (faltaba el 'await' y el servicio estaba mal estructurado)
   async testEstimate(ctx) {
     try {
       const resultado = await strapi
-        .service("api::delivery.delivery")
-        .testMyParcel(); // Asegurado con el nombre correcto del servicio
+        .service("api::cabify-delivery.cabify-delivery")
+        .testMyParcel();
       ctx.body = { success: true, data: resultado };
     } catch (err) {
+      ctx.status = 500;
       ctx.body = { success: false, error: err.message };
     }
   },
 
-  // Agrega también testCreateShipment si lo necesitas
+  // 3. Corregido el servicio
   async testCreateShipment(ctx) {
     try {
       const result = await strapi
-        .service("api::delivery.delivery")
+        .service("api::cabify-delivery.cabify-delivery")
         .testCreateShipment();
       ctx.body = result;
     } catch (err) {
@@ -39,23 +40,24 @@ module.exports = {
       ctx.body = { success: false, error: err.message };
     }
   },
+
+  // 4. Corregido el servicio
   async getPrice(ctx) {
     try {
-      // Aquí estamos simulando los datos que Cabify necesita para estimar.
-      // En el futuro, estos datos vendrán del pedido de tu usuario.
       const parcelData = {
-        pickup_location: { lat: 4.7053, lon: -74.0688 },
+        pickup_location: { lat: 4.6976, lon: -74.0617 }, // Coordenadas KOKY (Calle 119a 57-40)
         dropoff_location: { lat: 4.7053, lon: -74.0688 },
         dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
         weight: { value: 1000, unit: "g" },
       };
 
       const resultado = await strapi
-        .service("api::delivery.delivery")
+        .service("api::cabify-delivery.cabify-delivery")
         .getPriceEstimate(parcelData);
 
       ctx.body = { success: true, data: resultado };
     } catch (err) {
+      ctx.status = 500;
       ctx.body = { success: false, error: err.message };
     }
   },

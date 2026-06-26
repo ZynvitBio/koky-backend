@@ -77,50 +77,46 @@ module.exports = {
     return response.data;
   },
   async getPriceEstimate(parcelData) {
-    // 1. Obtener tipos de envío para la zona de Bogotá
+    // 1. Obtener token ANTES de hacer nada
     const auth = await this.testConnection();
+    if (!auth.success) throw new Error("Fallo en la autenticación con Cabify");
 
-    // Coordenadas reales dentro de Bogotá
-    const pickup = { lat: 4.6097, lon: -74.0817 }; // Cerca del centro
-    const dropoff = { lat: 4.628, lon: -74.065 }; // Unos km al norte
+    // 2. Coordenadas fijas
+    const KOKY_KITCHEN = { lat: 4.6976, lon: -74.0617 };
 
+    // 3. Consultar servicios (usando el token obtenido)
     const typesResponse = await axios.get(
-      `https://logistics.api.cabify.com/v1/shipping_types/available?location=${pickup.lat},${pickup.lon}`,
+      `https://logistics.api.cabify.com/v1/shipping_types/available?location=${parcelData.dropoff_location.lat},${parcelData.dropoff_location.lon}`,
       { headers: { Authorization: `Bearer ${auth.token}` } },
     );
 
-    const expressType = typesResponse.data.available_shipping_types?.find(
-      (t) => t.modality === "express",
+    const shippingTypes = typesResponse.data.available_shipping_types;
+    const expressType = shippingTypes.find(
+      (t) =>
+        t.modality === "express" && !t.name.toLowerCase().includes("comida"),
     );
-    if (!expressType) throw new Error("No hay modalidad express en esta zona.");
 
-    // 2. Payload con coordenadas de Bogotá
-    const payload = {
-      parcels: [
-        {
-          external_id: "parcel_" + Date.now(),
-          pickup_location: pickup,
-          dropoff_location: dropoff,
-          dimensions: { height: 30, length: 30, width: 30, unit: "cm" },
-          weight: { value: 2000, unit: "g" },
-        },
-      ],
-      shipping_type_id: expressType.id,
-      pickup_time: new Date().toISOString(),
-    };
+    if (!expressType) {
+      throw new Error("No hay servicios express disponibles en esta zona.");
+    }
 
-    console.log("PAYLOAD CON COORDENADAS BOGOTÁ:", JSON.stringify(payload));
-
-    // 3. Ejecutar estimación
+    // 4. Estimar (usando el token obtenido)
     const response = await axios.post(
       `https://logistics.api.cabify.com/v3/parcels/estimate`,
-      payload,
       {
-        headers: {
-          Authorization: `Bearer ${auth.token}`,
-          "Content-Type": "application/json",
-        },
+        parcels: [
+          {
+            external_id: "KOKY_" + Date.now(),
+            pickup_location: KOKY_KITCHEN,
+            dropoff_location: parcelData.dropoff_location,
+            dimensions: parcelData.dimensions,
+            weight: parcelData.weight,
+          },
+        ],
+        shipping_type_id: expressType.id,
+        pickup_time: new Date().toISOString(),
       },
+      { headers: { Authorization: `Bearer ${auth.token}` } },
     );
 
     return response.data;
