@@ -44,13 +44,22 @@ module.exports = {
   // 4. Corregido el servicio
   async getPrice(ctx) {
     try {
+      // 1. Recibimos el objeto 'destino' desde el cuerpo del POST (Angular)
+      const { destino } = ctx.request.body;
+
+      if (!destino || !destino.lat || !destino.lng) {
+        throw new Error("Coordenadas de destino no recibidas correctamente.");
+      }
+
+      // 2. Preparamos el objeto usando el destino dinámico
       const parcelData = {
-        pickup_location: { lat: 4.6976, lon: -74.0617 }, // Coordenadas KOKY (Calle 119a 57-40)
-        dropoff_location: { lat: 4.7053, lon: -74.0688 },
+        pickup_location: { lat: 4.6976, lon: -74.0617 },
+        dropoff_location: { lat: destino.lat, lon: destino.lng }, // Aquí se usa el destino
         dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
         weight: { value: 1000, unit: "g" },
       };
 
+      // 3. Llamamos al servicio
       const resultado = await strapi
         .service("api::cabify-delivery.cabify-delivery")
         .getPriceEstimate(parcelData);

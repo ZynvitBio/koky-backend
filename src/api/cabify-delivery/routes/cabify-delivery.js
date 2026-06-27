@@ -34,7 +34,7 @@ module.exports = {
       },
     },
     {
-      method: "GET",
+      method: "POST",
       path: "/cabify-delivery/get-price", // Actualizado
       handler: "cabify-delivery.getPrice", // Actualizado
       config: {
