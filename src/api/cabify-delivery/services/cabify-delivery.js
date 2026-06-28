@@ -3,11 +3,13 @@
 const axios = require("axios");
 const qs = require("qs");
 
-// URL BASE REAL
 const API_BASE = "https://logistics.api.cabify.com/v1";
 
 module.exports = {
-  async testConnection() {
+  /**
+   * Obtiene un token de acceso válido de Cabify.
+   */
+  async getAuthToken() {
     try {
       const url = "https://cabify.com/auth/api/authorization";
       const data = {
@@ -16,91 +18,66 @@ module.exports = {
         client_secret: process.env.CABIFY_CLIENT_SECRET,
       };
 
-      const response = await axios({
-        method: "post",
-        url: url,
-        data: qs.stringify(data),
+      const response = await axios.post(url, qs.stringify(data), {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
       });
-
-      return { success: true, token: response.data.access_token };
+      return response.data.access_token;
     } catch (err) {
-      return { success: false, error: err.response?.data || err.message };
+      throw new Error(
+        "Fallo en la autenticación con Cabify: " +
+          (err.response?.data?.message || err.message),
+      );
     }
   },
 
-  // 1. OBTENER TIPOS DISPONIBLES (Para saber qué ID enviar)
-  async getShippingTypes(lat, lng) {
-    const auth = await this.testConnection();
-    const response = await axios.get(
-      `${API_BASE}/shipping_types/available?location=${lat},${lng}`,
-      {
-        headers: { Authorization: `Bearer ${auth.token}` },
-      },
+  /**
+   * Calcula la fecha del día siguiente a las 8:30 AM en la zona horaria America/Bogota (UTC-5)
+   * y la retorna en formato ISO 8601 UTC.
+   */
+  getTomorrowMorningISO() {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Bogota",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const parts = formatter.formatToParts(now);
+    const year = parts.find((p) => p.type === "year").value;
+    const month = parts.find((p) => p.type === "month").value;
+    const day = parts.find((p) => p.type === "day").value;
+
+    const todayInColombia = new Date(`${year}-${month}-${day}T00:00:00-05:00`);
+    const tomorrow830Colombia = new Date(
+      todayInColombia.getTime() + 24 * 60 * 60 * 1000 + 8.5 * 60 * 60 * 1000
     );
-    return response.data; // Aquí eliges el ID que corresponde a "Express"
+
+    return tomorrow830Colombia.toISOString();
   },
 
-  // 2. CREAR PAQUETE CON TARIFA (Aquí es donde la API responde con el precio)
-  async createShipment(parcelData) {
-    const auth = await this.testConnection();
-
-    // parcelData DEBE incluir: { shipping_type_id: "...", ... }
-    const payload = { parcels: [parcelData] };
-
-    try {
-      const response = await axios.post(`${API_BASE}/parcels`, payload, {
-        headers: {
-          Authorization: `Bearer ${auth.token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      // Esta respuesta DEBERÍA traer el precio final consolidado
-      return response.data;
-    } catch (error) {
-      throw new Error(JSON.stringify(error.response?.data || error.message));
-    }
-  },
-  async testMyParcel() {
-    const parcelId = "9e35184b-7015-11f1-bcdf-ae4d1e293208";
-    const auth = await this.testConnection();
-
-    const response = await axios.get(
-      `https://logistics.api.cabify.com/v1/parcels/${parcelId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${auth.token}`,
-          Accept: "application/json",
-        },
-      },
-    );
-    return response.data;
-  },
+  /**
+   * Paso 1 (Flujo A): Obtener estimación de precio.
+   */
   async getPriceEstimate(parcelData) {
-    // 1. Obtener token ANTES de hacer nada
-    const auth = await this.testConnection();
-    if (!auth.success) throw new Error("Fallo en la autenticación con Cabify");
-
-    // 2. Coordenadas fijas
+    const token = await this.getAuthToken();
     const KOKY_KITCHEN = { lat: 4.6976, lon: -74.0617 };
 
-    // 3. Consultar servicios (usando el token obtenido)
+    // Obtener tipos de servicio disponibles
     const typesResponse = await axios.get(
-      `https://logistics.api.cabify.com/v1/shipping_types/available?location=${parcelData.dropoff_location.lat},${parcelData.dropoff_location.lon}`,
-      { headers: { Authorization: `Bearer ${auth.token}` } },
+      `${API_BASE}/shipping_types/available?location=${parcelData.dropoff_location.lat},${parcelData.dropoff_location.lon}`,
+      { headers: { Authorization: `Bearer ${token}` } },
     );
 
-    const shippingTypes = typesResponse.data.available_shipping_types;
-    const expressType = shippingTypes.find(
+    const expressType = typesResponse.data.available_shipping_types.find(
       (t) =>
         t.modality === "express" && !t.name.toLowerCase().includes("comida"),
     );
 
-    if (!expressType) {
-      throw new Error("No hay servicios express disponibles en esta zona.");
-    }
+    if (!expressType) throw new Error("No hay servicios express disponibles.");
 
-    // 4. Estimar (usando el token obtenido)
+    const scheduledPickupTime = this.getTomorrowMorningISO();
+
+    // Solicitar estimación
     const response = await axios.post(
       `https://logistics.api.cabify.com/v3/parcels/estimate`,
       {
@@ -114,11 +91,12 @@ module.exports = {
           },
         ],
         shipping_type_id: expressType.id,
-        pickup_time: new Date().toISOString(),
+        pickup_time: scheduledPickupTime,
       },
-      { headers: { Authorization: `Bearer ${auth.token}` } },
+      { headers: { Authorization: `Bearer ${token}` } },
     );
 
     return response.data;
   },
 };
+
