@@ -4,6 +4,10 @@ module.exports = {
   async afterCreate(event) {
     const { result } = event;
 
+    strapi.log.info(
+      `[Lifecycle Order] afterCreate ejecutado para la orden ID: ${result.id}, DocumentID: ${result.documentId}`
+    );
+
     // Solo creamos el envío en Cabify si tiene dirección, coordenadas y aún no tiene un parcel ID asignado
     if (
       result.shipping_address &&
