@@ -16,6 +16,28 @@ module.exports = {
       !result.cabify_parcel_id
     ) {
       try {
+        // Control de duplicados por reintentos de red / Wompi reference
+        if (result.wompi_reference) {
+          const existingOrders = await strapi
+            .documents("api::order.order")
+            .findMany({
+              filters: {
+                wompi_reference: result.wompi_reference,
+              },
+            });
+
+          const alreadyDispatched = existingOrders.some(
+            (o) => o.cabify_parcel_id && o.id !== result.id
+          );
+
+          if (alreadyDispatched) {
+            strapi.log.warn(
+              `[Cabify] Ya existe un envío programado para la referencia de Wompi: ${result.wompi_reference}. Ignorando despacho duplicado.`
+            );
+            return;
+          }
+        }
+
         const deliveryData = {
           dropoff_address: result.shipping_address,
           dropoff_location: {
