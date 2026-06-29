@@ -129,7 +129,7 @@ module.exports = {
           {
             external_id: deliveryData.external_id || ("KOKY_" + Date.now()),
             pickup_info: {
-              addr: "Calle 100 # 19-61, Bogotá", // Dirección física de Koky Kitchen
+              addr: "Calle 119a # 57-40, Bogotá", // Dirección física de Koky Kitchen
               contact: {
                 name: "Koky Kitchen",
                 phone: "+573019447660",
