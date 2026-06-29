@@ -33,4 +33,29 @@ module.exports = {
       ctx.body = { success: false, error: err.message };
     }
   },
+
+  async createParcel(ctx) {
+    try {
+      const { deliveryData } = ctx.request.body;
+
+      if (
+        !deliveryData ||
+        !deliveryData.dropoff_address ||
+        !deliveryData.dropoff_location ||
+        !deliveryData.customer_name ||
+        !deliveryData.customer_phone
+      ) {
+        throw new Error("Datos de entrega incompletos.");
+      }
+
+      const resultado = await strapi
+        .service("api::cabify-delivery.cabify-delivery")
+        .createAndDeliverParcel(deliveryData);
+
+      ctx.body = { success: true, data: resultado };
+    } catch (err) {
+      ctx.status = 500;
+      ctx.body = { success: false, error: err.message };
+    }
+  },
 };

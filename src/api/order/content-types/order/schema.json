@@ -37,6 +37,21 @@
     },
     "payment_method": {
       "type": "string"
+    },
+    "shipping_address": {
+      "type": "string"
+    },
+    "shipping_latitude": {
+      "type": "decimal"
+    },
+    "shipping_longitude": {
+      "type": "decimal"
+    },
+    "shipping_notes": {
+      "type": "text"
+    },
+    "cabify_parcel_id": {
+      "type": "string"
     }
   }
 }

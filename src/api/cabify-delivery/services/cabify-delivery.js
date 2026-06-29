@@ -98,5 +98,94 @@ module.exports = {
 
     return response.data;
   },
+
+  /**
+   * Paso 2 (Flujo B): Crear paquete y programar el envío.
+   */
+  async createAndDeliverParcel(deliveryData) {
+    const token = await this.getAuthToken();
+    const KOKY_KITCHEN = { lat: 4.6976, lon: -74.0617 };
+
+    // 1. Obtener tipos de servicio disponibles
+    const typesResponse = await axios.get(
+      `${API_BASE}/shipping_types/available?location=${deliveryData.dropoff_location.lat},${deliveryData.dropoff_location.lon}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+
+    const expressType = typesResponse.data.available_shipping_types.find(
+      (t) =>
+        t.modality === "express" && !t.name.toLowerCase().includes("comida"),
+    );
+
+    if (!expressType) throw new Error("No hay servicios express disponibles.");
+
+    const scheduledPickupTime = this.getTomorrowMorningISO();
+
+    // 2. Crear el paquete (POST /parcels)
+    const createResponse = await axios.post(
+      `${API_BASE}/parcels`,
+      {
+        parcels: [
+          {
+            external_id: deliveryData.external_id || ("KOKY_" + Date.now()),
+            pickup_info: {
+              addr: "Calle 100 # 19-61, Bogotá", // Dirección física de Koky Kitchen
+              contact: {
+                name: "Koky Kitchen",
+                phone: "+573019447660",
+              },
+              instr: "Recoger en recepción de Koky Kitchen",
+              loc: KOKY_KITCHEN,
+            },
+            dropoff_info: {
+              addr: deliveryData.dropoff_address,
+              contact: {
+                name: deliveryData.customer_name,
+                phone: deliveryData.customer_phone,
+              },
+              instr: deliveryData.notes || "",
+              loc: {
+                lat: deliveryData.dropoff_location.lat,
+                lon: deliveryData.dropoff_location.lon,
+              },
+            },
+            dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
+            weight: { value: 1000, unit: "g" },
+          },
+        ],
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const createdParcel = createResponse.data.parcels[0];
+    const parcelId = createdParcel.id;
+
+    // 3. Solicitar el envío (POST /parcels/deliver)
+    await axios.post(
+      `${API_BASE}/parcels/deliver`,
+      {
+        parcel_ids: [parcelId],
+        optimize: true,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    return {
+      success: true,
+      parcelId: parcelId,
+      externalId: createdParcel.external_id,
+      pickup_time: scheduledPickupTime,
+    };
+  },
 };
 

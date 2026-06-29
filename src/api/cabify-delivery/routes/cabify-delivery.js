@@ -13,5 +13,15 @@ module.exports = {
         middlewares: [],
       },
     },
+    {
+      method: "POST",
+      path: "/cabify-delivery/create-parcel",
+      handler: "cabify-delivery.createParcel",
+      config: {
+        auth: false,
+        policies: [],
+        middlewares: [],
+      },
+    },
   ],
 };
