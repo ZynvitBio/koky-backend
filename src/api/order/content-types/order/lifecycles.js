@@ -8,8 +8,10 @@ module.exports = {
       `[Lifecycle Order] afterCreate ejecutado para la orden ID: ${result.id}, DocumentID: ${result.documentId}`
     );
 
-    // Solo creamos el envío en Cabify si tiene dirección, coordenadas y aún no tiene un parcel ID asignado
+    // Solo creamos el envío en Cabify si la orden está publicada (result.publishedAt no es nulo),
+    // tiene dirección, coordenadas y aún no tiene un parcel ID asignado.
     if (
+      result.publishedAt &&
       result.shipping_address &&
       result.shipping_latitude &&
       result.shipping_longitude &&
@@ -67,8 +69,11 @@ module.exports = {
           `Envío de Cabify programado con éxito para la orden ${result.id}. Parcel ID: ${cabifyResult.parcelId}`,
         );
       } catch (err) {
+        const errorDetails = err.response?.data
+          ? JSON.stringify(err.response.data)
+          : "";
         strapi.log.error(
-          `Error al programar envío en Cabify para la orden ${result.id}: ${err.message}`,
+          `Error al programar envío en Cabify para la orden ${result.id}: ${err.message}. Detalles: ${errorDetails}`
         );
       }
     }
