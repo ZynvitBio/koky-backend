@@ -216,6 +216,28 @@ module.exports = {
       );
     }
   },
+
+  async getParcelStatus(parcelId) {
+    const token = await this.getAuthToken();
+    try {
+      const response = await axios.get(
+        `${API_BASE}/parcels/${parcelId}/status`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      return response.data;
+    } catch (err) {
+      const errorDetails = err.response?.data
+        ? JSON.stringify(err.response.data)
+        : "";
+      throw new Error(
+        `Error de API Cabify al consultar estado: ${err.message}. Detalles: ${errorDetails}`
+      );
+    }
+  },
 };
 
 

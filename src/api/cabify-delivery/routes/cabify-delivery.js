@@ -8,7 +8,6 @@ module.exports = {
       path: "/cabify-delivery/get-price",
       handler: "cabify-delivery.getPrice",
       config: {
-        auth: false,
         policies: [],
         middlewares: [],
       },
@@ -18,7 +17,6 @@ module.exports = {
       path: "/cabify-delivery/create-parcel",
       handler: "cabify-delivery.createParcel",
       config: {
-        auth: false,
         policies: [],
         middlewares: [],
       },
@@ -28,7 +26,15 @@ module.exports = {
       path: "/cabify-delivery/cancel-parcel",
       handler: "cabify-delivery.cancelParcel",
       config: {
-        auth: false,
+        policies: [],
+        middlewares: [],
+      },
+    },
+    {
+      method: "GET",
+      path: "/cabify-delivery/parcel-status/:parcelId",
+      handler: "cabify-delivery.getParcelStatus",
+      config: {
         policies: [],
         middlewares: [],
       },

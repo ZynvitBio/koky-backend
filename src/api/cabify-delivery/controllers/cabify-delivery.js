@@ -72,10 +72,9 @@ module.exports = {
         .service("api::cabify-delivery.cabify-delivery")
         .cancelParcel(parcelId);
 
-      // 2. Si se proporciona documentId, actualizar la orden en Strapi
+      // 2. Si se pasó documentId, actualizar la orden en Strapi para quitar el ID de Cabify
       if (documentId) {
-        await strapi.documents("api::order.order").update({
-          documentId: documentId,
+        await strapi.entityService.update("api::order.order", documentId, {
           data: {
             cabify_parcel_id: null,
           },
@@ -88,5 +87,23 @@ module.exports = {
       ctx.body = { success: false, error: err.message };
     }
   },
-};
 
+  async getParcelStatus(ctx) {
+    try {
+      const { parcelId } = ctx.params;
+
+      if (!parcelId) {
+        throw new Error("ID de paquete no recibido.");
+      }
+
+      const resultado = await strapi
+        .service("api::cabify-delivery.cabify-delivery")
+        .getParcelStatus(parcelId);
+
+      ctx.body = { success: true, data: resultado };
+    } catch (err) {
+      ctx.status = 500;
+      ctx.body = { success: false, error: err.message };
+    }
+  },
+};
