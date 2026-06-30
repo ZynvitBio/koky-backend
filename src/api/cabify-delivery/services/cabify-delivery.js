@@ -165,12 +165,12 @@ module.exports = {
     const createdParcel = createResponse.data.parcels[0];
     const parcelId = createdParcel.id;
 
-    // 3. Solicitar el envío (POST /parcels/deliver)
+    // 3. Solicitar el envío (POST /parcels/ship)
     await axios.post(
-      `${API_BASE}/parcels/deliver`,
+      `${API_BASE}/parcels/ship`,
       {
         parcel_ids: [parcelId],
-        optimize: true,
+        shipping_type_id: expressType.id,
       },
       {
         headers: {
