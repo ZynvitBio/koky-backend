@@ -187,5 +187,35 @@ module.exports = {
       pickup_time: scheduledPickupTime,
     };
   },
+
+  /**
+   * Paso 3: Cancelar la entrega de un paquete en Cabify.
+   */
+  async cancelParcel(parcelId) {
+    const token = await this.getAuthToken();
+    try {
+      const response = await axios.post(
+        `${API_BASE}/parcels/deliver/cancel`,
+        {
+          parcel_ids: [parcelId],
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      return response.data;
+    } catch (err) {
+      const errorDetails = err.response?.data
+        ? JSON.stringify(err.response.data)
+        : "";
+      throw new Error(
+        `Error de API Cabify al cancelar envío: ${err.message}. Detalles: ${errorDetails}`
+      );
+    }
+  },
 };
+
 

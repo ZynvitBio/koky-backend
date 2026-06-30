@@ -49,7 +49,7 @@ module.exports = {
           customer_name: result.customer_name || "Cliente Koky",
           customer_phone: result.whatsapp_id,
           notes: result.shipping_notes || "",
-          external_id: "KOKY_ORDER_" + result.id,
+          external_id: "KOKY_ORDER_" + result.id + "_" + Date.now(),
         };
 
         // Llamamos al servicio de cabify-delivery

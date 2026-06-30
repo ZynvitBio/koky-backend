@@ -23,5 +23,15 @@ module.exports = {
         middlewares: [],
       },
     },
+    {
+      method: "POST",
+      path: "/cabify-delivery/cancel-parcel",
+      handler: "cabify-delivery.cancelParcel",
+      config: {
+        auth: false,
+        policies: [],
+        middlewares: [],
+      },
+    },
   ],
 };
