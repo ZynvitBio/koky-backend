@@ -39,5 +39,15 @@ module.exports = {
         middlewares: [],
       },
     },
+    {
+      method: "POST",
+      path: "/cabify-delivery/webhook",
+      handler: "cabify-delivery.webhook",
+      config: {
+        auth: false,
+        policies: [],
+        middlewares: [],
+      },
+    },
   ],
 };

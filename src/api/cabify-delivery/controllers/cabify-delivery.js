@@ -106,4 +106,42 @@ module.exports = {
       ctx.body = { success: false, error: err.message };
     }
   },
+
+  async webhook(ctx) {
+    try {
+      const payload = ctx.request.body;
+      strapi.log.info(`[Cabify Webhook] Recibido payload: ${JSON.stringify(payload)}`);
+
+      // Extraemos el parcel_id buscando en los campos comunes
+      const parcelId = payload.parcel_id || payload.parcelId || payload.id || payload.data?.parcel_id || payload.data?.id;
+
+      if (!parcelId) {
+        strapi.log.warn('[Cabify Webhook] No se encontró parcel_id en el payload.');
+        ctx.status = 200;
+        ctx.body = { success: false, message: 'No parcel_id found' };
+        return;
+      }
+
+      // Consultamos el estado fresco a la API de Cabify
+      const statusData = await strapi
+        .service("api::cabify-delivery.cabify-delivery")
+        .getParcelStatus(parcelId);
+
+      // Emitimos el evento de Socket.io a todos los clientes del dashboard conectados
+      if (strapi.io) {
+        strapi.io.emit('cabify_status_change', {
+          parcelId,
+          status: statusData
+        });
+        strapi.log.info(`[Cabify Webhook] Evento de socket emitido para parcelId: ${parcelId}`);
+      }
+
+      ctx.status = 200;
+      ctx.body = { success: true };
+    } catch (err) {
+      strapi.log.error(`[Cabify Webhook] Error: ${err.message}`);
+      ctx.status = 200; // Siempre respondemos 200 para evitar reintentos infinitos de Cabify en caso de error lógico
+      ctx.body = { success: false, error: err.message };
+    }
+  },
 };
