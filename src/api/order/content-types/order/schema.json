@@ -52,6 +52,13 @@
     },
     "cabify_parcel_id": {
       "type": "string"
+    },
+    "delivery_date": {
+      "type": "date"
+    },
+    "reconciled": {
+      "type": "boolean",
+      "default": false
     }
   }
 }
