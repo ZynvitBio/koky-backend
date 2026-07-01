@@ -67,10 +67,30 @@ module.exports = {
         throw new Error("ID de paquete no recibido.");
       }
 
-      // 1. Cancelar en Cabify
-      const resultado = await strapi
-        .service("api::cabify-delivery.cabify-delivery")
-        .cancelParcel(parcelId);
+      let resultado = null;
+      let cabifyError = null;
+
+      try {
+        // 1. Cancelar en Cabify
+        resultado = await strapi
+          .service("api::cabify-delivery.cabify-delivery")
+          .cancelParcel(parcelId);
+      } catch (err) {
+        cabifyError = err.message;
+        strapi.log.warn(`[Cabify Cancel] No se pudo cancelar en la API de Cabify: ${err.message}`);
+
+        // Si el error es un 409 (ya cancelado/entregado) o 404 (no existe), permitimos
+        // continuar para limpiar la base de datos y liberar la orden en el admin.
+        const isSafeToIgnore =
+          err.message.includes("409") ||
+          err.message.includes("404") ||
+          err.message.includes("invalid state");
+
+        if (!isSafeToIgnore) {
+          // Si es otro tipo de error (ej: red, 401), lanzamos el error para no perder la traza
+          throw err;
+        }
+      }
 
       // 2. Si se pasó documentId, actualizar la orden en Strapi para quitar el ID de Cabify
       if (documentId) {
@@ -82,7 +102,11 @@ module.exports = {
         });
       }
 
-      ctx.body = { success: true, data: resultado };
+      ctx.body = { 
+        success: true, 
+        data: resultado, 
+        warning: cabifyError ? `El envío ya estaba cancelado en Cabify o no se encontró (${cabifyError})` : null 
+      };
     } catch (err) {
       ctx.status = 500;
       ctx.body = { success: false, error: err.message };
