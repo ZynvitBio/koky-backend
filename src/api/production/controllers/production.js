@@ -46,10 +46,22 @@ module.exports = {
           }
 
           if (!totals[item.id]) {
+            let realSku = "SIN-SKU";
+            try {
+              const products = await strapi.documents("api::product.product").findMany({
+                filters: { id: item.id }
+              });
+              if (products[0]) {
+                realSku = products[0].sku || "SIN-SKU";
+              }
+            } catch (err) {
+              strapi.log.error(`Error buscando SKU del producto ${item.id}: ${err.message}`);
+            }
+
             totals[item.id] = {
               id: item.id,
               name: item.name,
-              sku: item.sku || "SIN-SKU",
+              sku: realSku,
               slug: item.slug,
               contentPerUnit: Number(item.contentPerUnit) || 0,
               unitAbbreviation: item.unitAbbreviation || "",
