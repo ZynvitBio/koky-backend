@@ -48,11 +48,11 @@ module.exports = {
           if (!totals[item.id]) {
             let realSku = "SIN-SKU";
             try {
-              const products = await strapi.documents("api::product.product").findMany({
-                filters: { id: item.id }
+              const product = await strapi.db.query("api::product.product").findOne({
+                where: { id: item.id }
               });
-              if (products[0]) {
-                realSku = products[0].sku || "SIN-SKU";
+              if (product) {
+                realSku = product.sku || "SIN-SKU";
               }
             } catch (err) {
               strapi.log.error(`Error buscando SKU del producto ${item.id}: ${err.message}`);
@@ -106,30 +106,6 @@ module.exports = {
       };
     } catch (err) {
       ctx.status = 500;
-      ctx.body = { success: false, error: err.message };
-    }
-  },
-
-  async debugOrders(ctx) {
-    try {
-      const orders = await strapi.documents("api::order.order").findMany({
-        limit: 10,
-        sort: { id: "desc" },
-      });
-      ctx.body = { success: true, orders };
-    } catch (err) {
-      ctx.body = { success: false, error: err.message };
-    }
-  },
-
-  async debugProduct(ctx) {
-    const { id } = ctx.params;
-    try {
-      const product = await strapi.db.query("api::product.product").findOne({
-        where: { id: Number(id) }
-      });
-      ctx.body = { success: true, product };
-    } catch (err) {
       ctx.body = { success: false, error: err.message };
     }
   },

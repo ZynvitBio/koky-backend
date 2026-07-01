@@ -172,14 +172,12 @@ async function deductOrderStock(order) {
     if (!item.id) continue;
 
     try {
-      // Buscar el producto por id numérico
-      const products = await strapi.documents("api::product.product").findMany({
-        filters: {
+      // Buscar el producto por id numérico usando db.query
+      const product = await strapi.db.query("api::product.product").findOne({
+        where: {
           id: item.id,
         },
       });
-
-      const product = products[0];
 
       if (product) {
         const qty = Number(item.quantity) || 0;
