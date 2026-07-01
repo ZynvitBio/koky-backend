@@ -125,10 +125,10 @@ module.exports = {
   async debugProduct(ctx) {
     const { id } = ctx.params;
     try {
-      const products = await strapi.documents("api::product.product").findMany({
-        filters: { id: Number(id) }
+      const product = await strapi.db.query("api::product.product").findOne({
+        where: { id: Number(id) }
       });
-      ctx.body = { success: true, products };
+      ctx.body = { success: true, product };
     } catch (err) {
       ctx.body = { success: false, error: err.message };
     }
