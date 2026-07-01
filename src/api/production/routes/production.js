@@ -11,6 +11,16 @@ module.exports = {
       },
     },
     {
+      method: 'GET',
+      path: '/production/debug-orders',
+      handler: 'production.debugOrders',
+      config: {
+        auth: false,
+        policies: [],
+        middlewares: [],
+      },
+    },
+    {
       method: 'POST',
       path: '/production/reconcile',
       handler: 'production.reconcile',

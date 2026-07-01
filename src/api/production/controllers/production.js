@@ -99,6 +99,18 @@ module.exports = {
     }
   },
 
+  async debugOrders(ctx) {
+    try {
+      const orders = await strapi.documents("api::order.order").findMany({
+        limit: 10,
+        sort: { id: "desc" },
+      });
+      ctx.body = { success: true, orders };
+    } catch (err) {
+      ctx.body = { success: false, error: err.message };
+    }
+  },
+
   /**
    * Reconcilia la producción real entregada por la cocina, actualiza el inventario en Strapi
    * y añade los sobrantes de Tofu Fresco al inventario de Tofu Express.
