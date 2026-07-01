@@ -14,11 +14,10 @@ module.exports = {
         date = calculateDefaultDeliveryDate(new Date());
       }
 
-      // Buscar órdenes del día que estén confirmadas (publicadas)
+      // Buscar órdenes del día
       const orders = await strapi.documents("api::order.order").findMany({
         filters: {
           delivery_date: date,
-          publishedAt: { $notNull: true },
         },
       });
 
@@ -177,7 +176,6 @@ module.exports = {
       const orders = await strapi.documents("api::order.order").findMany({
         filters: {
           delivery_date: date,
-          publishedAt: { $notNull: true },
         },
       });
 
