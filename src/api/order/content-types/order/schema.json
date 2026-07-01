@@ -59,6 +59,10 @@
     "reconciled": {
       "type": "boolean",
       "default": false
+    },
+    "stock_deducted": {
+      "type": "boolean",
+      "default": false
     }
   }
 }

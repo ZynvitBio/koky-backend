@@ -693,17 +693,26 @@ export interface ApiOrderOrder extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
+    cabify_parcel_id: Schema.Attribute.String;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     customer_name: Schema.Attribute.String;
+    delivery_date: Schema.Attribute.Date;
     items: Schema.Attribute.JSON;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::order.order'> &
       Schema.Attribute.Private;
     payment_method: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
+    reconciled: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    shipping_address: Schema.Attribute.String;
+    shipping_latitude: Schema.Attribute.Decimal;
+    shipping_longitude: Schema.Attribute.Decimal;
+    shipping_notes: Schema.Attribute.Text;
     source: Schema.Attribute.String;
+    stock_deducted: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
     total_amount: Schema.Attribute.Decimal;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &

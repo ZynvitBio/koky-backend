@@ -11,24 +11,26 @@ module.exports = {
     }
   },
 
-  async beforeUpdate(event) {
-    const { data } = event.params;
-    const documentId = event.params.documentId || event.params.where?.documentId;
+  async afterUpdate(event) {
+    const { result, params } = event;
+    const { data } = params;
 
-    // Detectamos si el campo cabify_parcel_id está siendo actualizado
-    if (data.cabify_parcel_id && documentId) {
+    // Detectamos si el campo cabify_parcel_id está siendo actualizado y el stock no se ha descontado aún
+    if (data && data.cabify_parcel_id && result && result.cabify_parcel_id && !result.stock_deducted) {
       try {
-        const currentOrder = await strapi.documents("api::order.order").findOne({
-          documentId: documentId,
-        });
+        strapi.log.info(`[Lifecycle Order] Descontando stock para la orden ID: ${result.id}`);
+        await deductOrderStock(result);
 
-        // Si antes no tenía cabify_parcel_id y ahora sí, procedemos a descontar el stock
-        if (currentOrder && !currentOrder.cabify_parcel_id) {
-          strapi.log.info(`[Lifecycle Order] Descontando stock para la orden ID: ${currentOrder.id}`);
-          await deductOrderStock(currentOrder);
-        }
+        // Marcamos la orden con stock_deducted = true para no repetir el proceso
+        await strapi.documents("api::order.order").update({
+          documentId: result.documentId,
+          data: {
+            stock_deducted: true,
+          },
+        });
+        strapi.log.info(`[Lifecycle Order] Stock marcado como descontado para la orden ID: ${result.id}`);
       } catch (err) {
-        strapi.log.error(`[Lifecycle Order] Error al descontar stock en beforeUpdate: ${err.message}`);
+        strapi.log.error(`[Lifecycle Order] Error al descontar stock en afterUpdate: ${err.message}`);
       }
     }
   },
