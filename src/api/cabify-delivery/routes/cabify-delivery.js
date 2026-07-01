@@ -8,6 +8,7 @@ module.exports = {
       path: "/cabify-delivery/get-price",
       handler: "cabify-delivery.getPrice",
       config: {
+        auth: false,
         policies: [],
         middlewares: [],
       },

@@ -5,6 +5,7 @@ module.exports = {
       path: '/production/summary',
       handler: 'production.getSummary',
       config: {
+        auth: false,
         policies: [],
         middlewares: [],
       },
@@ -14,6 +15,7 @@ module.exports = {
       path: '/production/reconcile',
       handler: 'production.reconcile',
       config: {
+        auth: false,
         policies: [],
         middlewares: [],
       },
