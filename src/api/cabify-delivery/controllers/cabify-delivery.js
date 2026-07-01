@@ -74,7 +74,8 @@ module.exports = {
 
       // 2. Si se pasó documentId, actualizar la orden en Strapi para quitar el ID de Cabify
       if (documentId) {
-        await strapi.entityService.update("api::order.order", documentId, {
+        await strapi.documents("api::order.order").update({
+          documentId: documentId,
           data: {
             cabify_parcel_id: null,
           },
