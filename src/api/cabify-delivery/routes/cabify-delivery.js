@@ -53,5 +53,15 @@ module.exports = {
         middlewares: [],
       },
     },
+    {
+      method: "GET",
+      path: "/cabify-delivery/register-webhook",
+      handler: "cabify-delivery.registerWebhook",
+      config: {
+        auth: false,
+        policies: [],
+        middlewares: [],
+      },
+    },
   ],
 };

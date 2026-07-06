@@ -169,4 +169,25 @@ module.exports = {
       ctx.body = { success: false, error: err.message };
     }
   },
+
+  async registerWebhook(ctx) {
+    try {
+      const { secret } = ctx.query;
+      if (!secret || secret !== process.env.JWT_SECRET) {
+        ctx.status = 403;
+        ctx.body = { success: false, error: "No autorizado." };
+        return;
+      }
+
+      const callbackUrl = "https://koky-backend-production.up.railway.app/api/cabify-delivery/webhook";
+      const resultado = await strapi
+        .service("api::cabify-delivery.cabify-delivery")
+        .registerWebhook(callbackUrl);
+
+      ctx.body = { success: true, data: resultado };
+    } catch (err) {
+      ctx.status = 500;
+      ctx.body = { success: false, error: err.message };
+    }
+  },
 };

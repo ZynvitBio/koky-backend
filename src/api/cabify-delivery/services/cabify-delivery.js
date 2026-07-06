@@ -238,6 +238,33 @@ module.exports = {
       );
     }
   },
+
+  async registerWebhook(callbackUrl) {
+    const token = await this.getAuthToken();
+    try {
+      const response = await axios.post(
+        `${API_BASE}/webhooks`,
+        {
+          hook: "parcel",
+          callback_url: callbackUrl,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      return response.data;
+    } catch (err) {
+      const errorDetails = err.response?.data
+        ? JSON.stringify(err.response.data)
+        : "";
+      throw new Error(
+        `Error de API Cabify al registrar webhook: ${err.message}. Detalles: ${errorDetails}`
+      );
+    }
+  },
 };
 
 
