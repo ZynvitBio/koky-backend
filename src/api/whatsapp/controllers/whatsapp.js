@@ -129,6 +129,25 @@ module.exports = {
     return user;
   },
 
+  async sendWhatsAppMessage(phone_number_id, to, text) {
+    try {
+      await axios({
+        method: "POST",
+        url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+        data: {
+          messaging_product: "whatsapp",
+          to: to,
+          text: { body: text },
+        },
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        },
+      });
+    } catch (err) {
+      console.error("❌ Error enviando mensaje de WhatsApp:", err.response?.data || err.message);
+    }
+  },
+
   async verify(ctx) {
     const verifyToken = "me_encanta_koky";
 
@@ -178,7 +197,123 @@ module.exports = {
 
             const waName = contact?.profile?.name || "Cliente Koky";
 
-            const rawText = message.text?.body || message.button?.text || "";
+            let rawText = message.text?.body || message.button?.text || "";
+            let isSystemInteractive = false;
+            let systemInteractiveResponse = "";
+
+            // 1. Procesar carritos de compras nativos de WhatsApp
+            if (message.type === "order" && message.order) {
+              const items = message.order.product_items || [];
+              let itemsTextList = [];
+              let total = 0;
+
+              for (const item of items) {
+                const retailerId = item.product_retailer_id;
+                const quantity = Number(item.quantity) || 1;
+
+                const product = await strapi.db.query("api::product.product").findOne({
+                  where: {
+                    $or: [
+                      { sku: retailerId },
+                      { id: isNaN(Number(retailerId)) ? -1 : Number(retailerId) }
+                    ]
+                  }
+                });
+
+                if (product) {
+                  const itemTotal = Number(product.price) * quantity;
+                  total += itemTotal;
+                  itemsTextList.push(`- ${quantity}x ${product.name} ($${Number(product.price).toLocaleString('es-CO')} COP)`);
+                } else {
+                  itemsTextList.push(`- ${quantity}x Producto ID: ${retailerId}`);
+                }
+              }
+
+              const listText = itemsTextList.join("\n");
+              rawText = `🛒 [Carrito enviado]\n${listText}\nTotal: $${total.toLocaleString('es-CO')} COP`;
+
+              const flowId = process.env.WHATSAPP_FLOW_ID;
+              if (flowId) {
+                systemInteractiveResponse = `¡Recibí tu pedido! 🛒\n\n${listText}\nTotal: $${total.toLocaleString('es-CO')} COP\n\nPor favor, completa tus datos de entrega y método de pago presionando el botón "Confirmar Entrega" aquí abajo.`;
+                isSystemInteractive = true;
+
+                setImmediate(async () => {
+                  try {
+                    await axios({
+                      method: "POST",
+                      url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+                      data: {
+                        messaging_product: "whatsapp",
+                        recipient_type: "individual",
+                        to: from,
+                        type: "interactive",
+                        interactive: {
+                          type: "flow",
+                          header: {
+                            type: "text",
+                            text: "Confirmar Pedido"
+                          },
+                          body: {
+                            text: `Detalles de tu compra:\n${listText}\nTotal: $${total.toLocaleString('es-CO')} COP`
+                          },
+                          footer: {
+                            text: "Koky Food"
+                          },
+                          action: {
+                            name: "flow",
+                            parameters: {
+                              flow_message_version: "3",
+                              flow_token: `cart_${Date.now()}`,
+                              flow_id: flowId,
+                              flow_cta: "Confirmar Entrega",
+                              flow_action: "navigate",
+                              flow_action_payload: {
+                                screen: "DELIVERY_SCREEN",
+                                data: {
+                                  cart_total: total,
+                                  items_summary: listText
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      headers: {
+                        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+                        "Content-Type": "application/json"
+                      }
+                    });
+                  } catch (err) {
+                    console.error("❌ Error enviando Flow:", err.response?.data || err.message);
+                  }
+                });
+              } else {
+                systemInteractiveResponse = `¡Recibí tu pedido! 🛒\n\n${listText}\nTotal: $${total.toLocaleString('es-CO')} COP\n\nPronto te contactaremos por aquí para confirmar la entrega y el método de pago. ¡Gracias por elegir Koky! 🥦`;
+                isSystemInteractive = true;
+
+                setImmediate(async () => {
+                  await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
+                });
+              }
+            }
+            // 2. Procesar respuestas de WhatsApp Flows
+            else if (message.type === "interactive" && message.interactive?.type === "nfm_reply") {
+              const flowReply = message.interactive.nfm_reply;
+              try {
+                const responseData = JSON.parse(flowReply.response_json);
+                const summary = Object.entries(responseData).map(([k, v]) => `${k}: ${v}`).join(", ");
+                rawText = `📋 [Formulario completado - ${flowReply.name || 'Flow'}: ${summary}]`;
+
+                systemInteractiveResponse = `¡Excelente! Hemos recibido tus datos de entrega correctamente. Tu pedido ya está siendo procesado en la cocina de Koky. 🚀`;
+                isSystemInteractive = true;
+
+                setImmediate(async () => {
+                  await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
+                });
+              } catch (e) {
+                rawText = `📋 [Formulario completado (Error al parsear JSON)]`;
+              }
+            }
 
             const msgText = rawText.toLowerCase().trim();
 
@@ -222,6 +357,26 @@ module.exports = {
                 },
               });
 
+              if (isSystemInteractive && systemInteractiveResponse) {
+                await strapi.entityService.create("api::chat.chat", {
+                  data: {
+                    sender: "Kira",
+
+                    message: systemInteractiveResponse,
+
+                    timestamp: new Date(),
+
+                    publishedAt: new Date(),
+
+                    users_permissions_user: user.id,
+                  },
+                });
+
+                if (strapi["io"]) {
+                  strapi["io"].emit("new_message", { userId: user.id });
+                }
+              }
+
               const currentScore = Number(user.kira_score?.curiosity) || 0;
 
               const newScore = calculateScore(msgText, currentScore);
@@ -246,7 +401,7 @@ module.exports = {
 
               const scoreInfo = { total: userScore };
 
-              if (user.kira_active !== false) {
+              if (user.kira_active !== false && !isSystemInteractive) {
                 const history = await strapi.entityService.findMany(
                   "api::chat.chat",
 
