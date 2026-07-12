@@ -492,17 +492,60 @@ module.exports = {
 
                 if (paymentMethod === "wompi") {
                   const checkoutUrl = `https://checkout.wompi.co/p/?public-key=${process.env.WOMPI_PUBLIC_KEY || 'pub_test_kB5ENAJ1QA4hPWZYlcrehcyjFrhQyUdq'}&currency=COP&amount-in-cents=${Math.round(totalAmount * 100)}&reference=${ref}&redirect-url=https://koky.food/orderconfirmation`;
-                  messageBody += `💳 Para completar tu pago, haz clic en el siguiente enlace de Wompi:\n🔗 ${checkoutUrl}\n\nAvísanos una vez realices el pago para procesar tu pedido.`;
+                  messageBody += `💳 Completa tu pago seguro con Wompi (Nequi, Daviplata, PSE, Tarjeta) haciendo clic en el botón de abajo.`;
+                  systemInteractiveResponse = messageBody + `\n\n[Botón de Pago enviado: ${checkoutUrl}]`;
+                  isSystemInteractive = true;
+
+                  setImmediate(async () => {
+                    try {
+                      await axios({
+                        method: "POST",
+                        url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+                        data: {
+                          messaging_product: "whatsapp",
+                          recipient_type: "individual",
+                          to: from,
+                          type: "interactive",
+                          interactive: {
+                            type: "cta_url",
+                            header: {
+                              type: "text",
+                              text: "Pago Seguro 💳"
+                            },
+                            body: {
+                              text: messageBody
+                            },
+                            footer: {
+                              text: "Koky Food"
+                            },
+                            action: {
+                              name: "cta_url",
+                              parameters: {
+                                display_text: "Pagar con Wompi",
+                                url: checkoutUrl
+                              }
+                            }
+                          }
+                        },
+                        headers: {
+                          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+                          "Content-Type": "application/json"
+                        }
+                      });
+                    } catch (err) {
+                      console.error("❌ Error enviando CTA URL de Wompi:", err.response?.data || err.message);
+                      await this.sendWhatsAppMessage(phone_number_id, from, messageBody + `\n\nEnlace de pago: ${checkoutUrl}`);
+                    }
+                  });
                 } else {
                   messageBody += `💵 Tu método de pago es contra entrega en efectivo. Prepararemos tu pedido y pagarás al recibir. ¡Muchas gracias!`;
+                  systemInteractiveResponse = messageBody;
+                  isSystemInteractive = true;
+
+                  setImmediate(async () => {
+                    await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
+                  });
                 }
-
-                systemInteractiveResponse = messageBody;
-                isSystemInteractive = true;
-
-                setImmediate(async () => {
-                  await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
-                });
               } catch (e) {
                 console.error("❌ Error en nfm_reply:", e.message);
                 rawText = `📋 [Formulario completado (Error al procesar pedido)]`;
@@ -670,17 +713,60 @@ module.exports = {
 
                     if (paymentMethod === "wompi") {
                       const checkoutUrl = `https://checkout.wompi.co/p/?public-key=${process.env.WOMPI_PUBLIC_KEY || 'pub_test_kB5ENAJ1QA4hPWZYlcrehcyjFrhQyUdq'}&currency=COP&amount-in-cents=${Math.round(totalAmount * 100)}&reference=${ref}&redirect-url=https://koky.food/orderconfirmation`;
-                      messageBody += `💳 Para completar tu pago, haz clic en el siguiente enlace de Wompi:\n🔗 ${checkoutUrl}\n\nAvísanos una vez realices el pago para procesar tu pedido.`;
+                      messageBody += `💳 Completa tu pago seguro con Wompi (Nequi, Daviplata, PSE, Tarjeta) haciendo clic en el botón de abajo.`;
+                      systemInteractiveResponse = messageBody + `\n\n[Botón de Pago enviado: ${checkoutUrl}]`;
+                      isSystemInteractive = true;
+
+                      setImmediate(async () => {
+                        try {
+                          await axios({
+                            method: "POST",
+                            url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+                            data: {
+                              messaging_product: "whatsapp",
+                              recipient_type: "individual",
+                              to: from,
+                              type: "interactive",
+                              interactive: {
+                                type: "cta_url",
+                                header: {
+                                  type: "text",
+                                  text: "Pago Seguro 💳"
+                                },
+                                body: {
+                                  text: messageBody
+                                },
+                                footer: {
+                                  text: "Koky Food"
+                                },
+                                action: {
+                                  name: "cta_url",
+                                  parameters: {
+                                    display_text: "Pagar con Wompi",
+                                    url: checkoutUrl
+                                  }
+                                }
+                              }
+                            },
+                            headers: {
+                              Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+                              "Content-Type": "application/json"
+                            }
+                          });
+                        } catch (err) {
+                          console.error("❌ Error enviando CTA URL de Wompi:", err.response?.data || err.message);
+                          await this.sendWhatsAppMessage(phone_number_id, from, messageBody + `\n\nEnlace de pago: ${checkoutUrl}`);
+                        }
+                      });
                     } else {
                       messageBody += `💵 Tu método de pago es contra entrega en efectivo. Prepararemos tu pedido y pagarás al recibir. ¡Muchas gracias!`;
+                      systemInteractiveResponse = messageBody;
+                      isSystemInteractive = true;
+
+                      setImmediate(async () => {
+                        await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
+                      });
                     }
-
-                    systemInteractiveResponse = messageBody;
-                    isSystemInteractive = true;
-
-                    setImmediate(async () => {
-                      await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
-                    });
                   } else {
                     systemInteractiveResponse = `Por favor, selecciona una opción válida:\n1️⃣ **Wompi (PSE, Nequi, Tarjeta)**\n2️⃣ **Efectivo contra entrega**\n\nResponde **1** o **2**.`;
                     isSystemInteractive = true;
