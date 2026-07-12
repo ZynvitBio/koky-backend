@@ -376,8 +376,8 @@ module.exports = {
                                 flow_action_payload: {
                                   screen: "DELIVERY_SCREEN",
                                   data: {
-                                    cart_total: total,
-                                    items_summary: listText
+                                  cart_total_text: `Subtotal de comida: $${total.toLocaleString('es-CO')} COP`,
+                                  items_summary: `Detalles de tus productos:\n${listText}`
                                   }
                                 }
                               }
@@ -564,8 +564,8 @@ module.exports = {
                                   flow_action_payload: {
                                     screen: "DELIVERY_SCREEN",
                                     data: {
-                                      cart_total: activeCart.subtotal,
-                                      items_summary: activeCart.listText
+                                      cart_total_text: `Subtotal de comida: $${activeCart.subtotal.toLocaleString('es-CO')} COP`,
+                                      items_summary: `Detalles de tus productos:\n${activeCart.listText}`
                                     }
                                   }
                                 }
