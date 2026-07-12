@@ -22,7 +22,40 @@ const model = genAI.getGenerativeModel(
   { apiVersion: "v1" },
 );
 
+async function geocodeAddress(address) {
+  const apiKey = process.env.G_MAPS_KEY;
+  if (!apiKey) {
+    throw new Error("G_MAPS_KEY no está configurada en las variables de entorno.");
+  }
+  
+  let queryAddress = address;
+  if (!address.toLowerCase().includes("bogota") && !address.toLowerCase().includes("bogotá")) {
+    queryAddress = `${address}, Bogotá, Colombia`;
+  }
+
+  const url = `https://maps.googleapis.com/maps/api/geocode/json`;
+  const response = await axios.get(url, {
+    params: {
+      address: queryAddress,
+      key: apiKey
+    }
+  });
+
+  if (response.data.status !== "OK" || !response.data.results.length) {
+    throw new Error(`No se pudo geocodificar la dirección: ${response.data.status}`);
+  }
+
+  const location = response.data.results[0].geometry.location;
+  const formattedAddress = response.data.results[0].formatted_address;
+  return {
+    lat: location.lat,
+    lng: location.lng,
+    formattedAddress: formattedAddress
+  };
+}
+
 function calculateScore(msgText, previousScore = 0) {
+
   let score = Number(previousScore) || 0;
 
   const text = msgText.toLowerCase();
@@ -197,6 +230,8 @@ module.exports = {
 
             const waName = contact?.profile?.name || "Cliente Koky";
 
+            let user = await this.getOrCreateUser(from, waName, "whatsapp");
+
             let rawText = message.text?.body || message.button?.text || "";
             let isSystemInteractive = false;
             let systemInteractiveResponse = "";
@@ -205,6 +240,7 @@ module.exports = {
             if (message.type === "order" && message.order) {
               const items = message.order.product_items || [];
               let itemsTextList = [];
+              let itemsToSave = [];
               let total = 0;
 
               for (const item of items) {
@@ -224,76 +260,146 @@ module.exports = {
                   const itemTotal = Number(product.price) * quantity;
                   total += itemTotal;
                   itemsTextList.push(`- ${quantity}x ${product.name} ($${Number(product.price).toLocaleString('es-CO')} COP)`);
+                  itemsToSave.push({
+                    id: product.id,
+                    name: product.name,
+                    price: Number(product.price),
+                    quantity: quantity
+                  });
                 } else {
                   itemsTextList.push(`- ${quantity}x Producto ID: ${retailerId}`);
+                  itemsToSave.push({
+                    id: retailerId,
+                    name: `Producto ID: ${retailerId}`,
+                    price: 0,
+                    quantity: quantity
+                  });
                 }
               }
 
               const listText = itemsTextList.join("\n");
               rawText = `🛒 [Carrito enviado]\n${listText}\nTotal: $${total.toLocaleString('es-CO')} COP`;
 
-              const flowId = process.env.WHATSAPP_FLOW_ID;
-              if (flowId) {
-                systemInteractiveResponse = `¡Recibí tu pedido! 🛒\n\n${listText}\nTotal: $${total.toLocaleString('es-CO')} COP\n\nPor favor, completa tus datos de entrega y método de pago presionando el botón "Confirmar Entrega" aquí abajo.`;
-                isSystemInteractive = true;
+              // Buscar historial de pedidos del cliente para ver si tiene direcciones registradas
+              const pastOrders = await strapi.db.query("api::order.order").findMany({
+                where: { whatsapp_id: from },
+                orderBy: { createdAt: "desc" },
+                limit: 5
+              });
 
-                setImmediate(async () => {
-                  try {
-                    await axios({
-                      method: "POST",
-                      url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-                      data: {
-                        messaging_product: "whatsapp",
-                        recipient_type: "individual",
-                        to: from,
-                        type: "interactive",
-                        interactive: {
-                          type: "flow",
-                          header: {
-                            type: "text",
-                            text: "Confirmar Pedido"
-                          },
-                          body: {
-                            text: `Detalles de tu compra:\n${listText}\nTotal: $${total.toLocaleString('es-CO')} COP`
-                          },
-                          footer: {
-                            text: "Koky Food"
-                          },
-                          action: {
-                            name: "flow",
-                            parameters: {
-                              flow_message_version: "3",
-                              flow_token: `cart_${Date.now()}`,
-                              flow_id: flowId,
-                              flow_cta: "Confirmar Entrega",
-                              flow_action: "navigate",
-                              flow_action_payload: {
-                                screen: "DELIVERY_SCREEN",
-                                data: {
-                                  cart_total: total,
-                                  items_summary: listText
-                                }
-                              }
-                            }
-                          }
-                        }
-                      },
-                      headers: {
-                        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-                        "Content-Type": "application/json"
-                      }
+              const uniqueAddresses = [];
+              const seenAddresses = new Set();
+              for (const order of pastOrders) {
+                if (order.shipping_address) {
+                  const normalized = order.shipping_address.trim().toLowerCase();
+                  if (!seenAddresses.has(normalized)) {
+                    seenAddresses.add(normalized);
+                    uniqueAddresses.push({
+                      address: order.shipping_address,
+                      latitude: Number(order.shipping_latitude),
+                      longitude: Number(order.shipping_longitude),
+                      notes: order.shipping_notes || ""
                     });
-                  } catch (err) {
-                    console.error("❌ Error enviando Flow:", err.response?.data || err.message);
                   }
+                }
+              }
+
+              user.kira_score = {
+                ...user.kira_score,
+                active_cart: {
+                  items: itemsToSave,
+                  subtotal: total,
+                  listText: listText
+                }
+              };
+
+              if (uniqueAddresses.length > 0) {
+                // Guardar las direcciones temporales y esperar selección por chat
+                user.kira_score.temp_addresses = uniqueAddresses;
+                user.kira_score.checkout_state = "AWAITING_ADDRESS_SELECTION";
+                
+                await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                  data: { kira_score: user.kira_score }
                 });
-              } else {
-                systemInteractiveResponse = `¡Recibí tu pedido! 🛒\n\n${listText}\nTotal: $${total.toLocaleString('es-CO')} COP\n\nPronto te contactaremos por aquí para confirmar la entrega y el método de pago. ¡Gracias por elegir Koky! 🥦`;
+
+                const addressOptions = uniqueAddresses.map((addr, idx) => `${idx + 1}️⃣ **${addr.address}**`).join("\n");
+                systemInteractiveResponse = `¡Recibí tu pedido! 🛒\n\n¿A qué dirección lo enviamos?\n\n${addressOptions}\n\nResponde con el número de la dirección (ej. 1), o escribe **"Nueva"** para enviar a otra dirección.`;
                 isSystemInteractive = true;
 
                 setImmediate(async () => {
                   await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
                 });
+              } else {
+                // No hay direcciones previas, enviar el Flow de una vez
+                user.kira_score.checkout_state = "AWAITING_FLOW_SUBMISSION";
+                
+                await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                  data: { kira_score: user.kira_score }
+                });
+
+                const flowId = process.env.WHATSAPP_FLOW_ID;
+                if (flowId) {
+                  systemInteractiveResponse = `¡Recibí tu pedido! 🛒\n\nPor favor, completa tus datos de entrega presionando el botón "Confirmar Entrega" aquí abajo.`;
+                  isSystemInteractive = true;
+
+                  setImmediate(async () => {
+                    try {
+                      await axios({
+                        method: "POST",
+                        url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+                        data: {
+                          messaging_product: "whatsapp",
+                          recipient_type: "individual",
+                          to: from,
+                          type: "interactive",
+                          interactive: {
+                            type: "flow",
+                            header: {
+                              type: "text",
+                              text: "Confirmar Pedido"
+                            },
+                            body: {
+                              text: `Detalles de tu compra:\n${listText}\nTotal: $${total.toLocaleString('es-CO')} COP`
+                            },
+                            footer: {
+                              text: "Koky Food"
+                            },
+                            action: {
+                              name: "flow",
+                              parameters: {
+                                flow_message_version: "3",
+                                flow_token: `cart_${Date.now()}`,
+                                flow_id: flowId,
+                                flow_cta: "Confirmar Entrega",
+                                flow_action: "navigate",
+                                flow_action_payload: {
+                                  screen: "DELIVERY_SCREEN",
+                                  data: {
+                                    cart_total: total,
+                                    items_summary: listText
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        headers: {
+                          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+                          "Content-Type": "application/json"
+                        }
+                      });
+                    } catch (err) {
+                      console.error("❌ Error enviando Flow:", err.response?.data || err.message);
+                    }
+                  });
+                } else {
+                  systemInteractiveResponse = `¡Recibí tu pedido! 🛒\n\nPronto te contactaremos por aquí para confirmar la entrega. ¡Gracias por elegir Koky! 🥦`;
+                  isSystemInteractive = true;
+
+                  setImmediate(async () => {
+                    await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
+                  });
+                }
               }
             }
             // 2. Procesar respuestas de WhatsApp Flows
@@ -301,17 +407,101 @@ module.exports = {
               const flowReply = message.interactive.nfm_reply;
               try {
                 const responseData = JSON.parse(flowReply.response_json);
-                const summary = Object.entries(responseData).map(([k, v]) => `${k}: ${v}`).join(", ");
-                rawText = `📋 [Formulario completado - ${flowReply.name || 'Flow'}: ${summary}]`;
+                console.log("📥 Flow Response Data:", responseData);
+                
+                const name = responseData.customer_name || waName;
+                const address = responseData.shipping_address;
+                const notes = responseData.shipping_notes || "";
+                const paymentMethod = responseData.payment_method || "wompi";
 
-                systemInteractiveResponse = `¡Excelente! Hemos recibido tus datos de entrega correctamente. Tu pedido ya está siendo procesado en la cocina de Koky. 🚀`;
+                const activeCart = user.kira_score?.active_cart;
+                if (!activeCart) {
+                  throw new Error("No hay un carrito activo para este usuario.");
+                }
+
+                // 1. Geocodificar la dirección usando Google Maps
+                let lat = 4.6976;
+                let lng = -74.0617;
+                let formattedAddress = address;
+
+                try {
+                  const geocoded = await geocodeAddress(address);
+                  lat = geocoded.lat;
+                  lng = geocoded.lng;
+                  formattedAddress = geocoded.formattedAddress;
+                } catch (geocodeErr) {
+                  console.error("❌ Error de geocodificación:", geocodeErr.message);
+                }
+
+                // 2. Calcular costo de envío con Cabify
+                let deliveryCost = 10000;
+                try {
+                  const cabifyResult = await strapi
+                    .service("api::cabify-delivery.cabify-delivery")
+                    .getPriceEstimate({
+                      dropoff_location: { lat: lat, lon: lng },
+                      dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
+                      weight: { value: 1000, unit: "g" },
+                    });
+                  if (cabifyResult?.deliveries?.[0]?.estimation?.price?.amount) {
+                    deliveryCost = cabifyResult.deliveries[0].estimation.price.amount;
+                  }
+                } catch (cabifyErr) {
+                  console.error("❌ Error consultando Cabify:", cabifyErr.message);
+                }
+
+                const totalAmount = activeCart.subtotal + deliveryCost;
+
+                // 3. Crear la Orden en Strapi
+                const ref = `WA_${Date.now()}`;
+                const newOrder = await strapi.entityService.create("api::order.order", {
+                  data: {
+                    whatsapp_id: String(from),
+                    customer_name: name,
+                    total_amount: Number(totalAmount),
+                    wompi_reference: ref,
+                    source: "whatsapp",
+                    items: activeCart.items,
+                    payment_method: paymentMethod === "wompi" ? "CARD" : "CASH",
+                    shipping_address: formattedAddress,
+                    shipping_latitude: Number(lat),
+                    shipping_longitude: Number(lng),
+                    shipping_notes: notes,
+                    users_permissions_users: [user.id],
+                    publishedAt: new Date()
+                  }
+                });
+
+                // 4. Limpiar estado del usuario
+                user.kira_score.checkout_state = null;
+                user.kira_score.active_cart = null;
+                await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                  data: { kira_score: user.kira_score }
+                });
+
+                // 5. Enviar mensaje de confirmación y pago
+                let messageBody = `¡Pedido recibido! 🥦\n\n`;
+                messageBody += `📋 **Detalles del Pedido:**\n${activeCart.listText}\n\n`;
+                messageBody += `🛵 **Envío (Cabify):** $${deliveryCost.toLocaleString('es-CO')} COP\n`;
+                messageBody += `💰 **Total Final:** $${totalAmount.toLocaleString('es-CO')} COP\n\n`;
+                messageBody += `📍 **Dirección:** ${formattedAddress}\n\n`;
+
+                if (paymentMethod === "wompi") {
+                  const checkoutUrl = `https://checkout.wompi.co/p/?public-key=${process.env.WOMPI_PUBLIC_KEY || 'pub_test_kB5ENAJ1QA4hPWZYlcrehcyjFrhQyUdq'}&currency=COP&amount-in-cents=${Math.round(totalAmount * 100)}&reference=${ref}&redirect-url=https://koky.food/orderconfirmation`;
+                  messageBody += `💳 Para completar tu pago, haz clic en el siguiente enlace de Wompi:\n🔗 ${checkoutUrl}\n\nAvísanos una vez realices el pago para procesar tu pedido.`;
+                } else {
+                  messageBody += `💵 Tu método de pago es contra entrega en efectivo. Prepararemos tu pedido y pagarás al recibir. ¡Muchas gracias!`;
+                }
+
+                systemInteractiveResponse = messageBody;
                 isSystemInteractive = true;
 
                 setImmediate(async () => {
                   await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
                 });
               } catch (e) {
-                rawText = `📋 [Formulario completado (Error al parsear JSON)]`;
+                console.error("❌ Error en nfm_reply:", e.message);
+                rawText = `📋 [Formulario completado (Error al procesar pedido)]`;
               }
             }
 
@@ -320,7 +510,183 @@ module.exports = {
             console.log("🔍 Procesando mensaje de:", phone_number_id);
 
             try {
-              let user = await this.getOrCreateUser(from, waName, "whatsapp");
+              // 3. Máquina de estados para selección de dirección y pago en chat
+              if (user.kira_score && user.kira_score.checkout_state) {
+                const checkoutState = user.kira_score.checkout_state;
+
+                if (checkoutState === "AWAITING_ADDRESS_SELECTION") {
+                  if (msgText.includes("nueva") || msgText.includes("otra") || msgText.includes("cambiar")) {
+                    const flowId = process.env.WHATSAPP_FLOW_ID;
+                    const activeCart = user.kira_score.active_cart;
+
+                    user.kira_score.checkout_state = "AWAITING_FLOW_SUBMISSION";
+                    await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                      data: { kira_score: user.kira_score }
+                    });
+
+                    systemInteractiveResponse = `¡Entendido! Completemos tus nuevos datos de entrega y método de pago en el formulario de abajo.`;
+                    isSystemInteractive = true;
+
+                    setImmediate(async () => {
+                      try {
+                        await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
+                        
+                        await axios({
+                          method: "POST",
+                          url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+                          data: {
+                            messaging_product: "whatsapp",
+                            recipient_type: "individual",
+                            to: from,
+                            type: "interactive",
+                            interactive: {
+                              type: "flow",
+                              header: {
+                                type: "text",
+                                text: "Confirmar Pedido"
+                              },
+                              body: {
+                                text: `Detalles de tu compra:\n${activeCart.listText}\nTotal: $${activeCart.subtotal.toLocaleString('es-CO')} COP`
+                              },
+                              footer: {
+                                text: "Koky Food"
+                              },
+                              action: {
+                                name: "flow",
+                                parameters: {
+                                  flow_message_version: "3",
+                                  flow_token: `cart_${Date.now()}`,
+                                  flow_id: flowId,
+                                  flow_cta: "Confirmar Entrega",
+                                  flow_action: "navigate",
+                                  flow_action_payload: {
+                                    screen: "DELIVERY_SCREEN",
+                                    data: {
+                                      cart_total: activeCart.subtotal,
+                                      items_summary: activeCart.listText
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          headers: {
+                            Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+                            "Content-Type": "application/json"
+                          }
+                        });
+                      } catch (err) {
+                        console.error("❌ Error enviando Flow:", err.response?.data || err.message);
+                      }
+                    });
+                  } else {
+                    const selectionIdx = parseInt(msgText) - 1;
+                    if (!isNaN(selectionIdx) && selectionIdx >= 0 && user.kira_score.temp_addresses && selectionIdx < user.kira_score.temp_addresses.length) {
+                      const selected = user.kira_score.temp_addresses[selectionIdx];
+                      
+                      user.kira_score.selected_address = selected;
+                      user.kira_score.checkout_state = "AWAITING_PAYMENT_SELECTION";
+                      
+                      await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                        data: { kira_score: user.kira_score }
+                      });
+
+                      systemInteractiveResponse = `Excelente, enviaremos tu pedido a:\n📍 **${selected.address}**\n\n¿Cómo prefieres realizar el pago?\n1️⃣ **Wompi (PSE, Nequi, Tarjeta)**\n2️⃣ **Efectivo contra entrega**\n\nResponde con el número **1** o **2**.`;
+                      isSystemInteractive = true;
+
+                      setImmediate(async () => {
+                        await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
+                      });
+                    } else {
+                      systemInteractiveResponse = `Por favor, responde con el número de la dirección que prefieras (ej. 1) o escribe **"Nueva"** para usar otra dirección.`;
+                      isSystemInteractive = true;
+
+                      setImmediate(async () => {
+                        await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
+                      });
+                    }
+                  }
+                } 
+                else if (checkoutState === "AWAITING_PAYMENT_SELECTION") {
+                  if (msgText === "1" || msgText === "2") {
+                    const paymentMethod = msgText === "1" ? "wompi" : "efectivo";
+                    const selectedAddress = user.kira_score.selected_address;
+                    const activeCart = user.kira_score.active_cart;
+
+                    let deliveryCost = 10000;
+                    try {
+                      const cabifyResult = await strapi
+                        .service("api::cabify-delivery.cabify-delivery")
+                        .getPriceEstimate({
+                          dropoff_location: { lat: selectedAddress.latitude, lon: selectedAddress.longitude },
+                          dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
+                          weight: { value: 1000, unit: "g" },
+                        });
+                      if (cabifyResult?.deliveries?.[0]?.estimation?.price?.amount) {
+                        deliveryCost = cabifyResult.deliveries[0].estimation.price.amount;
+                      }
+                    } catch (e) {
+                      console.error("❌ Error calculando Cabify para dirección histórica:", e.message);
+                    }
+
+                    const totalAmount = activeCart.subtotal + deliveryCost;
+
+                    const ref = `WA_${Date.now()}`;
+                    await strapi.entityService.create("api::order.order", {
+                      data: {
+                        whatsapp_id: String(from),
+                        customer_name: user.username || "Cliente WhatsApp",
+                        total_amount: Number(totalAmount),
+                        wompi_reference: ref,
+                        source: "whatsapp",
+                        items: activeCart.items,
+                        payment_method: paymentMethod === "wompi" ? "CARD" : "CASH",
+                        shipping_address: selectedAddress.address,
+                        shipping_latitude: Number(selectedAddress.latitude),
+                        shipping_longitude: Number(selectedAddress.longitude),
+                        shipping_notes: selectedAddress.notes || "",
+                        users_permissions_users: [user.id],
+                        publishedAt: new Date()
+                      }
+                    });
+
+                    user.kira_score.checkout_state = null;
+                    user.kira_score.active_cart = null;
+                    user.kira_score.selected_address = null;
+                    await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                      data: { kira_score: user.kira_score }
+                    });
+
+                    let messageBody = `¡Pedido confirmado! 🥦\n\n`;
+                    messageBody += `📋 **Detalles del Pedido:**\n${activeCart.listText}\n\n`;
+                    messageBody += `🛵 **Envío (Cabify):** $${deliveryCost.toLocaleString('es-CO')} COP\n`;
+                    messageBody += `💰 **Total Final:** $${totalAmount.toLocaleString('es-CO')} COP\n\n`;
+                    messageBody += `📍 **Dirección:** ${selectedAddress.address}\n\n`;
+
+                    if (paymentMethod === "wompi") {
+                      const checkoutUrl = `https://checkout.wompi.co/p/?public-key=${process.env.WOMPI_PUBLIC_KEY || 'pub_test_kB5ENAJ1QA4hPWZYlcrehcyjFrhQyUdq'}&currency=COP&amount-in-cents=${Math.round(totalAmount * 100)}&reference=${ref}&redirect-url=https://koky.food/orderconfirmation`;
+                      messageBody += `💳 Para completar tu pago, haz clic en el siguiente enlace de Wompi:\n🔗 ${checkoutUrl}\n\nAvísanos una vez realices el pago para procesar tu pedido.`;
+                    } else {
+                      messageBody += `💵 Tu método de pago es contra entrega en efectivo. Prepararemos tu pedido y pagarás al recibir. ¡Muchas gracias!`;
+                    }
+
+                    systemInteractiveResponse = messageBody;
+                    isSystemInteractive = true;
+
+                    setImmediate(async () => {
+                      await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
+                    });
+                  } else {
+                    systemInteractiveResponse = `Por favor, selecciona una opción válida:\n1️⃣ **Wompi (PSE, Nequi, Tarjeta)**\n2️⃣ **Efectivo contra entrega**\n\nResponde **1** o **2**.`;
+                    isSystemInteractive = true;
+
+                    setImmediate(async () => {
+                      await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
+                    });
+                  }
+                }
+              }
+
 
               const textoBotonRegistro = "registrarme aquí";
 
