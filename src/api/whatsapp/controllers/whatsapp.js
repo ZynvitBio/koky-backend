@@ -235,9 +235,11 @@ module.exports = {
             let rawText = message.text?.body || message.button?.text || "";
             let isSystemInteractive = false;
             let systemInteractiveResponse = "";
+            let skipStateMachine = false;
 
             // 1. Procesar carritos de compras nativos de WhatsApp
             if (message.type === "order" && message.order) {
+              skipStateMachine = true;
               const items = message.order.product_items || [];
               let itemsTextList = [];
               let itemsToSave = [];
@@ -405,6 +407,7 @@ module.exports = {
             }
             // 2. Procesar respuestas de WhatsApp Flows
             else if (message.type === "interactive" && message.interactive?.type === "nfm_reply") {
+              skipStateMachine = true;
               const flowReply = message.interactive.nfm_reply;
               try {
                 const responseData = JSON.parse(flowReply.response_json);
@@ -512,7 +515,7 @@ module.exports = {
 
             try {
               // 3. Máquina de estados para selección de dirección y pago en chat
-              if (user.kira_score && user.kira_score.checkout_state) {
+              if (!skipStateMachine && user.kira_score && user.kira_score.checkout_state) {
                 const checkoutState = user.kira_score.checkout_state;
 
                 if (checkoutState === "AWAITING_ADDRESS_SELECTION") {
