@@ -255,10 +255,19 @@ module.exports = {
                       { sku: retailerId },
                       { id: isNaN(Number(retailerId)) ? -1 : Number(retailerId) }
                     ]
-                  }
+                  },
+                  populate: { image: true }
                 });
 
                 if (product) {
+                  let imageUrl = "";
+                  if (product.image && product.image.url) {
+                    const path = product.image.url;
+                    imageUrl = path.startsWith("http")
+                      ? path
+                      : `https://koky-backend-production.up.railway.app${path}`;
+                  }
+
                   const itemTotal = Number(product.price) * quantity;
                   total += itemTotal;
                   itemsTextList.push(`- ${quantity}x ${product.name} ($${Number(product.price).toLocaleString('es-CO')} COP)`);
@@ -266,7 +275,8 @@ module.exports = {
                     id: product.id,
                     name: product.name,
                     price: Number(product.price),
-                    quantity: quantity
+                    quantity: quantity,
+                    image: imageUrl
                   });
                 } else {
                   itemsTextList.push(`- ${quantity}x Producto ID: ${retailerId}`);
