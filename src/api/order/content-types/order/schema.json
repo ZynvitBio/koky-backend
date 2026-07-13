@@ -63,6 +63,16 @@
     "stock_deducted": {
       "type": "boolean",
       "default": false
+    },
+    "payment_status": {
+      "type": "enumeration",
+      "enum": [
+        "PENDING",
+        "APPROVED",
+        "DECLINED",
+        "ERROR"
+      ],
+      "default": "PENDING"
     }
   }
 }
