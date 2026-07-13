@@ -128,8 +128,11 @@ module.exports = createCoreService('api::order.order', ({ strapi }) => ({
       const stats = fs.statSync(tempFilePath);
       const fileData = {
         path: tempFilePath,
+        filepath: tempFilePath,
         name: `Factura_Koky_${order.id}.pdf`,
+        originalFilename: `Factura_Koky_${order.id}.pdf`,
         type: 'application/pdf',
+        mimetype: 'application/pdf',
         size: stats.size,
       };
 
