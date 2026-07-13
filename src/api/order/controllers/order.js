@@ -107,6 +107,18 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
             const whatsapp_token = process.env.WHATSAPP_TOKEN;
 
             if (whatsapp_token) {
+              strapi.log.info(`[Wompi Webhook] Generando factura PDF para la orden #${order.id}...`);
+              let pdfUrl = null;
+              try {
+                // Volvemos a obtener el objeto orden completo para tener los datos más recientes
+                const fullOrder = await strapi.entityService.findOne("api::order.order", order.id);
+                const uploadedFile = await strapi.service("api::order.order").generateInvoicePDF(fullOrder);
+                pdfUrl = uploadedFile.url;
+                strapi.log.info(`[Wompi Webhook] Factura PDF generada con éxito: ${pdfUrl}`);
+              } catch (pdfErr) {
+                strapi.log.error(`[Wompi Webhook] Error al generar factura PDF: ${pdfErr.message}`);
+              }
+
               strapi.log.info(`[Wompi Webhook] Enviando confirmación de pago por WhatsApp a ${order.whatsapp_id}`);
               await axios({
                 method: "POST",
@@ -124,7 +136,29 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
                   "Content-Type": "application/json",
                 },
               });
-              strapi.log.info(`[Wompi Webhook] Mensaje de confirmación de WhatsApp enviado con éxito.`);
+
+              // Si se pudo generar el PDF, enviarlo como documento adjunto
+              if (pdfUrl) {
+                strapi.log.info(`[Wompi Webhook] Enviando archivo PDF de factura a ${order.whatsapp_id}`);
+                await axios({
+                  method: "POST",
+                  url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+                  data: {
+                    messaging_product: "whatsapp",
+                    to: order.whatsapp_id,
+                    type: "document",
+                    document: {
+                      link: pdfUrl,
+                      filename: `Factura_Koky_${order.id}.pdf`
+                    }
+                  },
+                  headers: {
+                    Authorization: `Bearer ${whatsapp_token}`,
+                    "Content-Type": "application/json",
+                  },
+                });
+                strapi.log.info(`[Wompi Webhook] Factura PDF enviada por WhatsApp con éxito.`);
+              }
             } else {
               strapi.log.warn("[Wompi Webhook] WHATSAPP_TOKEN no configurado. Se omite el envío del mensaje.");
             }

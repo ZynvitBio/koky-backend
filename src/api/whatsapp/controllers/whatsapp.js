@@ -563,6 +563,34 @@ module.exports = {
 
                   setImmediate(async () => {
                     await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
+
+                    // Enviar factura PDF para pago en efectivo
+                    try {
+                      const fullOrder = await strapi.entityService.findOne("api::order.order", newOrder.id);
+                      const uploadedFile = await strapi.service("api::order.order").generateInvoicePDF(fullOrder);
+                      if (uploadedFile && uploadedFile.url) {
+                        const whatsapp_token = process.env.WHATSAPP_TOKEN;
+                        await axios({
+                          method: "POST",
+                          url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+                          data: {
+                            messaging_product: "whatsapp",
+                            to: from,
+                            type: "document",
+                            document: {
+                              link: uploadedFile.url,
+                              filename: `Factura_Koky_${newOrder.id}.pdf`
+                            }
+                          },
+                          headers: {
+                            Authorization: `Bearer ${whatsapp_token}`,
+                            "Content-Type": "application/json"
+                          }
+                        });
+                      }
+                    } catch (pdfErr) {
+                      console.error("❌ Error enviando factura PDF para CASH (Flow):", pdfErr.message);
+                    }
                   });
                 }
               } catch (e) {
@@ -784,6 +812,34 @@ module.exports = {
 
                       setImmediate(async () => {
                         await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
+
+                        // Enviar factura PDF para pago en efectivo
+                        try {
+                          const fullOrder = await strapi.entityService.findOne("api::order.order", newOrder.id);
+                          const uploadedFile = await strapi.service("api::order.order").generateInvoicePDF(fullOrder);
+                          if (uploadedFile && uploadedFile.url) {
+                            const whatsapp_token = process.env.WHATSAPP_TOKEN;
+                            await axios({
+                              method: "POST",
+                              url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+                              data: {
+                                messaging_product: "whatsapp",
+                                to: from,
+                                type: "document",
+                                document: {
+                                  link: uploadedFile.url,
+                                  filename: `Factura_Koky_${newOrder.id}.pdf`
+                                }
+                              },
+                              headers: {
+                                Authorization: `Bearer ${whatsapp_token}`,
+                                "Content-Type": "application/json"
+                              }
+                            });
+                          }
+                        } catch (pdfErr) {
+                          console.error("❌ Error enviando factura PDF para CASH (Chat):", pdfErr.message);
+                        }
                       });
                     }
                   } else {
