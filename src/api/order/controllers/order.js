@@ -100,8 +100,8 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
           strapi.log.info(`[Wompi Webhook] WebSocket emitido para orden ID: ${order.id}`);
         }
 
-        // Si el estado es APPROVED, enviar un WhatsApp automático de confirmación al cliente
-        if (status === "APPROVED" && order.whatsapp_id) {
+        // Si el estado es APPROVED y la orden se originó en WhatsApp, enviar un WhatsApp automático de confirmación al cliente
+        if (status === "APPROVED" && order.source === "whatsapp" && order.whatsapp_id) {
           try {
             const phone_number_id = process.env.ID_PHONE_WS || "1037050959491352";
             const whatsapp_token = process.env.WHATSAPP_TOKEN;
