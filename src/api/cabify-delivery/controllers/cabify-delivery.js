@@ -100,6 +100,9 @@ module.exports = {
             cabify_parcel_id: null,
           },
         });
+        await strapi.documents("api::order.order").publish({
+          documentId: documentId,
+        });
       }
 
       ctx.body = { 

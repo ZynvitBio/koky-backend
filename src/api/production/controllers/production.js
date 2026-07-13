@@ -170,6 +170,9 @@ module.exports = {
           documentId: product.documentId,
           data: updateData,
         });
+        await strapi.documents("api::product.product").publish({
+          documentId: product.documentId,
+        });
       }
 
       // Marcar las órdenes de este lote como reconciliadas
@@ -183,6 +186,9 @@ module.exports = {
         await strapi.documents("api::order.order").update({
           documentId: order.documentId,
           data: { reconciled: true },
+        });
+        await strapi.documents("api::order.order").publish({
+          documentId: order.documentId,
         });
       }
 
