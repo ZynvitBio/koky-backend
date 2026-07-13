@@ -116,7 +116,7 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
                   to: order.whatsapp_id,
                   type: "text",
                   text: {
-                    body: `¡Pago confirmado! 💳 Tu pago con Wompi ha sido aprobado con éxito y tu pedido está en preparación. ¡Muchas gracias por tu compra! 🥦`,
+                    body: `¡Pago confirmado! 💳 Tu pago con Wompi ha sido aprobado con éxito. Tu pedido (Orden #${order.id}) está en preparación. ¡Muchas gracias por tu compra! 🥦`,
                   },
                 },
                 headers: {

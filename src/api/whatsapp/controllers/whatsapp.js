@@ -283,10 +283,18 @@ module.exports = {
               rawText = `🛒 [Carrito enviado]\n${listText}\nTotal: $${total.toLocaleString('es-CO')} COP`;
 
               // Buscar historial de pedidos del cliente para ver si tiene direcciones registradas
+              const cleanFrom = from.replace(/^\+?57/, "");
               const pastOrders = await strapi.db.query("api::order.order").findMany({
-                where: { whatsapp_id: from },
+                where: {
+                  $or: [
+                    { whatsapp_id: from },
+                    { whatsapp_id: `+${from}` },
+                    { whatsapp_id: cleanFrom },
+                    { whatsapp_id: `+${cleanFrom}` }
+                  ]
+                },
                 orderBy: { createdAt: "desc" },
-                limit: 5
+                limit: 50
               });
 
               const uniqueAddresses = [];
@@ -302,6 +310,7 @@ module.exports = {
                       longitude: Number(order.shipping_longitude),
                       notes: order.shipping_notes || ""
                     });
+                    if (uniqueAddresses.length >= 5) break;
                   }
                 }
               }
@@ -484,7 +493,7 @@ module.exports = {
                 });
 
                 // 5. Enviar mensaje de confirmación y pago
-                let messageBody = `¡Pedido recibido! 🥦\n\n`;
+                let messageBody = `¡Pedido recibido! 🥦 (Orden #${newOrder.id})\n\n`;
                 messageBody += `📋 **Detalles del Pedido:**\n${activeCart.listText}\n\n`;
                 messageBody += `🛵 **Envío (Cabify):** $${deliveryCost.toLocaleString('es-CO')} COP\n`;
                 messageBody += `💰 **Total Final:** $${totalAmount.toLocaleString('es-CO')} COP\n\n`;
@@ -680,7 +689,7 @@ module.exports = {
                     const totalAmount = activeCart.subtotal + deliveryCost;
 
                     const ref = `WA_${Date.now()}`;
-                    await strapi.entityService.create("api::order.order", {
+                    const newOrder = await strapi.entityService.create("api::order.order", {
                       data: {
                         whatsapp_id: String(from),
                         customer_name: user.username || "Cliente WhatsApp",
@@ -705,7 +714,7 @@ module.exports = {
                       data: { kira_score: user.kira_score }
                     });
 
-                    let messageBody = `¡Pedido confirmado! 🥦\n\n`;
+                    let messageBody = `¡Pedido confirmado! 🥦 (Orden #${newOrder.id})\n\n`;
                     messageBody += `📋 **Detalles del Pedido:**\n${activeCart.listText}\n\n`;
                     messageBody += `🛵 **Envío (Cabify):** $${deliveryCost.toLocaleString('es-CO')} COP\n`;
                     messageBody += `💰 **Total Final:** $${totalAmount.toLocaleString('es-CO')} COP\n\n`;
