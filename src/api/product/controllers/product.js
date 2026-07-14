@@ -28,17 +28,17 @@ module.exports = createCoreController('api::product.product', ({ strapi }) => ({
         populate: { image: true },
       });
 
-      let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">\n  <channel>\n    <title>Koky Food</title>\n    <link>https://koky.food</link>\n    <description>Menú y consumibles de Koky Food</description>\n`;
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">\n  <channel>\n    <title>Koky Food</title>\n    <link>https://www.koky.food</link>\n    <description>Menú y consumibles de Koky Food</description>\n`;
 
       for (const prod of products) {
         const id = prod.sku || prod.id;
         const title = escapeXml(prod.name);
         const description = escapeXml(prod.shortDescription || prod.longDescription || prod.name);
-        const link = `https://koky.food/product/${prod.slug || prod.id}`;
+        const link = `https://www.koky.food/product/${prod.slug || prod.id}`;
         
         let imageLink = "";
         if (prod.image) {
-          imageLink = prod.image.url.startsWith("http") ? prod.image.url : `https://koky.food${prod.image.url}`;
+          imageLink = prod.image.url.startsWith("http") ? prod.image.url : `https://www.koky.food${prod.image.url}`;
         }
         
         const availability = prod.stock > 0 ? "in stock" : "out of stock";
