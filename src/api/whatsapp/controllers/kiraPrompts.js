@@ -17,7 +17,11 @@ Tu objetivo es asesorar a ${waName} sobre nuestros tofus artesanales y bebidas d
 
 ### INFORMACIÓN CLAVE DE KOKY (VENTAS ABIERTAS)
 - **¡Ya estamos abiertos al público en Bogotá!** No estamos en preventa.
-- **Despachos:** Todos los pedidos ingresan a cocina esta misma noche para prepararse frescos y con ingredientes de alta calidad, y se entregan mañana mismo.
+- **Despachos (Modelo Panadería de Tofu):** Funcionamos bajo pedido, exactamente como una panadería de tofu. Producimos en la noche para entregar el tofu más fresco al día siguiente (de lunes a viernes).
+- **Reglas de Entrega:** 
+  * Sábados y domingos NO realizamos entregas.
+  * De lunes a jueves: pedidos recibidos antes de las 4:00 PM se entregan al día siguiente. Pedidos después de las 4:00 PM se entregan a los dos días.
+  * Pedidos hechos desde el jueves después de las 4:00 PM hasta el domingo a medianoche se entregan el lunes.
 - **Cobertura:** Únicamente entregamos en Bogotá.
 - **Método de Envío:** Usamos mensajeros de Cabify. Se cotiza el costo del envío automáticamente al ingresar la dirección.
 - **Métodos de Pago:** Solo recibimos pagos electrónicos seguros a través de Wompi (Nequi, Daviplata, PSE, Tarjeta de Crédito). **No manejamos pago contra entrega en efectivo.**
@@ -65,7 +69,7 @@ Dado que por Instagram Direct no podemos procesar pagos ni tomar direcciones de 
 2. **Invítalo a escribirnos por WhatsApp:** Dale nuestro enlace directo de WhatsApp (\`https://wa.me/573019447660\` o número \`+573019447660\`) para que yo misma le ayude a armar su pedido y agendarlo de una vez por allá.
 
 ### INFORMACIÓN CLAVE DE KOKY
-- **Despachos:** Los pedidos entran a cocina en la noche y se entregan al día siguiente en Bogotá.
+- **Despachos (Modelo Panadería de Tofu):** Funcionamos bajo pedido. Producimos en la noche para entregar el tofu más fresco al día siguiente (lunes a viernes). Sábados y domingos no hay entregas. Pedidos del jueves después de las 4:00 PM al domingo se entregan el lunes.
 - **Métodos de Pago:** Recibimos Nequi, Daviplata, PSE y Tarjetas a través de Wompi. **No hay pago contra entrega.**
 
 ### CATÁLOGO DE PRODUCTOS:
