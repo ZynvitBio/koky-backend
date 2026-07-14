@@ -25,15 +25,14 @@ module.exports = createCoreService('api::order.order', ({ strapi }) => ({
 
       // --- LOGOTIPO / ENCABEZADO ---
       try {
-        const logoPath = path.join(process.cwd(), 'public', 'logo-icon.png');
+        const logoPath = path.join(process.cwd(), 'public', 'logoBlue20.png');
         if (fs.existsSync(logoPath)) {
-          doc.image(logoPath, 50, 45, { width: 40 });
+          doc.image(logoPath, 50, 40, { width: 172 });
         }
       } catch (imgErr) {
         strapi.log.error(`[Invoice PDF] Error al insertar imagen de logo: ${imgErr.message}`);
       }
-      doc.font('Helvetica-Bold').fontSize(24).fillColor('#2e7d32').text('Koky Food', 100, 45);
-      doc.font('Helvetica').fontSize(10).fillColor('#555555').text('Comida Saludable para Todos', 100, 72);
+      doc.font('Helvetica').fontSize(10).fillColor('#555555').text('Comida Saludable para Todos', 50, 85);
 
       // --- DATOS DEL EMISOR ---
       doc.font('Helvetica-Bold').fontSize(10).fillColor('#333333').text('EMISOR:', 50, 110);
