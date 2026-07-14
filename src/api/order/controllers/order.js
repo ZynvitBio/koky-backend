@@ -191,4 +191,30 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
       ctx.body = { success: false, error: err.message };
     }
   },
+
+  async getConfirmationDetails(ctx) {
+    try {
+      const { reference } = ctx.params;
+      if (!reference) {
+        return ctx.badRequest("Referencia no recibida.");
+      }
+
+      const order = await strapi.db.query("api::order.order").findOne({
+        where: { wompi_reference: reference },
+        populate: { invoice_pdf: true },
+      });
+
+      if (!order) {
+        return ctx.notFound("Orden no encontrada.");
+      }
+
+      return ctx.send({
+        id: order.id,
+        payment_status: order.payment_status,
+        invoice_pdf_url: order.invoice_pdf ? order.invoice_pdf.url : null,
+      });
+    } catch (err) {
+      return ctx.internalServerError(err.message);
+    }
+  },
 }));
