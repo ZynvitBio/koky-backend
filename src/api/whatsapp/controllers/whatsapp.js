@@ -983,8 +983,8 @@ module.exports = {
 
                 const productList = await ProductService.getProductsContext();
 
-                // Nueva fecha: 14 de julio de 2026
-                const fechaLanzamiento = new Date("2026-07-14T00:00:00-05:00");
+                // Nueva fecha: 15 de julio de 2026
+                const fechaLanzamiento = new Date("2026-07-15T00:00:00-05:00");
                 const ahora = new Date();
 
                 const diff = fechaLanzamiento - ahora;
