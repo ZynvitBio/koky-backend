@@ -114,11 +114,11 @@ module.exports = createCoreService('api::order.order', ({ strapi }) => ({
       doc.text('VALOR TOTAL NETO:', 320, y, { width: 140, align: 'right' });
       doc.text(`$${totalAmount.toLocaleString('es-CO')}`, 465, y, { width: 80, align: 'right' });
 
-      // --- PIE DE PÁGINA / NOTAS ---
       doc.moveTo(50, 720).lineTo(545, 720).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#333333').text('¡GRACIAS POR TU COMPRA!', 50, 730, { align: 'center' });
       doc.font('Helvetica').fontSize(8).fillColor('#888888')
-         .text('Esta es una representación física de la transacción de compra digital realizada en Koky Food.', 50, 730, { align: 'center' })
-         .font('Helvetica-Bold').text('¡GRACIAS POR TU COMPRA!', 50, 742, { align: 'center' });
+         .text('www.koky.food', 50, 745, { align: 'center' })
+         .text('somos@koky.food,  whatsapp: +573019447660', 50, 757, { align: 'center' });
 
       doc.end();
 

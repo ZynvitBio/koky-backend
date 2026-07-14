@@ -435,7 +435,7 @@ module.exports = {
                 const name = responseData.customer_name || waName;
                 const address = responseData.shipping_address;
                 const notes = responseData.shipping_notes || "";
-                const paymentMethod = responseData.payment_method || "wompi";
+                const paymentMethod = "wompi"; // Forzar pago con Wompi
 
                 const activeCart = user.kira_score?.active_cart;
                 if (!activeCart) {
@@ -691,86 +691,59 @@ module.exports = {
                     if (!isNaN(selectionIdx) && selectionIdx >= 0 && user.kira_score.temp_addresses && selectionIdx < user.kira_score.temp_addresses.length) {
                       const selected = user.kira_score.temp_addresses[selectionIdx];
                       
-                      user.kira_score.selected_address = selected;
-                      user.kira_score.checkout_state = "AWAITING_PAYMENT_SELECTION";
-                      
+                      const activeCart = user.kira_score.active_cart;
+
+                      let deliveryCost = 10000;
+                      try {
+                        const cabifyResult = await strapi
+                          .service("api::cabify-delivery.cabify-delivery")
+                          .getPriceEstimate({
+                            dropoff_location: { lat: selected.latitude, lon: selected.longitude },
+                            dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
+                            weight: { value: 1000, unit: "g" },
+                          });
+                        if (cabifyResult?.deliveries?.[0]?.estimation?.price?.amount) {
+                          deliveryCost = cabifyResult.deliveries[0].estimation.price.amount;
+                        }
+                      } catch (e) {
+                        console.error("❌ Error calculando Cabify para dirección histórica:", e.message);
+                      }
+
+                      const totalAmount = activeCart.subtotal + deliveryCost;
+
+                      const ref = `WA_${Date.now()}`;
+                      const newOrder = await strapi.entityService.create("api::order.order", {
+                        data: {
+                          whatsapp_id: String(from),
+                          customer_name: user.username || "Cliente WhatsApp",
+                          total_amount: Number(totalAmount),
+                          wompi_reference: ref,
+                          source: "whatsapp",
+                          items: activeCart.items,
+                          payment_method: "CARD",
+                          shipping_address: selected.address,
+                          shipping_latitude: Number(selected.latitude),
+                          shipping_longitude: Number(selected.longitude),
+                          shipping_notes: selected.notes || "",
+                          users_permissions_users: [user.id],
+                          publishedAt: new Date()
+                        }
+                      });
+
+                      user.kira_score.checkout_state = null;
+                      user.kira_score.active_cart = null;
+                      user.kira_score.selected_address = null;
+                      user.kira_score.temp_addresses = null;
                       await strapi.entityService.update("plugin::users-permissions.user", user.id, {
                         data: { kira_score: user.kira_score }
                       });
 
-                      systemInteractiveResponse = `Excelente, enviaremos tu pedido a:\n📍 **${selected.address}**\n\n¿Cómo prefieres realizar el pago?\n1️⃣ **Wompi (PSE, Nequi, Tarjeta)**\n2️⃣ **Efectivo contra entrega**\n\nResponde con el número **1** o **2**.`;
-                      isSystemInteractive = true;
+                      let messageBody = `¡Pedido confirmado! 🥦 (Orden #${newOrder.id})\n\n`;
+                      messageBody += `📋 **Detalles del Pedido:**\n${activeCart.listText}\n\n`;
+                      messageBody += `🛵 **Envío (Cabify):** $${deliveryCost.toLocaleString('es-CO')} COP\n`;
+                      messageBody += `💰 **Total Final:** $${totalAmount.toLocaleString('es-CO')} COP\n\n`;
+                      messageBody += `📍 **Dirección:** ${selected.address}\n\n`;
 
-                      setImmediate(async () => {
-                        await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
-                      });
-                    } else {
-                      systemInteractiveResponse = `Por favor, responde con el número de la dirección que prefieras (ej. 1) o escribe **"Nueva"** para usar otra dirección.`;
-                      isSystemInteractive = true;
-
-                      setImmediate(async () => {
-                        await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
-                      });
-                    }
-                  }
-                } 
-                else if (checkoutState === "AWAITING_PAYMENT_SELECTION") {
-                  if (msgText === "1" || msgText === "2") {
-                    const paymentMethod = msgText === "1" ? "wompi" : "efectivo";
-                    const selectedAddress = user.kira_score.selected_address;
-                    const activeCart = user.kira_score.active_cart;
-
-                    let deliveryCost = 10000;
-                    try {
-                      const cabifyResult = await strapi
-                        .service("api::cabify-delivery.cabify-delivery")
-                        .getPriceEstimate({
-                          dropoff_location: { lat: selectedAddress.latitude, lon: selectedAddress.longitude },
-                          dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
-                          weight: { value: 1000, unit: "g" },
-                        });
-                      if (cabifyResult?.deliveries?.[0]?.estimation?.price?.amount) {
-                        deliveryCost = cabifyResult.deliveries[0].estimation.price.amount;
-                      }
-                    } catch (e) {
-                      console.error("❌ Error calculando Cabify para dirección histórica:", e.message);
-                    }
-
-                    const totalAmount = activeCart.subtotal + deliveryCost;
-
-                    const ref = `WA_${Date.now()}`;
-                    const newOrder = await strapi.entityService.create("api::order.order", {
-                      data: {
-                        whatsapp_id: String(from),
-                        customer_name: user.username || "Cliente WhatsApp",
-                        total_amount: Number(totalAmount),
-                        wompi_reference: ref,
-                        source: "whatsapp",
-                        items: activeCart.items,
-                        payment_method: paymentMethod === "wompi" ? "CARD" : "CASH",
-                        shipping_address: selectedAddress.address,
-                        shipping_latitude: Number(selectedAddress.latitude),
-                        shipping_longitude: Number(selectedAddress.longitude),
-                        shipping_notes: selectedAddress.notes || "",
-                        users_permissions_users: [user.id],
-                        publishedAt: new Date()
-                      }
-                    });
-
-                    user.kira_score.checkout_state = null;
-                    user.kira_score.active_cart = null;
-                    user.kira_score.selected_address = null;
-                    await strapi.entityService.update("plugin::users-permissions.user", user.id, {
-                      data: { kira_score: user.kira_score }
-                    });
-
-                    let messageBody = `¡Pedido confirmado! 🥦 (Orden #${newOrder.id})\n\n`;
-                    messageBody += `📋 **Detalles del Pedido:**\n${activeCart.listText}\n\n`;
-                    messageBody += `🛵 **Envío (Cabify):** $${deliveryCost.toLocaleString('es-CO')} COP\n`;
-                    messageBody += `💰 **Total Final:** $${totalAmount.toLocaleString('es-CO')} COP\n\n`;
-                    messageBody += `📍 **Dirección:** ${selectedAddress.address}\n\n`;
-
-                    if (paymentMethod === "wompi") {
                       const checkoutUrl = `https://checkout.wompi.co/p/?public-key=${process.env.WOMPI_PUBLIC_KEY || 'pub_test_kB5ENAJ1QA4hPWZYlcrehcyjFrhQyUdq'}&currency=COP&amount-in-cents=${Math.round(totalAmount * 100)}&reference=${ref}&redirect-url=https://koky.food/orderconfirmation`;
                       messageBody += `💳 Completa tu pago seguro con Wompi (Nequi, Daviplata, PSE, Tarjeta) haciendo clic en el botón de abajo.`;
                       systemInteractiveResponse = messageBody + `\n\n[Botón de Pago enviado: ${checkoutUrl}]`;
@@ -813,68 +786,20 @@ module.exports = {
                             }
                           });
                         } catch (err) {
-                          console.error("❌ Error enviando CTA URL de Wompi:", err.response?.data || err.message);
+                          console.error("❌ Error enviando CTA URL de Wompi (Histórico):", err.response?.data || err.message);
                           await this.sendWhatsAppMessage(phone_number_id, from, messageBody + `\n\nEnlace de pago: ${checkoutUrl}`);
                         }
                       });
                     } else {
-                      messageBody += `💵 Tu método de pago es contra entrega en efectivo. Prepararemos tu pedido y pagarás al recibir. ¡Muchas gracias!`;
-                      systemInteractiveResponse = messageBody;
+                      systemInteractiveResponse = `Por favor, responde con el número de la dirección que prefieras (ej. 1) o escribe **"Nueva"** para usar otra dirección.`;
                       isSystemInteractive = true;
 
                       setImmediate(async () => {
                         await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
-
-                        // Enviar factura PDF para pago en efectivo
-                        try {
-                          const whatsapp_token = process.env.WHATSAPP_TOKEN;
-                          const fullOrder = await strapi.entityService.findOne("api::order.order", newOrder.id);
-                          const pdfResult = await strapi.service("api::order.order").generateInvoicePDF(fullOrder, {
-                            phone_number_id,
-                            whatsapp_token
-                          });
-                          const pdfUrl = pdfResult.url;
-                          const mediaId = pdfResult.mediaId;
-
-                          if (pdfUrl || mediaId) {
-                            const docPayload = {
-                              messaging_product: "whatsapp",
-                              to: from,
-                              type: "document",
-                              document: {
-                                filename: `Factura_Koky_${newOrder.id}.pdf`
-                              }
-                            };
-                            if (mediaId) {
-                              docPayload.document.id = mediaId;
-                            } else {
-                              docPayload.document.link = pdfUrl;
-                            }
-
-                            await axios({
-                              method: "POST",
-                              url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-                              data: docPayload,
-                              headers: {
-                                Authorization: `Bearer ${whatsapp_token}`,
-                                "Content-Type": "application/json"
-                              }
-                            });
-                          }
-                        } catch (pdfErr) {
-                          console.error("❌ Error enviando factura PDF para CASH (Chat):", pdfErr.message);
-                        }
                       });
                     }
-                  } else {
-                    systemInteractiveResponse = `Por favor, selecciona una opción válida:\n1️⃣ **Wompi (PSE, Nequi, Tarjeta)**\n2️⃣ **Efectivo contra entrega**\n\nResponde **1** o **2**.`;
-                    isSystemInteractive = true;
-
-                    setImmediate(async () => {
-                      await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
-                    });
                   }
-                }
+                } 
               }
 
 
