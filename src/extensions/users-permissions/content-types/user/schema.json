@@ -98,6 +98,10 @@
       "type": "boolean",
       "default": true
     },
+    "unread": {
+      "type": "boolean",
+      "default": false
+    },
     "kira_score": {
   "type": "json",
   "default": {

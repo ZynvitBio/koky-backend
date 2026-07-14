@@ -231,6 +231,11 @@ module.exports = {
             const waName = contact?.profile?.name || "Cliente Koky";
 
             let user = await this.getOrCreateUser(from, waName, "whatsapp");
+            user = await strapi.entityService.update(
+              "plugin::users-permissions.user",
+              user.id,
+              { data: { unread: true } }
+            );
 
             let rawText = message.text?.body || message.button?.text || "";
             let isSystemInteractive = false;
@@ -1112,6 +1117,11 @@ module.exports = {
               plataformaKey,
               metaAvatar,
               metaHandle,
+            );
+            user = await strapi.entityService.update(
+              "plugin::users-permissions.user",
+              user.id,
+              { data: { unread: true } }
             );
 
             const trimmedText = rawText.trim();
