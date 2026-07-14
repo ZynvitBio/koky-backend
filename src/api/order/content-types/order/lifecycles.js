@@ -65,7 +65,11 @@ function calculateDeliveryDate(createdAtDate) {
   } else if (day === 6) { // Sábado
     deliveryDate.setDate(date.getDate() + 2); // Entrega el Lunes
   } else if (day === 0) { // Domingo
-    deliveryDate.setDate(date.getDate() + 1); // Entrega el Lunes
+    if (hour < 16) {
+      deliveryDate.setDate(date.getDate() + 1); // Entrega el Lunes
+    } else {
+      deliveryDate.setDate(date.getDate() + 2); // Entrega el Martes
+    }
   } else { // Lunes a Jueves
     if (hour < 16) { // Antes de las 4 PM
       deliveryDate.setDate(date.getDate() + 1); // Entrega mañana
