@@ -4,14 +4,18 @@ const { createCoreService } = require('@strapi/strapi').factories;
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
 
 module.exports = createCoreService('api::order.order', ({ strapi }) => ({
-  async generateInvoicePDF(order) {
+  async generateInvoicePDF(order, options = {}) {
+    const { phone_number_id, whatsapp_token } = options;
+
     // 1. Crear directorio temporal si no existe
     const tempDir = path.join(process.cwd(), 'public', 'temp');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
+    const fileName = `Factura_Koky_${order.id}.pdf`;
     const tempFilePath = path.join(tempDir, `Factura_Koky_${order.id}_${Date.now()}.pdf`);
 
     await new Promise((resolve, reject) => {
@@ -123,14 +127,43 @@ module.exports = createCoreService('api::order.order', ({ strapi }) => ({
       writeStream.on('error', (err) => reject(err));
     });
 
-    // 2. Subir a Strapi Media Library (Cloudinary)
+    let mediaId = null;
+    let pdfUrl = "";
+
+    // 2. Opcional: Subir a Meta (WhatsApp Media) directamente si se proveen las credenciales
+    if (phone_number_id && whatsapp_token) {
+      try {
+        strapi.log.info(`[Invoice Service] Subiendo PDF a los servidores de Meta...`);
+        const fileBuffer = fs.readFileSync(tempFilePath);
+        const blob = new Blob([fileBuffer], { type: 'application/pdf' });
+        const formData = new FormData();
+        formData.append('messaging_product', 'whatsapp');
+        formData.append('file', blob, fileName);
+
+        const metaResponse = await axios.post(
+          `https://graph.facebook.com/v21.0/${phone_number_id}/media`,
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${whatsapp_token}`
+            }
+          }
+        );
+        mediaId = metaResponse.data.id;
+        strapi.log.info(`[Invoice Service] Subida a Meta exitosa. Media ID: ${mediaId}`);
+      } catch (metaErr) {
+        strapi.log.error(`[Invoice Service] Error al subir media a Meta: ${metaErr.response?.data ? JSON.stringify(metaErr.response.data) : metaErr.message}`);
+      }
+    }
+
+    // 3. Subir a Strapi Media Library (Cloudinary)
     try {
       const stats = fs.statSync(tempFilePath);
       const fileData = {
         path: tempFilePath,
         filepath: tempFilePath,
-        name: `Factura_Koky_${order.id}.pdf`,
-        originalFilename: `Factura_Koky_${order.id}.pdf`,
+        name: fileName,
+        originalFilename: fileName,
         type: 'application/pdf',
         mimetype: 'application/pdf',
         size: stats.size,
@@ -154,21 +187,23 @@ module.exports = createCoreService('api::order.order', ({ strapi }) => ({
       }
 
       if (uploadedFiles && uploadedFiles.length > 0) {
-        // Enlazar el archivo a la orden en la base de datos
+        pdfUrl = uploadedFiles[0].url;
         await strapi.entityService.update('api::order.order', order.id, {
           data: {
             invoice_pdf: uploadedFiles[0].id
           }
         });
-        return uploadedFiles[0];
       }
-      throw new Error('No se pudo cargar el archivo PDF a la biblioteca de medios.');
     } catch (uploadErr) {
-      // Intentar borrar el archivo temporal si existe
+      strapi.log.error(`[Invoice Service] Error al cargar a Cloudinary: ${uploadErr.message}`);
       try {
         if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
       } catch (e) {}
-      throw uploadErr;
     }
+
+    return {
+      url: pdfUrl,
+      mediaId: mediaId
+    };
   }
 }));

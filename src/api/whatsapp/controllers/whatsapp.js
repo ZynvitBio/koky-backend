@@ -566,22 +566,34 @@ module.exports = {
 
                     // Enviar factura PDF para pago en efectivo
                     try {
+                      const whatsapp_token = process.env.WHATSAPP_TOKEN;
                       const fullOrder = await strapi.entityService.findOne("api::order.order", newOrder.id);
-                      const uploadedFile = await strapi.service("api::order.order").generateInvoicePDF(fullOrder);
-                      if (uploadedFile && uploadedFile.url) {
-                        const whatsapp_token = process.env.WHATSAPP_TOKEN;
+                      const pdfResult = await strapi.service("api::order.order").generateInvoicePDF(fullOrder, {
+                        phone_number_id,
+                        whatsapp_token
+                      });
+                      const pdfUrl = pdfResult.url;
+                      const mediaId = pdfResult.mediaId;
+
+                      if (pdfUrl || mediaId) {
+                        const docPayload = {
+                          messaging_product: "whatsapp",
+                          to: from,
+                          type: "document",
+                          document: {
+                            filename: `Factura_Koky_${newOrder.id}.pdf`
+                          }
+                        };
+                        if (mediaId) {
+                          docPayload.document.id = mediaId;
+                        } else {
+                          docPayload.document.link = pdfUrl;
+                        }
+
                         await axios({
                           method: "POST",
                           url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-                          data: {
-                            messaging_product: "whatsapp",
-                            to: from,
-                            type: "document",
-                            document: {
-                              link: uploadedFile.url,
-                              filename: `Factura_Koky_${newOrder.id}.pdf`
-                            }
-                          },
+                          data: docPayload,
                           headers: {
                             Authorization: `Bearer ${whatsapp_token}`,
                             "Content-Type": "application/json"
@@ -815,22 +827,34 @@ module.exports = {
 
                         // Enviar factura PDF para pago en efectivo
                         try {
+                          const whatsapp_token = process.env.WHATSAPP_TOKEN;
                           const fullOrder = await strapi.entityService.findOne("api::order.order", newOrder.id);
-                          const uploadedFile = await strapi.service("api::order.order").generateInvoicePDF(fullOrder);
-                          if (uploadedFile && uploadedFile.url) {
-                            const whatsapp_token = process.env.WHATSAPP_TOKEN;
+                          const pdfResult = await strapi.service("api::order.order").generateInvoicePDF(fullOrder, {
+                            phone_number_id,
+                            whatsapp_token
+                          });
+                          const pdfUrl = pdfResult.url;
+                          const mediaId = pdfResult.mediaId;
+
+                          if (pdfUrl || mediaId) {
+                            const docPayload = {
+                              messaging_product: "whatsapp",
+                              to: from,
+                              type: "document",
+                              document: {
+                                filename: `Factura_Koky_${newOrder.id}.pdf`
+                              }
+                            };
+                            if (mediaId) {
+                              docPayload.document.id = mediaId;
+                            } else {
+                              docPayload.document.link = pdfUrl;
+                            }
+
                             await axios({
                               method: "POST",
                               url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-                              data: {
-                                messaging_product: "whatsapp",
-                                to: from,
-                                type: "document",
-                                document: {
-                                  link: uploadedFile.url,
-                                  filename: `Factura_Koky_${newOrder.id}.pdf`
-                                }
-                              },
+                              data: docPayload,
                               headers: {
                                 Authorization: `Bearer ${whatsapp_token}`,
                                 "Content-Type": "application/json"

@@ -109,12 +109,17 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
             if (whatsapp_token) {
               strapi.log.info(`[Wompi Webhook] Generando factura PDF para la orden #${order.id}...`);
               let pdfUrl = null;
+              let mediaId = null;
               try {
                 // Volvemos a obtener el objeto orden completo para tener los datos más recientes
                 const fullOrder = await strapi.entityService.findOne("api::order.order", order.id);
-                const uploadedFile = await strapi.service("api::order.order").generateInvoicePDF(fullOrder);
-                pdfUrl = uploadedFile.url;
-                strapi.log.info(`[Wompi Webhook] Factura PDF generada con éxito: ${pdfUrl}`);
+                const pdfResult = await strapi.service("api::order.order").generateInvoicePDF(fullOrder, {
+                  phone_number_id,
+                  whatsapp_token
+                });
+                pdfUrl = pdfResult.url;
+                mediaId = pdfResult.mediaId;
+                strapi.log.info(`[Wompi Webhook] Factura PDF generada con éxito: ${pdfUrl} | Media ID: ${mediaId}`);
               } catch (pdfErr) {
                 strapi.log.error(`[Wompi Webhook] Error al generar factura PDF: ${pdfErr.message}`);
               }
@@ -137,21 +142,29 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
                 },
               });
 
-              // Si se pudo generar el PDF, enviarlo como documento adjunto
-              if (pdfUrl) {
-                strapi.log.info(`[Wompi Webhook] Enviando archivo PDF de factura a ${order.whatsapp_id}`);
+              // Si se pudo generar el PDF (URL o Media ID), enviarlo como documento adjunto
+              if (pdfUrl || mediaId) {
+                strapi.log.info(`[Wompi Webhook] Enviando archivo PDF de factura a ${order.whatsapp_id} (usando ${mediaId ? 'Media ID: ' + mediaId : 'Link: ' + pdfUrl})`);
+                
+                const docPayload = {
+                  messaging_product: "whatsapp",
+                  to: order.whatsapp_id,
+                  type: "document",
+                  document: {
+                    filename: `Factura_Koky_${order.id}.pdf`
+                  }
+                };
+
+                if (mediaId) {
+                  docPayload.document.id = mediaId;
+                } else {
+                  docPayload.document.link = pdfUrl;
+                }
+
                 await axios({
                   method: "POST",
                   url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-                  data: {
-                    messaging_product: "whatsapp",
-                    to: order.whatsapp_id,
-                    type: "document",
-                    document: {
-                      link: pdfUrl,
-                      filename: `Factura_Koky_${order.id}.pdf`
-                    }
-                  },
+                  data: docPayload,
                   headers: {
                     Authorization: `Bearer ${whatsapp_token}`,
                     "Content-Type": "application/json",
