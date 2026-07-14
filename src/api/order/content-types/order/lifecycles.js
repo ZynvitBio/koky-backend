@@ -51,7 +51,7 @@ module.exports = {
  * Calcula la fecha de entrega según las reglas de negocio de Koky:
  * - Despachos de lunes a viernes.
  * - Sábado y Domingo no hay entregas, todos los pedidos de viernes, sábado y domingo se entregan el lunes.
- * - Lunes a Jueves: pedidos antes de las 18:00 (6:00 PM) se entregan mañana (D+1). Pedidos después de las 18:00 se entregan el día después (D+2). Si cae en sábado, se pasa al lunes.
+ * - Lunes a Jueves: pedidos antes de las 16:00 (4:00 PM) se entregan mañana (D+1). Pedidos después de las 16:00 se entregan el día después (D+2). Si cae en sábado, se pasa al lunes.
  */
 function calculateDeliveryDate(createdAtDate) {
   const date = new Date(createdAtDate);
@@ -67,9 +67,9 @@ function calculateDeliveryDate(createdAtDate) {
   } else if (day === 0) { // Domingo
     deliveryDate.setDate(date.getDate() + 1); // Entrega el Lunes
   } else { // Lunes a Jueves
-    if (hour < 18) { // Antes de las 6 PM
+    if (hour < 16) { // Antes de las 4 PM
       deliveryDate.setDate(date.getDate() + 1); // Entrega mañana
-    } else { // Después de las 6 PM
+    } else { // Después de las 4 PM
       deliveryDate.setDate(date.getDate() + 2); // Entrega pasado mañana
       if (deliveryDate.getDay() === 6) { // Si cae sábado, mover al lunes
         deliveryDate.setDate(deliveryDate.getDate() + 2);
