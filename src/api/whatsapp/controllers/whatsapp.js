@@ -41,13 +41,25 @@ async function geocodeAddress(address) {
     }
   });
 
-  if (response.data.status !== "OK" || !response.data.results.length) {
-    throw new Error(`No se pudo geocodificar la dirección: ${response.data.status}`);
+  if (response.data.status === "ZERO_RESULTS") {
+    return { success: false, reason: "NOT_FOUND" };
+  }
+
+  if (response.data.status !== "OK") {
+    console.warn(`⚠️ Google Maps API error (${response.data.status}): ${response.data.error_message || ''}. Falling back to default coordinates.`);
+    return {
+      success: true,
+      isSystemFallback: true,
+      lat: 4.6976,
+      lng: -74.0617,
+      formattedAddress: address
+    };
   }
 
   const location = response.data.results[0].geometry.location;
   const formattedAddress = response.data.results[0].formatted_address;
   return {
+    success: true,
     lat: location.lat,
     lng: location.lng,
     formattedAddress: formattedAddress
@@ -697,15 +709,27 @@ module.exports = {
                 let lat = 4.6976;
                 let lng = -74.0617;
                 let formattedAddress = address;
-                let geocodeSuccess = true;
+                let isAddressReal = true;
 
                 try {
                   const geocoded = await geocodeAddress(address);
-                  lat = geocoded.lat;
-                  lng = geocoded.lng;
-                  formattedAddress = geocoded.formattedAddress;
+                  if (geocoded.success) {
+                    lat = geocoded.lat;
+                    lng = geocoded.lng;
+                    formattedAddress = geocoded.formattedAddress;
+                  } else {
+                    isAddressReal = false;
+                  }
                 } catch (geocodeErr) {
-                  console.warn("⚠️ Geocoding failed for flow address. Using fallback coordinates.");
+                  console.error("❌ Error de red/sistema en geocodeAddress:", geocodeErr.message);
+                }
+
+                if (!isAddressReal) {
+                  // Informar de error y reenviar Flow
+                  const errorMsg = `❌ No logramos ubicar la dirección *"${address}"*. Por favor, abre de nuevo el formulario e ingresa una dirección completa con calle y número.`;
+                  await this.sendWhatsAppMessage(phone_number_id, from, errorMsg);
+                  await this.sendDeliveryFlow(phone_number_id, from, activeCart.listText, activeCart.subtotal);
+                  return;
                 }
 
                 // Guardar los datos en el checkout temporal
@@ -947,14 +971,26 @@ module.exports = {
                     let lat = 4.6976;
                     let lng = -74.0617;
                     let formattedAddress = rawText;
+                    let isAddressReal = true;
 
                     try {
                       const geocoded = await geocodeAddress(rawText);
-                      lat = geocoded.lat;
-                      lng = geocoded.lng;
-                      formattedAddress = geocoded.formattedAddress;
+                      if (geocoded.success) {
+                        lat = geocoded.lat;
+                        lng = geocoded.lng;
+                        formattedAddress = geocoded.formattedAddress;
+                      } else {
+                        isAddressReal = false;
+                      }
                     } catch (geocodeErr) {
-                      console.warn("⚠️ Geocoding failed for text address. Using fallback coordinates.");
+                      console.error("❌ Error de red/sistema en geocodeAddress (texto):", geocodeErr.message);
+                    }
+
+                    if (!isAddressReal) {
+                      const errorMsg = `❌ No logramos ubicar la dirección *"${rawText}"*. Por favor, asegúrate de escribir tu dirección completa con calle y número o confírmala en el botón de abajo.`;
+                      await this.sendWhatsAppMessage(phone_number_id, from, errorMsg);
+                      await this.sendDeliveryFlow(phone_number_id, from, activeCart.listText, activeCart.subtotal);
+                      return;
                     }
 
                     // Guardar los datos en el checkout temporal
