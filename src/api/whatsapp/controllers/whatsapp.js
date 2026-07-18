@@ -1155,6 +1155,7 @@ module.exports = {
                     );
                   });
                 }
+              }
 
 
               const textoBotonRegistro = "registrarme aquí";
