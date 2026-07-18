@@ -23,9 +23,9 @@ const model = genAI.getGenerativeModel(
 );
 
 async function geocodeAddress(address) {
-  const apiKey = process.env.G_MAPS_KEY;
+  const apiKey = process.env.G_MAPS_BACKEND_KEY || process.env.G_MAPS_KEY;
   if (!apiKey) {
-    throw new Error("G_MAPS_KEY no está configurada en las variables de entorno.");
+    throw new Error("Ni G_MAPS_BACKEND_KEY ni G_MAPS_KEY están configuradas.");
   }
   
   let queryAddress = address;
