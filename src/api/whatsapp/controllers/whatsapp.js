@@ -269,7 +269,7 @@ module.exports = {
                 flow_id: flowId,
                 flow_cta: "Confirmar Entrega",
                 flow_action: "navigate",
-                mode: process.env.WHATSAPP_FLOW_MODE || "draft",
+                mode: process.env.WHATSAPP_FLOW_MODE || "published",
                 flow_action_payload: {
                   screen: "DELIVERY_SCREEN",
                   data: {
@@ -644,7 +644,7 @@ module.exports = {
                                 flow_id: flowId,
                                 flow_cta: "Confirmar Entrega",
                                 flow_action: "navigate",
-                                mode: process.env.WHATSAPP_FLOW_MODE || "draft",
+                                mode: process.env.WHATSAPP_FLOW_MODE || "published",
                                 flow_action_payload: {
                                   screen: "DELIVERY_SCREEN",
                                   data: {
@@ -811,7 +811,7 @@ module.exports = {
                                   flow_id: flowId,
                                   flow_cta: "Confirmar Entrega",
                                   flow_action: "navigate",
-                                  mode: process.env.WHATSAPP_FLOW_MODE || "draft",
+                                  mode: process.env.WHATSAPP_FLOW_MODE || "published",
                                   flow_action_payload: {
                                     screen: "DELIVERY_SCREEN",
                                     data: {
