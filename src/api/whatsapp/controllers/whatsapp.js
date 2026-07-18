@@ -705,16 +705,7 @@ module.exports = {
                   lng = geocoded.lng;
                   formattedAddress = geocoded.formattedAddress;
                 } catch (geocodeErr) {
-                  geocodeSuccess = false;
-                  console.error("❌ Error de geocodificación:", geocodeErr.message);
-                }
-
-                if (!geocodeSuccess) {
-                  // Informar de error y reenviar Flow
-                  const errorMsg = `❌ No logramos ubicar la dirección *"${address}"*. Por favor, abre de nuevo el formulario e ingresa una dirección completa con calle y número.`;
-                  await this.sendWhatsAppMessage(phone_number_id, from, errorMsg);
-                  await this.sendDeliveryFlow(phone_number_id, from, activeCart.listText, activeCart.subtotal);
-                  return;
+                  console.warn("⚠️ Geocoding failed for flow address. Using fallback coordinates.");
                 }
 
                 // Guardar los datos en el checkout temporal
@@ -956,7 +947,6 @@ module.exports = {
                     let lat = 4.6976;
                     let lng = -74.0617;
                     let formattedAddress = rawText;
-                    let geocodeSuccess = true;
 
                     try {
                       const geocoded = await geocodeAddress(rawText);
@@ -964,15 +954,7 @@ module.exports = {
                       lng = geocoded.lng;
                       formattedAddress = geocoded.formattedAddress;
                     } catch (geocodeErr) {
-                      geocodeSuccess = false;
-                      console.error("❌ Error de geocodificación de texto de dirección:", geocodeErr.message);
-                    }
-
-                    if (!geocodeSuccess) {
-                      const errorMsg = `❌ No logramos ubicar la dirección *"${rawText}"*. Por favor, asegúrate de escribir tu dirección completa con calle y número o confírmala en el botón de abajo.`;
-                      await this.sendWhatsAppMessage(phone_number_id, from, errorMsg);
-                      await this.sendDeliveryFlow(phone_number_id, from, activeCart.listText, activeCart.subtotal);
-                      return;
+                      console.warn("⚠️ Geocoding failed for text address. Using fallback coordinates.");
                     }
 
                     // Guardar los datos en el checkout temporal
