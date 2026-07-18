@@ -1415,20 +1415,20 @@ module.exports = {
                 const aiResponse = result.response.text();
                 let messageToSave = aiResponse;
 
-                // Detectar acción de creación de carrito generada por la IA
-                let actionMatch = aiResponse.match(/\[ACTION:\s*create_cart\s*({.*?})\]/s);
-                let parsedCart = null;
-                if (actionMatch) {
-                  try {
-                    const actionData = JSON.parse(actionMatch[1]);
-                    if (actionData.items && actionData.items.length > 0) {
-                      parsedCart = await this.buildCartFromNames(actionData.items);
-                    }
-                  } catch (parseErr) {
-                    console.error("❌ Error parseando acción de carrito de la IA:", parseErr.message);
-                  }
-                  messageToSave = aiResponse.replace(/\[ACTION:\s*create_cart\s*({.*?})\]/gs, "").trim();
-                }
+                 // Detectar acción de creación de carrito generada por la IA
+                 let actionMatch = aiResponse.match(/\[ACTION:\s*create_cart\s*({.*})\]/s);
+                 let parsedCart = null;
+                 if (actionMatch) {
+                   try {
+                     const actionData = JSON.parse(actionMatch[1]);
+                     if (actionData.items && actionData.items.length > 0) {
+                       parsedCart = await this.buildCartFromNames(actionData.items);
+                     }
+                   } catch (parseErr) {
+                     console.error("❌ Error parseando acción de carrito de la IA:", parseErr.message);
+                   }
+                   messageToSave = aiResponse.replace(/\[ACTION:\s*create_cart\s*({.*})\]/gs, "").trim();
+                 }
 
                 if (parsedCart) {
                   user.kira_score = {
