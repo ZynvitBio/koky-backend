@@ -181,6 +181,194 @@ module.exports = {
     }
   },
 
+  async sendDeliveryFlow(phone_number_id, to, listText, subtotal) {
+    const flowId = process.env.WHATSAPP_FLOW_ID;
+    if (!flowId) {
+      console.warn("⚠️ WHATSAPP_FLOW_ID no está configurada en las variables de entorno.");
+      return;
+    }
+    try {
+      await axios({
+        method: "POST",
+        url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+        data: {
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: to,
+          type: "interactive",
+          interactive: {
+            type: "flow",
+            header: {
+              type: "text",
+              text: "Confirmar Pedido"
+            },
+            body: {
+              text: `Detalles de tu compra:\n${listText}\nTotal: $${subtotal.toLocaleString('es-CO')} COP`
+            },
+            footer: {
+              text: "Koky Food"
+            },
+            action: {
+              name: "flow",
+              parameters: {
+                flow_message_version: "3",
+                flow_token: `cart_${Date.now()}`,
+                flow_id: flowId,
+                flow_cta: "Confirmar Entrega",
+                flow_action: "navigate",
+                mode: process.env.WHATSAPP_FLOW_MODE || "draft",
+                flow_action_payload: {
+                  screen: "DELIVERY_SCREEN",
+                  data: {
+                    cart_total_text: `Subtotal de comida: $${subtotal.toLocaleString('es-CO')} COP`,
+                    items_summary: `Detalles de tus productos:\n${listText}`
+                  }
+                }
+              }
+            }
+          }
+        },
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          "Content-Type": "application/json"
+        }
+      });
+    } catch (err) {
+      console.error("❌ Error enviando Flow:", err.response?.data || err.message);
+    }
+  },
+
+  async sendHousingConfirmation(phone_number_id, to, address, isAlreadyComplete) {
+    const buttons = isAlreadyComplete 
+      ? [
+          {
+            type: "reply",
+            reply: {
+              id: "btn_si",
+              title: "👍 Sí, es correcta"
+            }
+          },
+          {
+            type: "reply",
+            reply: {
+              id: "btn_corregir",
+              title: "✏️ Corregir"
+            }
+          }
+        ]
+      : [
+          {
+            type: "reply",
+            reply: {
+              id: "btn_casa",
+              title: "🏠 Casa"
+            }
+          },
+          {
+            type: "reply",
+            reply: {
+              id: "btn_apto",
+              title: "🏢 Apartamento"
+            }
+          },
+          {
+            type: "reply",
+            reply: {
+              id: "btn_corregir",
+              title: "✏️ Corregir"
+            }
+          }
+        ];
+
+    const bodyText = isAlreadyComplete 
+      ? `📍 Confirmemos tu dirección:\n👉 **${address}**\n\n¿Esta dirección y detalles de apartamento son correctos?`
+      : `📍 Ubicamos tu dirección:\n👉 **${address}**\n\n¿Vives en una casa o en un apartamento?`;
+
+    try {
+      await axios({
+        method: "POST",
+        url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+        data: {
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: to,
+          type: "interactive",
+          interactive: {
+            type: "button",
+            body: {
+              text: bodyText
+            },
+            action: {
+              buttons: buttons
+            }
+          }
+        },
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          "Content-Type": "application/json"
+        }
+      });
+    } catch (err) {
+      console.error("❌ Error enviando botones de confirmación de vivienda:", err.response?.data || err.message);
+      const fallbackText = isAlreadyComplete
+        ? `📍 Confirmemos tu dirección:\n👉 **${address}**\n\n¿Es correcta? Responde con *Sí* o *Corregir*.`
+        : `📍 Confirmemos tu dirección:\n👉 **${address}**\n\n¿Vives en una casa o apartamento? Responde con *Casa*, *Apartamento* o *Corregir*.`;
+      await this.sendWhatsAppMessage(phone_number_id, to, fallbackText);
+    }
+  },
+
+  async sendWompiPaymentLink(phone_number_id, to, orderId, listText, deliveryCost, totalAmount, address, details, checkoutUrl) {
+    let messageBody = `¡Pedido recibido! 🥦 (Orden #${orderId})\n\n`;
+    messageBody += `📋 **Detalles del Pedido:**\n${listText}\n\n`;
+    messageBody += `🛵 **Envío (Cabify):** $${deliveryCost.toLocaleString('es-CO')} COP\n`;
+    messageBody += `💰 **Total Final:** $${totalAmount.toLocaleString('es-CO')} COP\n\n`;
+    messageBody += `📍 **Dirección:** ${address}\n`;
+    if (details) {
+      messageBody += `🏢 **Detalles:** ${details}\n`;
+    }
+    messageBody += `\n💳 Completa tu pago seguro con Wompi (Nequi, Daviplata, PSE, Tarjeta) haciendo clic en el botón de abajo.`;
+
+    try {
+      await axios({
+        method: "POST",
+        url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+        data: {
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: to,
+          type: "interactive",
+          interactive: {
+            type: "cta_url",
+            header: {
+              type: "text",
+              text: "Pago Seguro 💳"
+            },
+            body: {
+              text: messageBody
+            },
+            footer: {
+              text: "Koky Food"
+            },
+            action: {
+              name: "cta_url",
+              parameters: {
+                display_text: "Pagar con Wompi",
+                url: checkoutUrl
+              }
+            }
+          }
+        },
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          "Content-Type": "application/json"
+        }
+      });
+    } catch (err) {
+      console.error("❌ Error enviando link de pago de Wompi:", err.response?.data || err.message);
+      await this.sendWhatsAppMessage(phone_number_id, to, messageBody + `\n\nEnlace de pago: ${checkoutUrl}`);
+    }
+  },
+
   async verify(ctx) {
     const verifyToken = "me_encanta_koky";
 
@@ -238,6 +426,11 @@ module.exports = {
             );
 
             let rawText = message.text?.body || message.button?.text || "";
+            let buttonId = "";
+            if (message.type === "interactive" && message.interactive?.type === "button_reply") {
+              rawText = message.interactive.button_reply.title || "";
+              buttonId = message.interactive.button_reply.id || "";
+            }
             let isSystemInteractive = false;
             let systemInteractiveResponse = "";
             let skipStateMachine = false;
@@ -451,6 +644,7 @@ module.exports = {
                 let lat = 4.6976;
                 let lng = -74.0617;
                 let formattedAddress = address;
+                let geocodeSuccess = true;
 
                 try {
                   const geocoded = await geocodeAddress(address);
@@ -458,158 +652,52 @@ module.exports = {
                   lng = geocoded.lng;
                   formattedAddress = geocoded.formattedAddress;
                 } catch (geocodeErr) {
+                  geocodeSuccess = false;
                   console.error("❌ Error de geocodificación:", geocodeErr.message);
                 }
 
-                // 2. Calcular costo de envío con Cabify
-                let deliveryCost = 10000;
-                try {
-                  const cabifyResult = await strapi
-                    .service("api::cabify-delivery.cabify-delivery")
-                    .getPriceEstimate({
-                      dropoff_location: { lat: lat, lon: lng },
-                      dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
-                      weight: { value: 1000, unit: "g" },
-                    });
-                  if (cabifyResult?.deliveries?.[0]?.estimation?.price?.amount) {
-                    deliveryCost = cabifyResult.deliveries[0].estimation.price.amount;
-                  }
-                } catch (cabifyErr) {
-                  console.error("❌ Error consultando Cabify:", cabifyErr.message);
+                if (!geocodeSuccess) {
+                  // Informar de error y reenviar Flow
+                  const errorMsg = `❌ No logramos ubicar la dirección *"${address}"*. Por favor, abre de nuevo el formulario e ingresa una dirección completa con calle y número.`;
+                  await this.sendWhatsAppMessage(phone_number_id, from, errorMsg);
+                  await this.sendDeliveryFlow(phone_number_id, from, activeCart.listText, activeCart.subtotal);
+                  return;
                 }
 
-                const totalAmount = activeCart.subtotal + deliveryCost;
-
-                // 3. Crear la Orden en Strapi
-                const ref = `WA_${Date.now()}`;
-                const newOrder = await strapi.entityService.create("api::order.order", {
-                  data: {
-                    whatsapp_id: String(from),
-                    customer_name: name,
-                    total_amount: Number(totalAmount),
-                    wompi_reference: ref,
-                    source: "whatsapp",
+                // Guardar los datos en el checkout temporal
+                user.kira_score.temp_checkout = {
+                  customer_name: name,
+                  shipping_address: formattedAddress,
+                  latitude: Number(lat),
+                  longitude: Number(lng),
+                  shipping_notes: notes,
+                  active_cart: {
                     items: activeCart.items,
-                    payment_method: paymentMethod === "wompi" ? "CARD" : "CASH",
-                    shipping_address: formattedAddress,
-                    shipping_latitude: Number(lat),
-                    shipping_longitude: Number(lng),
-                    shipping_notes: notes,
-                    users_permissions_users: [user.id],
-                    publishedAt: new Date()
+                    subtotal: activeCart.subtotal,
+                    listText: activeCart.listText
                   }
-                });
+                };
 
-                // 4. Limpiar estado del usuario
-                user.kira_score.checkout_state = null;
-                user.kira_score.active_cart = null;
-                await strapi.entityService.update("plugin::users-permissions.user", user.id, {
-                  data: { kira_score: user.kira_score }
-                });
+                // Detección inteligente de apartamento/casa en el texto de dirección escrito
+                const cleanAddress = address.toLowerCase();
+                const hasApartmentInfo = /\b(apt|apto|apartamento|dep|depto|casa\s*\d+|casa\s*[a-z])\b/i.test(cleanAddress);
 
-                // 5. Enviar mensaje de confirmación y pago
-                let messageBody = `¡Pedido recibido! 🥦 (Orden #${newOrder.id})\n\n`;
-                messageBody += `📋 **Detalles del Pedido:**\n${activeCart.listText}\n\n`;
-                messageBody += `🛵 **Envío (Cabify):** $${deliveryCost.toLocaleString('es-CO')} COP\n`;
-                messageBody += `💰 **Total Final:** $${totalAmount.toLocaleString('es-CO')} COP\n\n`;
-                messageBody += `📍 **Dirección:** ${formattedAddress}\n\n`;
-
-                if (paymentMethod === "wompi") {
-                   const checkoutUrl = `https://checkout.wompi.co/p/?public-key=${process.env.WOMPI_PUBLIC_KEY || 'pub_test_kB5ENAJ1QA4hPWZYlcrehcyjFrhQyUdq'}&currency=COP&amount-in-cents=${Math.round(totalAmount * 100)}&reference=${ref}&redirect-url=https://wa.me/573019447660`;
-                  messageBody += `💳 Completa tu pago seguro con Wompi (Nequi, Daviplata, PSE, Tarjeta) haciendo clic en el botón de abajo.`;
-                  systemInteractiveResponse = messageBody + `\n\n[Botón de Pago enviado: ${checkoutUrl}]`;
-                  isSystemInteractive = true;
-
-                  setImmediate(async () => {
-                    try {
-                      await axios({
-                        method: "POST",
-                        url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-                        data: {
-                          messaging_product: "whatsapp",
-                          recipient_type: "individual",
-                          to: from,
-                          type: "interactive",
-                          interactive: {
-                            type: "cta_url",
-                            header: {
-                              type: "text",
-                              text: "Pago Seguro 💳"
-                            },
-                            body: {
-                              text: messageBody
-                            },
-                            footer: {
-                              text: "Koky Food"
-                            },
-                            action: {
-                              name: "cta_url",
-                              parameters: {
-                                display_text: "Pagar con Wompi",
-                                url: checkoutUrl
-                              }
-                            }
-                          }
-                        },
-                        headers: {
-                          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-                          "Content-Type": "application/json"
-                        }
-                      });
-                    } catch (err) {
-                      console.error("❌ Error enviando CTA URL de Wompi:", err.response?.data || err.message);
-                      await this.sendWhatsAppMessage(phone_number_id, from, messageBody + `\n\nEnlace de pago: ${checkoutUrl}`);
-                    }
+                if (hasApartmentInfo) {
+                  user.kira_score.checkout_state = "AWAITING_SIMPLE_CONFIRMATION";
+                  await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                    data: { kira_score: user.kira_score }
                   });
+                  await this.sendHousingConfirmation(phone_number_id, from, formattedAddress, true);
                 } else {
-                  messageBody += `💵 Tu método de pago es contra entrega en efectivo. Prepararemos tu pedido y pagarás al recibir. ¡Muchas gracias!`;
-                  systemInteractiveResponse = messageBody;
-                  isSystemInteractive = true;
-
-                  setImmediate(async () => {
-                    await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
-
-                    // Enviar factura PDF para pago en efectivo
-                    try {
-                      const whatsapp_token = process.env.WHATSAPP_TOKEN;
-                      const fullOrder = await strapi.entityService.findOne("api::order.order", newOrder.id);
-                      const pdfResult = await strapi.service("api::order.order").generateInvoicePDF(fullOrder, {
-                        phone_number_id,
-                        whatsapp_token
-                      });
-                      const pdfUrl = pdfResult.url;
-                      const mediaId = pdfResult.mediaId;
-
-                      if (pdfUrl || mediaId) {
-                        const docPayload = {
-                          messaging_product: "whatsapp",
-                          to: from,
-                          type: "document",
-                          document: {
-                            filename: `Factura_Koky_${newOrder.id}.pdf`
-                          }
-                        };
-                        if (mediaId) {
-                          docPayload.document.id = mediaId;
-                        } else {
-                          docPayload.document.link = pdfUrl;
-                        }
-
-                        await axios({
-                          method: "POST",
-                          url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-                          data: docPayload,
-                          headers: {
-                            Authorization: `Bearer ${whatsapp_token}`,
-                            "Content-Type": "application/json"
-                          }
-                        });
-                      }
-                    } catch (pdfErr) {
-                      console.error("❌ Error enviando factura PDF para CASH (Flow):", pdfErr.message);
-                    }
+                  user.kira_score.checkout_state = "AWAITING_HOUSING_TYPE";
+                  await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                    data: { kira_score: user.kira_score }
                   });
+                  await this.sendHousingConfirmation(phone_number_id, from, formattedAddress, false);
                 }
+
+                systemInteractiveResponse = `📍 Dirección geocodificada: ${formattedAddress}. Esperando confirmación del cliente en chat.`;
+                isSystemInteractive = true;
               } catch (e) {
                 console.error("❌ Error en nfm_reply:", e.message);
                 rawText = `📋 [Formulario completado (Error al procesar pedido)]`;
@@ -804,8 +892,269 @@ module.exports = {
                       });
                     }
                   }
-                } 
-              }
+                } else if (checkoutState === "AWAITING_SIMPLE_CONFIRMATION") {
+                  const temp = user.kira_score.temp_checkout;
+                  if (buttonId === "btn_si" || msgText.includes("si") || msgText.includes("sí") || msgText === "1") {
+                    if (!temp) {
+                      throw new Error("No se encontraron detalles temporales del checkout.");
+                    }
+
+                    let deliveryCost = 10000;
+                    try {
+                      const cabifyResult = await strapi
+                        .service("api::cabify-delivery.cabify-delivery")
+                        .getPriceEstimate({
+                          dropoff_location: { lat: temp.latitude, lon: temp.longitude },
+                          dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
+                          weight: { value: 1000, unit: "g" },
+                        });
+                      if (cabifyResult?.deliveries?.[0]?.estimation?.price?.amount) {
+                        deliveryCost = cabifyResult.deliveries[0].estimation.price.amount;
+                      }
+                    } catch (cabifyErr) {
+                      console.error("❌ Error consultando Cabify:", cabifyErr.message);
+                    }
+
+                    const totalAmount = temp.active_cart.subtotal + deliveryCost;
+                    const ref = `WA_${Date.now()}`;
+
+                    const newOrder = await strapi.entityService.create("api::order.order", {
+                      data: {
+                        whatsapp_id: String(from),
+                        customer_name: temp.customer_name,
+                        total_amount: Number(totalAmount),
+                        wompi_reference: ref,
+                        source: "whatsapp",
+                        items: temp.active_cart.items,
+                        payment_method: "CARD",
+                        shipping_address: temp.shipping_address,
+                        shipping_latitude: Number(temp.latitude),
+                        shipping_longitude: Number(temp.longitude),
+                        shipping_notes: temp.shipping_notes || "",
+                        users_permissions_users: [user.id],
+                        publishedAt: new Date()
+                      }
+                    });
+
+                    user.kira_score.checkout_state = null;
+                    user.kira_score.active_cart = null;
+                    user.kira_score.temp_checkout = null;
+                    await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                      data: { kira_score: user.kira_score }
+                    });
+
+                    const checkoutUrl = `https://checkout.wompi.co/p/?public-key=${process.env.WOMPI_PUBLIC_KEY || 'pub_test_kB5ENAJ1QA4hPWZYlcrehcyjFrhQyUdq'}&currency=COP&amount-in-cents=${Math.round(totalAmount * 100)}&reference=${ref}&redirect-url=https://wa.me/573019447660`;
+                    systemInteractiveResponse = `¡Pedido confirmado! Enlace de pago enviado.`;
+                    isSystemInteractive = true;
+
+                    setImmediate(async () => {
+                      await this.sendWompiPaymentLink(
+                        phone_number_id,
+                        from,
+                        newOrder.id,
+                        temp.active_cart.listText,
+                        deliveryCost,
+                        totalAmount,
+                        temp.shipping_address,
+                        temp.shipping_notes,
+                        checkoutUrl
+                      );
+                    });
+                  } else if (buttonId === "btn_corregir" || msgText.includes("corregir") || msgText.includes("no") || msgText === "2") {
+                    const activeCart = user.kira_score.active_cart;
+                    user.kira_score.checkout_state = "AWAITING_FLOW_SUBMISSION";
+                    await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                      data: { kira_score: user.kira_score }
+                    });
+
+                    systemInteractiveResponse = `¡Entendido! Vamos a corregir tus datos de entrega en el formulario de abajo.`;
+                    isSystemInteractive = true;
+
+                    setImmediate(async () => {
+                      await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
+                      await this.sendDeliveryFlow(phone_number_id, from, activeCart.listText, activeCart.subtotal);
+                    });
+                  } else {
+                    systemInteractiveResponse = `Por favor confirma si tu dirección es correcta presionando los botones (*Sí* o *Corregir*).`;
+                    isSystemInteractive = true;
+                    setImmediate(async () => {
+                      await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
+                    });
+                  }
+                } else if (checkoutState === "AWAITING_HOUSING_TYPE") {
+                  const temp = user.kira_score.temp_checkout;
+                  if (buttonId === "btn_casa" || msgText.includes("casa") || msgText === "1") {
+                    if (!temp) {
+                      throw new Error("No se encontraron detalles temporales del checkout.");
+                    }
+
+                    let deliveryCost = 10000;
+                    try {
+                      const cabifyResult = await strapi
+                        .service("api::cabify-delivery.cabify-delivery")
+                        .getPriceEstimate({
+                          dropoff_location: { lat: temp.latitude, lon: temp.longitude },
+                          dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
+                          weight: { value: 1000, unit: "g" },
+                        });
+                      if (cabifyResult?.deliveries?.[0]?.estimation?.price?.amount) {
+                        deliveryCost = cabifyResult.deliveries[0].estimation.price.amount;
+                      }
+                    } catch (cabifyErr) {
+                      console.error("❌ Error consultando Cabify:", cabifyErr.message);
+                    }
+
+                    const totalAmount = temp.active_cart.subtotal + deliveryCost;
+                    const ref = `WA_${Date.now()}`;
+
+                    const newOrder = await strapi.entityService.create("api::order.order", {
+                      data: {
+                        whatsapp_id: String(from),
+                        customer_name: temp.customer_name,
+                        total_amount: Number(totalAmount),
+                        wompi_reference: ref,
+                        source: "whatsapp",
+                        items: temp.active_cart.items,
+                        payment_method: "CARD",
+                        shipping_address: temp.shipping_address,
+                        shipping_latitude: Number(temp.latitude),
+                        shipping_longitude: Number(temp.longitude),
+                        shipping_notes: temp.shipping_notes || "",
+                        users_permissions_users: [user.id],
+                        publishedAt: new Date()
+                      }
+                    });
+
+                    user.kira_score.checkout_state = null;
+                    user.kira_score.active_cart = null;
+                    user.kira_score.temp_checkout = null;
+                    await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                      data: { kira_score: user.kira_score }
+                    });
+
+                    const checkoutUrl = `https://checkout.wompi.co/p/?public-key=${process.env.WOMPI_PUBLIC_KEY || 'pub_test_kB5ENAJ1QA4hPWZYlcrehcyjFrhQyUdq'}&currency=COP&amount-in-cents=${Math.round(totalAmount * 100)}&reference=${ref}&redirect-url=https://wa.me/573019447660`;
+                    systemInteractiveResponse = `¡Pedido confirmado! Enlace de pago enviado.`;
+                    isSystemInteractive = true;
+
+                    setImmediate(async () => {
+                      await this.sendWompiPaymentLink(
+                        phone_number_id,
+                        from,
+                        newOrder.id,
+                        temp.active_cart.listText,
+                        deliveryCost,
+                        totalAmount,
+                        temp.shipping_address,
+                        temp.shipping_notes,
+                        checkoutUrl
+                      );
+                    });
+                  } else if (buttonId === "btn_apto" || msgText.includes("apartamento") || msgText.includes("apto") || msgText === "2") {
+                    user.kira_score.checkout_state = "AWAITING_APARTMENT_DETAILS";
+                    await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                      data: { kira_score: user.kira_score }
+                    });
+
+                    systemInteractiveResponse = `🏢 Entendido. Por favor, escribe aquí tu número de torre, apartamento o interior (ejemplo: **Torre 3, Apto 502**):`;
+                    isSystemInteractive = true;
+
+                    setImmediate(async () => {
+                      await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
+                    });
+                  } else if (buttonId === "btn_corregir" || msgText.includes("corregir") || msgText === "3") {
+                    const activeCart = user.kira_score.active_cart;
+                    user.kira_score.checkout_state = "AWAITING_FLOW_SUBMISSION";
+                    await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                      data: { kira_score: user.kira_score }
+                    });
+
+                    systemInteractiveResponse = `¡Entendido! Vamos a corregir tus datos de entrega en el formulario de abajo.`;
+                    isSystemInteractive = true;
+
+                    setImmediate(async () => {
+                      await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
+                      await this.sendDeliveryFlow(phone_number_id, from, activeCart.listText, activeCart.subtotal);
+                    });
+                  } else {
+                    systemInteractiveResponse = `Por favor, responde seleccionando uno de los botones (*Casa*, *Apartamento*, *Corregir*) o escribe tu respuesta directamente.`;
+                    isSystemInteractive = true;
+                    setImmediate(async () => {
+                      await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
+                    });
+                  }
+                } else if (checkoutState === "AWAITING_APARTMENT_DETAILS") {
+                  const temp = user.kira_score.temp_checkout;
+                  if (!temp) {
+                    throw new Error("No se encontraron detalles temporales del checkout.");
+                  }
+
+                  const apartmentDetails = rawText.trim();
+                  const finalNotes = temp.shipping_notes 
+                    ? `${temp.shipping_notes} | Apto/Torre: ${apartmentDetails}`
+                    : `Apto/Torre: ${apartmentDetails}`;
+
+                  let deliveryCost = 10000;
+                  try {
+                    const cabifyResult = await strapi
+                      .service("api::cabify-delivery.cabify-delivery")
+                      .getPriceEstimate({
+                        dropoff_location: { lat: temp.latitude, lon: temp.longitude },
+                        dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
+                        weight: { value: 1000, unit: "g" },
+                      });
+                    if (cabifyResult?.deliveries?.[0]?.estimation?.price?.amount) {
+                      deliveryCost = cabifyResult.deliveries[0].estimation.price.amount;
+                    }
+                  } catch (cabifyErr) {
+                    console.error("❌ Error consultando Cabify:", cabifyErr.message);
+                  }
+
+                  const totalAmount = temp.active_cart.subtotal + deliveryCost;
+                  const ref = `WA_${Date.now()}`;
+
+                  const newOrder = await strapi.entityService.create("api::order.order", {
+                    data: {
+                      whatsapp_id: String(from),
+                      customer_name: temp.customer_name,
+                      total_amount: Number(totalAmount),
+                      wompi_reference: ref,
+                      source: "whatsapp",
+                      items: temp.active_cart.items,
+                      payment_method: "CARD",
+                      shipping_address: temp.shipping_address,
+                      shipping_latitude: Number(temp.latitude),
+                      shipping_longitude: Number(temp.longitude),
+                      shipping_notes: finalNotes,
+                      users_permissions_users: [user.id],
+                      publishedAt: new Date()
+                    }
+                  });
+
+                  user.kira_score.checkout_state = null;
+                  user.kira_score.active_cart = null;
+                  user.kira_score.temp_checkout = null;
+                  await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                    data: { kira_score: user.kira_score }
+                  });
+
+                  const checkoutUrl = `https://checkout.wompi.co/p/?public-key=${process.env.WOMPI_PUBLIC_KEY || 'pub_test_kB5ENAJ1QA4hPWZYlcrehcyjFrhQyUdq'}&currency=COP&amount-in-cents=${Math.round(totalAmount * 100)}&reference=${ref}&redirect-url=https://wa.me/573019447660`;
+                  systemInteractiveResponse = `¡Pedido confirmado! Enlace de pago enviado.`;
+                  isSystemInteractive = true;
+
+                  setImmediate(async () => {
+                    await this.sendWompiPaymentLink(
+                      phone_number_id,
+                      from,
+                      newOrder.id,
+                      temp.active_cart.listText,
+                      deliveryCost,
+                      totalAmount,
+                      temp.shipping_address,
+                      finalNotes,
+                      checkoutUrl
+                    );
+                  });
+                }
 
 
               const textoBotonRegistro = "registrarme aquí";

@@ -2,6 +2,68 @@ const { createCoreController } = require("@strapi/strapi").factories;
 const crypto = require("crypto");
 const axios = require("axios");
 
+function getDeliverySchedule(date) {
+  // Configurar formateador para la zona horaria de Bogotá (UTC-5)
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    hour12: false
+  });
+  
+  const parts = formatter.formatToParts(date);
+  const getVal = (type) => parseInt(parts.find(p => p.type === type).value, 10);
+  
+  const year = getVal("year");
+  const month = getVal("month") - 1; // JS months are 0-11
+  const day = getVal("day");
+  const hour = getVal("hour");
+  
+  // Objeto Date en la zona horaria de Colombia
+  const colDate = new Date(year, month, day);
+  const dayOfWeek = colDate.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+
+  let productionNight = "";
+  let deliveryDay = "";
+
+  if (dayOfWeek >= 1 && dayOfWeek <= 3) { // Lunes, Martes, Miércoles
+    if (hour < 16) { // Antes de las 4:00 PM
+      const days = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+      productionNight = "esta misma noche";
+      deliveryDay = `mañana mismo (${days[dayOfWeek + 1]})`;
+    } else { // Después de las 4:00 PM
+      const days = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
+      productionNight = "mañana por la noche";
+      deliveryDay = `pasado mañana (${days[dayOfWeek + 2]})`;
+    }
+  } else if (dayOfWeek === 4) { // Jueves
+    if (hour < 16) { // Antes de las 4:00 PM
+      productionNight = "esta misma noche";
+      deliveryDay = "mañana mismo (viernes)";
+    } else { // Después de las 4:00 PM
+      productionNight = "el domingo por la noche";
+      deliveryDay = "el próximo lunes";
+    }
+  } else if (dayOfWeek === 5 || dayOfWeek === 6) { // Viernes o Sábado
+    productionNight = "el domingo por la noche";
+    deliveryDay = "el próximo lunes";
+  } else if (dayOfWeek === 0) { // Domingo
+    if (hour < 16) { // Antes de las 4:00 PM
+      productionNight = "esta misma noche";
+      deliveryDay = "mañana mismo (lunes)";
+    } else { // Después de las 4:00 PM
+      productionNight = "mañana por la noche";
+      deliveryDay = "el próximo martes";
+    }
+  }
+
+  return { productionNight, deliveryDay };
+}
+
 module.exports = createCoreController("api::order.order", ({ strapi }) => ({
   async wompiWebhook(ctx) {
     try {
@@ -124,6 +186,8 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
                 strapi.log.error(`[Wompi Webhook] Error al generar factura PDF: ${pdfErr.message}`);
               }
 
+              const { productionNight, deliveryDay } = getDeliverySchedule(new Date());
+
               strapi.log.info(`[Wompi Webhook] Enviando confirmación de pago por WhatsApp a ${order.whatsapp_id}`);
               await axios({
                 method: "POST",
@@ -133,7 +197,7 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
                   to: order.whatsapp_id,
                   type: "text",
                   text: {
-                    body: `¡Pago confirmado! 💳\n\nTu pago con Wompi ha sido aprobado con éxito. El pedido (Orden #${order.id}) entrará a nuestra cocina esta misma noche para prepararse con ingredientes frescos, y mañana mismo te lo entregaremos. Te avisaremos por este medio en cuanto tu pedido esté en camino con el repartidor. 🛵\n\n¡Muchas gracias por tu compra! 🥦`,
+                    body: `¡Pago confirmado! 💳\n\nTu pago con Wompi ha sido aprobado con éxito. Tu pedido (Orden #${order.id}) entrará a nuestra cocina ${productionNight} para prepararse con ingredientes frescos, y te lo entregaremos ${deliveryDay}. Te avisaremos por este medio en cuanto tu pedido esté en camino con el repartidor. 🛵\n\n¡Muchas gracias por tu compra! 🥦`,
                   },
                 },
                 headers: {
@@ -208,10 +272,14 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
         return ctx.notFound("Orden no encontrada.");
       }
 
+      const { productionNight, deliveryDay } = getDeliverySchedule(order.createdAt || new Date());
+
       return ctx.send({
         id: order.id,
         payment_status: order.payment_status,
         invoice_pdf_url: order.invoice_pdf ? order.invoice_pdf.url : null,
+        production_night: productionNight,
+        delivery_day: deliveryDay,
       });
     } catch (err) {
       return ctx.internalServerError(err.message);
