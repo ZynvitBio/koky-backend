@@ -181,6 +181,59 @@ module.exports = {
     }
   },
 
+  async buildCartFromNames(items) {
+    try {
+      const products = await strapi.entityService.findMany("api::product.product", {
+        filters: { active: true },
+        populate: { image: true }
+      });
+
+      let itemsToSave = [];
+      let itemsTextList = [];
+      let total = 0;
+
+      for (const item of items) {
+        const cleanItemName = item.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        const dbProd = products.find(p => {
+          const cleanProdName = p.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          return cleanProdName === cleanItemName;
+        });
+
+        if (dbProd) {
+          let imageUrl = "";
+          if (dbProd.image && dbProd.image.url) {
+            const path = dbProd.image.url;
+            imageUrl = path.startsWith("http")
+              ? path
+              : `https://koky-backend-production.up.railway.app${path}`;
+          }
+          const qty = Number(item.quantity) || 1;
+          const itemTotal = Number(dbProd.price) * qty;
+          total += itemTotal;
+          itemsTextList.push(`- ${qty}x ${dbProd.name} ($${Number(dbProd.price).toLocaleString('es-CO')} COP)`);
+          itemsToSave.push({
+            id: dbProd.id,
+            name: dbProd.name,
+            price: Number(dbProd.price),
+            quantity: qty,
+            image: imageUrl
+          });
+        }
+      }
+
+      if (itemsToSave.length === 0) return null;
+
+      return {
+        items: itemsToSave,
+        subtotal: total,
+        listText: itemsTextList.join("\n")
+      };
+    } catch (e) {
+      console.error("❌ Error en buildCartFromNames:", e.message);
+      return null;
+    }
+  },
+
   async sendDeliveryFlow(phone_number_id, to, listText, subtotal) {
     const flowId = process.env.WHATSAPP_FLOW_ID;
     if (!flowId) {
@@ -892,6 +945,70 @@ module.exports = {
                       });
                     }
                   }
+                } else if (checkoutState === "AWAITING_FLOW_SUBMISSION") {
+                  const activeCart = user.kira_score.active_cart;
+                  const wordsCount = rawText.trim().split(/\s+/).length;
+                  const isAddressPattern = /\d+/.test(rawText) || /\b(calle|carrera|cll|cra|diag|diagonal|trans|transversal|av|avenida|norte|sur|este|oeste)\b/i.test(rawText);
+
+                  if (activeCart && wordsCount >= 2 && isAddressPattern) {
+                    skipStateMachine = true;
+
+                    let lat = 4.6976;
+                    let lng = -74.0617;
+                    let formattedAddress = rawText;
+                    let geocodeSuccess = true;
+
+                    try {
+                      const geocoded = await geocodeAddress(rawText);
+                      lat = geocoded.lat;
+                      lng = geocoded.lng;
+                      formattedAddress = geocoded.formattedAddress;
+                    } catch (geocodeErr) {
+                      geocodeSuccess = false;
+                      console.error("❌ Error de geocodificación de texto de dirección:", geocodeErr.message);
+                    }
+
+                    if (!geocodeSuccess) {
+                      const errorMsg = `❌ No logramos ubicar la dirección *"${rawText}"*. Por favor, asegúrate de escribir tu dirección completa con calle y número o confírmala en el botón de abajo.`;
+                      await this.sendWhatsAppMessage(phone_number_id, from, errorMsg);
+                      await this.sendDeliveryFlow(phone_number_id, from, activeCart.listText, activeCart.subtotal);
+                      return;
+                    }
+
+                    // Guardar los datos en el checkout temporal
+                    user.kira_score.temp_checkout = {
+                      customer_name: waName,
+                      shipping_address: formattedAddress,
+                      latitude: Number(lat),
+                      longitude: Number(lng),
+                      shipping_notes: "",
+                      active_cart: {
+                        items: activeCart.items,
+                        subtotal: activeCart.subtotal,
+                        listText: activeCart.listText
+                      }
+                    };
+
+                    const cleanAddress = rawText.toLowerCase();
+                    const hasApartmentInfo = /\b(apt|apto|apartamento|dep|depto|casa\s*\d+|casa\s*[a-z])\b/i.test(cleanAddress);
+
+                    if (hasApartmentInfo) {
+                      user.kira_score.checkout_state = "AWAITING_SIMPLE_CONFIRMATION";
+                      await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                        data: { kira_score: user.kira_score }
+                      });
+                      await this.sendHousingConfirmation(phone_number_id, from, formattedAddress, true);
+                    } else {
+                      user.kira_score.checkout_state = "AWAITING_HOUSING_TYPE";
+                      await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                        data: { kira_score: user.kira_score }
+                      });
+                      await this.sendHousingConfirmation(phone_number_id, from, formattedAddress, false);
+                    }
+
+                    systemInteractiveResponse = `📍 Dirección geocodificada (texto): ${formattedAddress}. Esperando confirmación del cliente en chat.`;
+                    isSystemInteractive = true;
+                  }
                 } else if (checkoutState === "AWAITING_SIMPLE_CONFIRMATION") {
                   const temp = user.kira_score.temp_checkout;
                   if (buttonId === "btn_si" || msgText.includes("si") || msgText.includes("sí") || msgText === "1") {
@@ -1296,8 +1413,33 @@ module.exports = {
                 const result = await model.generateContent(systemPrompt);
 
                 const aiResponse = result.response.text();
-
                 let messageToSave = aiResponse;
+
+                // Detectar acción de creación de carrito generada por la IA
+                let actionMatch = aiResponse.match(/\[ACTION:\s*create_cart\s*({.*?})\]/s);
+                let parsedCart = null;
+                if (actionMatch) {
+                  try {
+                    const actionData = JSON.parse(actionMatch[1]);
+                    if (actionData.items && actionData.items.length > 0) {
+                      parsedCart = await this.buildCartFromNames(actionData.items);
+                    }
+                  } catch (parseErr) {
+                    console.error("❌ Error parseando acción de carrito de la IA:", parseErr.message);
+                  }
+                  messageToSave = aiResponse.replace(/\[ACTION:\s*create_cart\s*({.*?})\]/gs, "").trim();
+                }
+
+                if (parsedCart) {
+                  user.kira_score = {
+                    ...user.kira_score,
+                    active_cart: parsedCart,
+                    checkout_state: "AWAITING_FLOW_SUBMISSION"
+                  };
+                  await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                    data: { kira_score: user.kira_score }
+                  });
+                }
 
                 const quiereEntrarYa =
                   msgText.includes("fundador") ||
@@ -1368,13 +1510,17 @@ module.exports = {
 
                       to: from,
 
-                      text: { body: aiResponse },
+                      text: { body: messageToSave },
                     },
 
                     headers: {
                       Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
                     },
                   });
+
+                  if (parsedCart) {
+                    await this.sendDeliveryFlow(phone_number_id, from, parsedCart.listText, parsedCart.subtotal);
+                  }
                 }
 
                 await strapi.entityService.create("api::chat.chat", {
