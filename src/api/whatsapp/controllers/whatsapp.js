@@ -22,6 +22,9 @@ const model = genAI.getGenerativeModel(
   { apiVersion: "v1" },
 );
 
+// Set en memoria para deduplicar mensajes de webhook de WhatsApp y evitar respuestas múltiples
+const processedMessageIds = new Set();
+
 async function geocodeAddress(address) {
   const apiKey = process.env.G_MAPS_BACKEND_KEY || process.env.G_MAPS_KEY;
   if (!apiKey) {
@@ -477,6 +480,22 @@ module.exports = {
           const contact = entry?.contacts?.[0];
 
           if (message) {
+            // Deduplicar webhooks duplicados usando el ID único del mensaje de WhatsApp
+            const messageId = message.id;
+            if (messageId) {
+              if (processedMessageIds.has(messageId)) {
+                console.log(`⚠️ Webhook duplicado ignorado para el mensaje ID: ${messageId}`);
+                return;
+              }
+              processedMessageIds.add(messageId);
+              
+              // Limitar tamaño para evitar fugas de memoria
+              if (processedMessageIds.size > 1000) {
+                const oldestId = processedMessageIds.values().next().value;
+                processedMessageIds.delete(oldestId);
+              }
+            }
+
             const phone_number_id = entry.metadata.phone_number_id;
 
             const from = message.from;
@@ -1472,8 +1491,7 @@ module.exports = {
                   aiResponse.toLowerCase().includes("fundador");
 
                 if (
-                  !user.is_founder &&
-                  (quiereEntrarYa || kiraInvita || userScore >= 8)
+                  false // Desactivado permanentemente: ya finalizó la preventa de Miembro Fundador
                 ) {
                   messageToSave =
                     "📋 [Invitación enviada: Plantilla de Miembro Fundador]";

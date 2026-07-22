@@ -34,7 +34,7 @@ module.exports = createCoreController('api::product.product', ({ strapi }) => ({
         const id = prod.sku || prod.id;
         const title = escapeXml(prod.name);
         const description = escapeXml(prod.shortDescription || prod.longDescription || prod.name);
-        const link = `https://www.koky.food/product/${prod.slug || prod.id}`;
+        const link = `https://www.koky.food/productdetails/${prod.slug || prod.id}`;
         
         let imageLink = "";
         if (prod.image) {
