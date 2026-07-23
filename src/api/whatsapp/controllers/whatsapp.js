@@ -109,6 +109,21 @@ function calculateScore(msgText, previousScore = 0) {
   return Math.floor(score);
 }
 
+function getWompiCheckoutUrl(totalAmount, ref) {
+  const crypto = require("crypto");
+  const publicKey = process.env.WOMPI_PUBLIC_KEY || 'pub_test_kB5ENAJ1QA4hPWZYlcrehcyjFrhQyUdq';
+  const amountInCents = Math.round(totalAmount * 100);
+  const integrityKey = process.env.wompiIntegrityKey || process.env.WOMPI_INTEGRITY_KEY;
+  
+  let signatureHex = "";
+  if (integrityKey) {
+    const concatString = `${ref}${amountInCents}COP${integrityKey}`;
+    signatureHex = crypto.createHash("sha256").update(concatString).digest("hex");
+  }
+  
+  return `https://checkout.wompi.co/p/?public-key=${publicKey}&currency=COP&amount-in-cents=${amountInCents}&reference=${ref}&redirect-url=https://wa.me/573019447660${signatureHex ? `&signature=${signatureHex}` : ""}`;
+}
+
 module.exports = {
   async getOrCreateUser(
     identifier,
@@ -924,7 +939,7 @@ module.exports = {
                       messageBody += `💰 **Total Final:** $${totalAmount.toLocaleString('es-CO')} COP\n\n`;
                       messageBody += `📍 **Dirección:** ${selected.address}\n\n`;
 
-                       const checkoutUrl = `https://checkout.wompi.co/p/?public-key=${process.env.WOMPI_PUBLIC_KEY || 'pub_test_kB5ENAJ1QA4hPWZYlcrehcyjFrhQyUdq'}&currency=COP&amount-in-cents=${Math.round(totalAmount * 100)}&reference=${ref}&redirect-url=https://wa.me/573019447660`;
+                      const checkoutUrl = getWompiCheckoutUrl(totalAmount, ref);
                       messageBody += `💳 Completa tu pago seguro con Wompi (Nequi, Daviplata, PSE, Tarjeta) haciendo clic en el botón de abajo.`;
                       systemInteractiveResponse = messageBody + `\n\n[Botón de Pago enviado: ${checkoutUrl}]`;
                       isSystemInteractive = true;
@@ -1097,7 +1112,7 @@ module.exports = {
                       data: { kira_score: user.kira_score }
                     });
 
-                    const checkoutUrl = `https://checkout.wompi.co/p/?public-key=${process.env.WOMPI_PUBLIC_KEY || 'pub_test_kB5ENAJ1QA4hPWZYlcrehcyjFrhQyUdq'}&currency=COP&amount-in-cents=${Math.round(totalAmount * 100)}&reference=${ref}&redirect-url=https://wa.me/573019447660`;
+                    const checkoutUrl = getWompiCheckoutUrl(totalAmount, ref);
                     systemInteractiveResponse = `¡Pedido confirmado! Enlace de pago enviado.`;
                     isSystemInteractive = true;
 
@@ -1186,7 +1201,7 @@ module.exports = {
                       data: { kira_score: user.kira_score }
                     });
 
-                    const checkoutUrl = `https://checkout.wompi.co/p/?public-key=${process.env.WOMPI_PUBLIC_KEY || 'pub_test_kB5ENAJ1QA4hPWZYlcrehcyjFrhQyUdq'}&currency=COP&amount-in-cents=${Math.round(totalAmount * 100)}&reference=${ref}&redirect-url=https://wa.me/573019447660`;
+                    const checkoutUrl = getWompiCheckoutUrl(totalAmount, ref);
                     systemInteractiveResponse = `¡Pedido confirmado! Enlace de pago enviado.`;
                     isSystemInteractive = true;
 
@@ -1291,7 +1306,7 @@ module.exports = {
                     data: { kira_score: user.kira_score }
                   });
 
-                  const checkoutUrl = `https://checkout.wompi.co/p/?public-key=${process.env.WOMPI_PUBLIC_KEY || 'pub_test_kB5ENAJ1QA4hPWZYlcrehcyjFrhQyUdq'}&currency=COP&amount-in-cents=${Math.round(totalAmount * 100)}&reference=${ref}&redirect-url=https://wa.me/573019447660`;
+                  const checkoutUrl = getWompiCheckoutUrl(totalAmount, ref);
                   systemInteractiveResponse = `¡Pedido confirmado! Enlace de pago enviado.`;
                   isSystemInteractive = true;
 
