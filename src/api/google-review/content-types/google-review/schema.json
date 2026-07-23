@@ -1,0 +1,40 @@
+{
+  "kind": "collectionType",
+  "collectionName": "google_reviews",
+  "info": {
+    "singularName": "google-review",
+    "pluralName": "google-reviews",
+    "displayName": "Google Review"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "author": {
+      "type": "string",
+      "required": true
+    },
+    "comment": {
+      "type": "text",
+      "required": true
+    },
+    "rating": {
+      "type": "integer",
+      "default": 5
+    },
+    "relative_time": {
+      "type": "string"
+    },
+    "avatar_color": {
+      "type": "string"
+    },
+    "avatar_initials": {
+      "type": "string"
+    },
+    "featured": {
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

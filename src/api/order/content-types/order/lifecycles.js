@@ -54,36 +54,83 @@ module.exports = {
  * - Lunes a Jueves: pedidos antes de las 16:00 (4:00 PM) se entregan mañana (D+1). Pedidos después de las 16:00 se entregan el día después (D+2). Si cae en sábado, se pasa al lunes.
  */
 function calculateDeliveryDate(createdAtDate) {
-  const date = new Date(createdAtDate);
-  const hour = date.getHours();
-  const day = date.getDay(); // 0 = Dom, 1 = Lun, ..., 5 = Vie, 6 = Sáb
+  // Convertir a la hora de Bogotá para asegurar consistencia
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Bogota',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+  
+  const parts = formatter.formatToParts(new Date(createdAtDate));
+  const year = parseInt(parts.find(p => p.type === 'year').value);
+  const month = parseInt(parts.find(p => p.type === 'month').value) - 1;
+  const day = parseInt(parts.find(p => p.type === 'day').value);
+  const hour = parseInt(parts.find(p => p.type === 'hour').value);
 
-  let deliveryDate = new Date(date);
+  const bogotaDate = new Date(year, month, day, hour);
+  const dayOfWeek = bogotaDate.getDay(); // 0 = Dom, 1 = Lun, ...
 
-  if (day === 5) { // Viernes
-    deliveryDate.setDate(date.getDate() + 3); // Entrega el Lunes
-  } else if (day === 6) { // Sábado
-    deliveryDate.setDate(date.getDate() + 2); // Entrega el Lunes
-  } else if (day === 0) { // Domingo
+  // Lista de feriados de Colombia (formato YYYY-MM-DD)
+  const COLOMBIAN_HOLIDAYS = [
+    '2026-01-01', '2026-01-12', '2026-03-23', '2026-04-02', '2026-04-03',
+    '2026-05-01', '2026-05-18', '2026-06-08', '2026-06-15', '2026-06-29',
+    '2026-07-20', '2026-08-07', '2026-08-17', '2026-10-12', '2026-11-02',
+    '2026-11-16', '2026-12-08', '2026-12-25',
+    '2027-01-01', '2027-01-11', '2027-03-22', '2027-03-25', '2027-03-26',
+    '2027-05-01', '2027-05-10', '2027-05-31', '2027-06-07', '2027-06-21',
+    '2027-07-05', '2027-07-20', '2027-08-07', '2027-08-16', '2027-10-18',
+    '2027-11-01', '2027-11-15', '2027-12-08', '2027-12-25'
+  ];
+
+  const isHoliday = (dateToCheck) => {
+    const y = dateToCheck.getFullYear();
+    const m = String(dateToCheck.getMonth() + 1).padStart(2, '0');
+    const d = String(dateToCheck.getDate()).padStart(2, '0');
+    return COLOMBIAN_HOLIDAYS.includes(`${y}-${m}-${d}`);
+  };
+
+  const isWeekend = (dateToCheck) => {
+    const d = dateToCheck.getDay();
+    return d === 0 || d === 6;
+  };
+
+  let targetDate = new Date(bogotaDate);
+
+  // Determinamos la ventana del fin de semana largo (Jueves 4:00 PM al Domingo 4:00 PM)
+  const isWeekendWindow = 
+    (dayOfWeek === 4 && hour >= 16) || // Jueves después de las 4 PM
+    (dayOfWeek === 5) ||               // Viernes todo el día
+    (dayOfWeek === 6) ||               // Sábado todo el día
+    (dayOfWeek === 0 && hour < 16);    // Domingo antes de las 4 PM
+
+  if (isWeekendWindow) {
+    // Pedidos en ventana de fin de semana se entregan el lunes inicialmente
+    const daysToAdd = dayOfWeek === 4 ? 4 : (dayOfWeek === 5 ? 3 : (dayOfWeek === 6 ? 2 : 1));
+    targetDate.setDate(bogotaDate.getDate() + daysToAdd);
+  } else if (dayOfWeek === 0 && hour >= 16) {
+    // Domingo después de las 4:00 PM se entrega el martes inicialmente
+    targetDate.setDate(bogotaDate.getDate() + 2);
+  } else {
+    // Caso estándar de lunes a jueves
     if (hour < 16) {
-      deliveryDate.setDate(date.getDate() + 1); // Entrega el Lunes
+      targetDate.setDate(bogotaDate.getDate() + 1); // Entrega mañana
     } else {
-      deliveryDate.setDate(date.getDate() + 2); // Entrega el Martes
-    }
-  } else { // Lunes a Jueves
-    if (hour < 16) { // Antes de las 4 PM
-      deliveryDate.setDate(date.getDate() + 1); // Entrega mañana
-    } else { // Después de las 4 PM
-      deliveryDate.setDate(date.getDate() + 2); // Entrega pasado mañana
-      if (deliveryDate.getDay() === 6) { // Si cae sábado, mover al lunes
-        deliveryDate.setDate(deliveryDate.getDate() + 2);
-      }
+      targetDate.setDate(bogotaDate.getDate() + 2); // Entrega pasado mañana
     }
   }
 
-  const yyyy = deliveryDate.getFullYear();
-  const mm = String(deliveryDate.getMonth() + 1).padStart(2, '0');
-  const dd = String(deliveryDate.getDate()).padStart(2, '0');
+  // Bucle para saltar fines de semana y festivos
+  while (isWeekend(targetDate) || isHoliday(targetDate)) {
+    targetDate.setDate(targetDate.getDate() + 1);
+  }
+
+  const yyyy = targetDate.getFullYear();
+  const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+  const dd = String(targetDate.getDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
 }
 
