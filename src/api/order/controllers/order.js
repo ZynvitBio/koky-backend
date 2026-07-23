@@ -298,7 +298,7 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
         return ctx.internalServerError("Llave de integridad no configurada en el servidor.");
       }
 
-      const concatString = `${reference}${amountInCents}${currency}${integrityKey}`;
+      const concatString = `${reference}^${amountInCents}^${currency}^${integrityKey}`;
       const computedHash = crypto.createHash("sha256").update(concatString).digest("hex");
 
       return ctx.send({ signature: computedHash });

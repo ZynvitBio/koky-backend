@@ -117,7 +117,7 @@ function getWompiCheckoutUrl(totalAmount, ref) {
   
   let signatureHex = "";
   if (integrityKey) {
-    const concatString = `${ref}${amountInCents}COP${integrityKey}`;
+    const concatString = `${ref}^${amountInCents}^COP^${integrityKey}`;
     signatureHex = crypto.createHash("sha256").update(concatString).digest("hex");
   }
   
