@@ -28,20 +28,32 @@ module.exports = {
     });
 
     const mensajeTexto = result.message;
-    let idExterno;
+    let idExterno = '';
     const emailUser = usuario.email || '';
 
+    // 1. Si el correo es virtual de Koky, el prefijo contiene el ID/Teléfono exacto (método más confiable)
+    if (emailUser.includes('@wa.koky') || emailUser.includes('@instagram.koky') || emailUser.includes('@facebook.koky')) {
+      idExterno = emailUser.split('@')[0];
+    }
+
+    // 2. Si no es correo virtual o no se resolvió, usamos los campos explícitos de la base de datos
+    if (!idExterno) {
+      idExterno = usuario.whatsapp_id || usuario.social_id || usuario.username || '';
+    }
+
     try {
-      if (emailUser.includes('wa.koky')) {
-        // Para WhatsApp: Solo números
-        idExterno = (usuario.whatsapp_id || usuario.username).replace(/\D/g, ''); 
-        await strapi.service('api::whatsapp.whatsapp').sendText(idExterno, mensajeTexto);
+      // 3. Determinamos el canal de destino (WhatsApp o Redes Sociales)
+      if (emailUser.includes('wa.koky') || usuario.whatsapp_id) {
+        // Para WhatsApp: Limpiamos a solo números
+        const idLimpio = idExterno.replace(/\D/g, '');
+        if (idLimpio) {
+          await strapi.service('api::whatsapp.whatsapp').sendText(idLimpio, mensajeTexto);
+        } else {
+          console.warn('⚠️ Intentando enviar WhatsApp pero el ID de destino quedó vacío.');
+        }
         
-      } else if (emailUser.includes('instagram.koky') || emailUser.includes('facebook.koky')) {
-        // Para Redes Sociales: El ID de Meta (social_id) SIN limpiar números
-        // Usamos el username o social_id que guardamos originalmente
-        idExterno = usuario.social_id || usuario.username; 
-        
+      } else if (emailUser.includes('instagram.koky') || emailUser.includes('facebook.koky') || usuario.social_id) {
+        // Para Redes Sociales: Enviamos directo con el ID social
         await strapi.service('api::whatsapp.whatsapp').sendDirectMessage(idExterno, mensajeTexto);
       }
     } catch (error) {
