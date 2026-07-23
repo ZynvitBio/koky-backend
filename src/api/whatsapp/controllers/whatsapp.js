@@ -117,11 +117,11 @@ function getWompiCheckoutUrl(totalAmount, ref) {
   
   let signatureHex = "";
   if (integrityKey) {
-    const concatString = `${ref}^${amountInCents}^COP^${integrityKey}`;
+    const concatString = `${ref}${amountInCents}COP${integrityKey}`;
     signatureHex = crypto.createHash("sha256").update(concatString).digest("hex");
   }
   
-  return `https://checkout.wompi.co/p/?public-key=${publicKey}&currency=COP&amount-in-cents=${amountInCents}&reference=${ref}&redirect-url=https://wa.me/573019447660${signatureHex ? `&signature=${signatureHex}` : ""}`;
+  return `https://checkout.wompi.co/p/?public-key=${publicKey}&currency=COP&amount-in-cents=${amountInCents}&reference=${ref}&redirect-url=https://wa.me/573019447660${signatureHex ? `&signature:integrity=${signatureHex}` : ""}`;
 }
 
 module.exports = {
