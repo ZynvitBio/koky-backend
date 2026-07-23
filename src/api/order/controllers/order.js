@@ -301,7 +301,15 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
       const concatString = `${reference}^${amountInCents}^${currency}^${integrityKey}`;
       const computedHash = crypto.createHash("sha256").update(concatString).digest("hex");
 
-      return ctx.send({ signature: computedHash });
+      return ctx.send({ 
+        signature: computedHash,
+        keyInfo: {
+          exists: !!integrityKey,
+          length: integrityKey.length,
+          prefix: integrityKey.substring(0, 8),
+          suffix: integrityKey.substring(integrityKey.length - 8)
+        }
+      });
     } catch (err) {
       return ctx.internalServerError(err.message);
     }
