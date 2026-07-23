@@ -285,4 +285,25 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
       return ctx.internalServerError(err.message);
     }
   },
+
+  async generateWompiSignature(ctx) {
+    try {
+      const { reference, amountInCents, currency } = ctx.request.body;
+      if (!reference || !amountInCents || !currency) {
+        return ctx.badRequest("Faltan parámetros requeridos (reference, amountInCents, currency)");
+      }
+
+      const integrityKey = process.env.wompiIntegrityKey || process.env.WOMPI_INTEGRITY_KEY;
+      if (!integrityKey) {
+        return ctx.internalServerError("Llave de integridad no configurada en el servidor.");
+      }
+
+      const concatString = `${reference}${amountInCents}${currency}${integrityKey}`;
+      const computedHash = crypto.createHash("sha256").update(concatString).digest("hex");
+
+      return ctx.send({ signature: computedHash });
+    } catch (err) {
+      return ctx.internalServerError(err.message);
+    }
+  },
 }));

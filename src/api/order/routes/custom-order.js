@@ -13,6 +13,16 @@ module.exports = {
       },
     },
     {
+      method: "POST",
+      path: "/orders/wompi-signature",
+      handler: "order.generateWompiSignature",
+      config: {
+        auth: false,
+        policies: [],
+        middlewares: [],
+      },
+    },
+    {
       method: "GET",
       path: "/orders/confirm/:reference",
       handler: "order.getConfirmationDetails",
