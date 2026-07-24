@@ -594,8 +594,14 @@ module.exports = {
               buttonId = message.interactive.button_reply.id || "";
             }
 
+            // Obtener el estado real del usuario de la base de datos para verificar si la IA está activa
+            const dbUser = await strapi.db.query("plugin::users-permissions.user").findOne({
+              where: { id: user.id }
+            });
+            const isKiraActive = dbUser && dbUser.kira_active !== false;
+
             // --- CAPA 1: Interceptador de Handoff Humano por Código (WhatsApp) ---
-            if (shouldTakeoverHuman(rawText)) {
+            if (isKiraActive && shouldTakeoverHuman(rawText)) {
               console.log(`⚠️ Cliente WhatsApp ${from} solicita hablar con un humano. Pausando bot Kira.`);
               
               user = await strapi.entityService.update(
@@ -1509,7 +1515,12 @@ module.exports = {
 
               const scoreInfo = { total: userScore };
 
-              if (user.kira_active !== false && !isSystemInteractive) {
+              // Consultar nuevamente el estado de la base de datos para asegurar el último valor
+              const freshDbUser = await strapi.db.query("plugin::users-permissions.user").findOne({
+                where: { id: user.id }
+              });
+
+              if (freshDbUser && freshDbUser.kira_active !== false && !isSystemInteractive) {
                 const history = await strapi.entityService.findMany(
                   "api::chat.chat",
 
@@ -1805,8 +1816,14 @@ module.exports = {
 
             const trimmedText = rawText.trim();
 
+            // Obtener el estado real del usuario de la base de datos para verificar si la IA está activa
+            const dbUser = await strapi.db.query("plugin::users-permissions.user").findOne({
+              where: { id: user.id }
+            });
+            const isKiraActive = dbUser && dbUser.kira_active !== false;
+
             // --- CAPA 1: Interceptador de Handoff Humano por Código (Meta) ---
-            if (shouldTakeoverHuman(rawText)) {
+            if (isKiraActive && shouldTakeoverHuman(rawText)) {
               console.log(`⚠️ Cliente Meta ${from} solicita hablar con un humano. Pausando bot Kira.`);
 
               user = await strapi.entityService.update(
@@ -2009,7 +2026,12 @@ module.exports = {
 
             const scoreInfo = { total: userScore };
 
-            if (user.kira_active !== false) {
+            // Consultar nuevamente el estado de la base de datos para asegurar el último valor
+            const freshDbUser = await strapi.db.query("plugin::users-permissions.user").findOne({
+              where: { id: user.id }
+            });
+
+            if (freshDbUser && freshDbUser.kira_active !== false) {
               const history = await strapi.entityService.findMany(
                 "api::chat.chat",
 
