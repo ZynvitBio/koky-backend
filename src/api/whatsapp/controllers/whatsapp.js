@@ -49,14 +49,8 @@ async function geocodeAddress(address) {
   }
 
   if (response.data.status !== "OK") {
-    console.warn(`⚠️ Google Maps API error (${response.data.status}): ${response.data.error_message || ''}. Falling back to default coordinates.`);
-    return {
-      success: true,
-      isSystemFallback: true,
-      lat: 4.6976,
-      lng: -74.0617,
-      formattedAddress: address
-    };
+    console.error(`❌ Google Maps API error (${response.data.status}): ${response.data.error_message || ''}`);
+    return { success: false, reason: "API_ERROR" };
   }
 
   const location = response.data.results[0].geometry.location;
