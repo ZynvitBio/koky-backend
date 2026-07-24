@@ -298,10 +298,20 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
         return ctx.internalServerError("Llave de integridad no configurada en el servidor.");
       }
 
-      const concatString = `${reference}${amountInCents}${currency}${integrityKey}`;
-      const computedHash = crypto.createHash("sha256").update(concatString).digest("hex");
+      const gmapsKey = process.env.G_MAPS_KEY || "";
+      const gmapsBackendKey = process.env.G_MAPS_BACKEND_KEY || "";
 
-      return ctx.send({ signature: computedHash });
+      return ctx.send({ 
+        signature: computedHash,
+        gmapsKeyInfo: {
+          gmapsKeyExists: !!gmapsKey,
+          gmapsKeyLength: gmapsKey.length,
+          gmapsKeyPrefix: gmapsKey.substring(0, 8),
+          gmapsBackendKeyExists: !!gmapsBackendKey,
+          gmapsBackendKeyLength: gmapsBackendKey.length,
+          gmapsBackendKeyPrefix: gmapsBackendKey.substring(0, 8)
+        }
+      });
     } catch (err) {
       return ctx.internalServerError(err.message);
     }
