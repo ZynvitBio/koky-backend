@@ -1,0 +1,26 @@
+{
+  "kind": "collectionType",
+  "collectionName": "kira_rules",
+  "info": {
+    "singularName": "kira-rule",
+    "pluralName": "kira-rules",
+    "displayName": "Kira Rule",
+    "description": "Behavior rules and corrections for Kira WhatsApp bot"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "description": {
+      "type": "string"
+    },
+    "instruction": {
+      "type": "text"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

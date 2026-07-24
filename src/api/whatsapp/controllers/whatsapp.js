@@ -118,6 +118,75 @@ function getWompiCheckoutUrl(totalAmount, ref) {
   return `https://checkout.wompi.co/p/?public-key=${publicKey}&currency=COP&amount-in-cents=${amountInCents}&reference=${ref}&redirect-url=https://wa.me/573019447660${signatureHex ? `&signature:integrity=${signatureHex}` : ""}`;
 }
 
+async function getDynamicPromptsData() {
+  try {
+    const rules = await strapi.entityService.findMany("api::kira-rule.kira-rule", {
+      filters: { active: true }
+    });
+    const faqs = await strapi.entityService.findMany("api::faq.faq", {
+      filters: { active: true }
+    });
+
+    const rulesStr = rules.map((r, i) => `${i + 1}. [Instrucción: ${r.description}] => ${r.instruction}`).join("\n");
+    const faqsStr = faqs.map((f, i) => `${i + 1}. [Tema: ${f.topic}] => ${f.information}`).join("\n");
+
+    return { rulesStr, faqsStr };
+  } catch (e) {
+    console.error("❌ Error obteniendo reglas/FAQs dinámicas:", e.message);
+    return { rulesStr: "", faqsStr: "" };
+  }
+}
+
+function shouldTakeoverHuman(msgText) {
+  const clean = msgText.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+  // 1. Palabras clave directas (sin doble sentido en este negocio, usando límites de palabra)
+  const directKeywords = [
+    "asesor", "asesora",
+    "operador", "operadora",
+    "supervisor", "supervisora",
+    "representante",
+    "agente",
+    "atencion al cliente"
+  ];
+  
+  const hasDirectKeyword = directKeywords.some(keyword => {
+    const cleanKeyword = keyword.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const regex = new RegExp(`\\b${cleanKeyword}s?\\b`, 'i');
+    return regex.test(clean);
+  });
+  
+  if (hasDirectKeyword) return true;
+
+  // 2. Frases explícitas para palabras con doble sentido (como "humano", "persona", "soporte", "alguien")
+  const explicitPhrases = [
+    "hablar con un humano",
+    "necesito un humano",
+    "hablar con alguien",
+    "hablar con una persona",
+    "necesito una persona",
+    "humano por favor",
+    "soporte por favor",
+    "contacto humano",
+    "hablar con soporte",
+    "necesito soporte",
+    "ayuda humana",
+    "transferir a un humano",
+    "conectarme con un humano",
+    "hablar con un humano de verdad",
+    "hablar con alguien real",
+    "necesito hablar con alguien",
+    "quiero hablar con alguien",
+    "quiero un humano",
+    "necesito ayuda de una persona"
+  ];
+
+  return explicitPhrases.some(phrase => {
+    const cleanPhrase = phrase.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return clean.includes(cleanPhrase);
+  });
+}
+
 module.exports = {
   async getOrCreateUser(
     identifier,
@@ -523,6 +592,46 @@ module.exports = {
             if (message.type === "interactive" && message.interactive?.type === "button_reply") {
               rawText = message.interactive.button_reply.title || "";
               buttonId = message.interactive.button_reply.id || "";
+            }
+
+            // --- CAPA 1: Interceptador de Handoff Humano por Código (WhatsApp) ---
+            if (shouldTakeoverHuman(rawText)) {
+              console.log(`⚠️ Cliente WhatsApp ${from} solicita hablar con un humano. Pausando bot Kira.`);
+              
+              user = await strapi.entityService.update(
+                "plugin::users-permissions.user",
+                user.id,
+                { data: { kira_active: false } }
+              );
+
+              await strapi.entityService.create("api::chat.chat", {
+                data: {
+                  sender: from,
+                  message: rawText,
+                  timestamp: new Date(),
+                  publishedAt: new Date(),
+                  users_permissions_user: user.id,
+                },
+              });
+
+              const transferMessage = `Entendido. He pausado mis respuestas automáticas. Un compañero del equipo de carne y hueso revisará este chat muy pronto para ayudarte directamente. ¡Gracias por tu paciencia! 🥦`;
+              await this.sendWhatsAppMessage(phone_number_id, from, transferMessage);
+
+              await strapi.entityService.create("api::chat.chat", {
+                data: {
+                  sender: "Kira",
+                  message: transferMessage,
+                  timestamp: new Date(),
+                  publishedAt: new Date(),
+                  users_permissions_user: user.id,
+                },
+              });
+
+              if (strapi["io"]) {
+                strapi["io"].emit("new_message", { userId: user.id });
+              }
+
+              return;
             }
             let isSystemInteractive = false;
             let systemInteractiveResponse = "";
@@ -1440,25 +1549,54 @@ module.exports = {
 
                 const infoPreventa = `IMPORTANTE: Estamos en preventa de Miembros Fundadores. Quedan exactamente ${dias} días y ${horas} horas para cerrar inscripciones.`;
 
+                const { rulesStr, faqsStr } = await getDynamicPromptsData();
+
                 const systemPrompt = KiraPrompts.PROMPT_WA(
                   waName,
-
                   user.is_founder,
-
                   chatContext,
-
                   rawText,
-
                   scoreInfo,
-
                   productList,
-
                   infoPreventa,
+                  rulesStr,
+                  faqsStr
                 );
 
                 const result = await model.generateContent(systemPrompt);
 
                 const aiResponse = result.response.text();
+                
+                // --- CAPA 2: Interceptador de Handoff Humano por IA (WhatsApp) ---
+                if (aiResponse.includes("[ACTION: human_takeover]")) {
+                  console.log(`⚠️ Gemini solicitó handoff humano para el cliente ${from}. Pausando bot Kira.`);
+
+                  user = await strapi.entityService.update(
+                    "plugin::users-permissions.user",
+                    user.id,
+                    { data: { kira_active: false } }
+                  );
+
+                  const transferMessage = `Entendido. He pausado mis respuestas automáticas. Un compañero del equipo de carne y hueso revisará este chat muy pronto para ayudarte directamente. ¡Gracias por tu paciencia! 🥦`;
+                  await this.sendWhatsAppMessage(phone_number_id, from, transferMessage);
+
+                  await strapi.entityService.create("api::chat.chat", {
+                    data: {
+                      sender: "Kira",
+                      message: transferMessage,
+                      timestamp: new Date(),
+                      publishedAt: new Date(),
+                      users_permissions_user: user.id,
+                    },
+                  });
+
+                  if (strapi["io"]) {
+                    strapi["io"].emit("new_message", { userId: user.id });
+                  }
+
+                  return;
+                }
+
                 let messageToSave = aiResponse;
 
                  // Detectar acción de creación de carrito generada por la IA
@@ -1667,6 +1805,58 @@ module.exports = {
 
             const trimmedText = rawText.trim();
 
+            // --- CAPA 1: Interceptador de Handoff Humano por Código (Meta) ---
+            if (shouldTakeoverHuman(rawText)) {
+              console.log(`⚠️ Cliente Meta ${from} solicita hablar con un humano. Pausando bot Kira.`);
+
+              user = await strapi.entityService.update(
+                "plugin::users-permissions.user",
+                user.id,
+                { data: { kira_active: false } }
+              );
+
+              await strapi.entityService.create("api::chat.chat", {
+                data: {
+                  sender: from,
+                  message: rawText,
+                  timestamp: new Date(),
+                  publishedAt: new Date(),
+                  users_permissions_user: user.id,
+                },
+              });
+
+              const transferMessage = `Entendido. He pausado mis respuestas automáticas. Un compañero del equipo de carne y hueso revisará este chat muy pronto para ayudarte directamente. ¡Gracias por tu paciencia! 🥦`;
+
+              await axios.post(
+                `https://graph.facebook.com/v21.0/me/messages`,
+                {
+                  recipient: { id: from },
+                  message: { text: transferMessage },
+                },
+                {
+                  headers: {
+                    Authorization: `Bearer ${process.env.MESSENGER_PAGE_TOKEN}`,
+                  },
+                }
+              );
+
+              await strapi.entityService.create("api::chat.chat", {
+                data: {
+                  sender: "Kira",
+                  message: transferMessage,
+                  timestamp: new Date(),
+                  publishedAt: new Date(),
+                  users_permissions_user: user.id,
+                },
+              });
+
+              if (strapi["io"]) {
+                strapi["io"].emit("new_message", { userId: user.id });
+              }
+
+              return;
+            }
+
             // Flujo de registro por número telefónico internacional (+...) recibido por redes sociales
 
             if (trimmedText.startsWith("+")) {
@@ -1861,25 +2051,65 @@ module.exports = {
 
               const infoPreventaMeta = `IMPORTANTE: Quedan exactamente ${diasMeta} días y ${horasMeta} horas de preventa.`;
 
+              const { rulesStr, faqsStr } = await getDynamicPromptsData();
+
               const systemPrompt = KiraPrompts.PROMPT_META(
                 user.username,
-
                 user.is_founder,
-
                 chatContext,
-
                 rawText,
-
                 scoreInfo,
-
                 productListMeta,
-
                 infoPreventaMeta,
+                rulesStr,
+                faqsStr
               );
 
               const result = await model.generateContent(systemPrompt);
 
               const aiResponse = result.response.text();
+
+              // --- CAPA 2: Interceptador de Handoff Humano por IA (Meta) ---
+              if (aiResponse.includes("[ACTION: human_takeover]")) {
+                console.log(`⚠️ Gemini solicitó handoff humano para el cliente Meta ${from}. Pausando bot Kira.`);
+
+                user = await strapi.entityService.update(
+                  "plugin::users-permissions.user",
+                  user.id,
+                  { data: { kira_active: false } }
+                );
+
+                const transferMessage = `Entendido. He pausado mis respuestas automáticas. Un compañero del equipo de carne y hueso revisará este chat muy pronto para ayudarte directamente. ¡Gracias por tu paciencia! 🥦`;
+
+                await axios.post(
+                  `https://graph.facebook.com/v21.0/me/messages`,
+                  {
+                    recipient: { id: from },
+                    message: { text: transferMessage },
+                  },
+                  {
+                    headers: {
+                      Authorization: `Bearer ${process.env.MESSENGER_PAGE_TOKEN}`,
+                    },
+                  }
+                );
+
+                await strapi.entityService.create("api::chat.chat", {
+                  data: {
+                    sender: "Kira",
+                    message: transferMessage,
+                    timestamp: new Date(),
+                    publishedAt: new Date(),
+                    users_permissions_user: user.id,
+                  },
+                });
+
+                if (strapi["io"]) {
+                  strapi["io"].emit("new_message", { userId: user.id });
+                }
+
+                return;
+              }
 
               await axios.post(
                 `https://graph.facebook.com/v21.0/me/messages`,

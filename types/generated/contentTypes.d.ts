@@ -579,6 +579,41 @@ export interface ApiChatChat extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiGoogleReviewGoogleReview
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'google_reviews';
+  info: {
+    displayName: 'Google Review';
+    pluralName: 'google-reviews';
+    singularName: 'google-review';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    author: Schema.Attribute.String & Schema.Attribute.Required;
+    avatar_color: Schema.Attribute.String;
+    avatar_initials: Schema.Attribute.String;
+    comment: Schema.Attribute.Text & Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    featured: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::google-review.google-review'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    rating: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<5>;
+    relative_time: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiHomeHeroMessageHomeHeroMessage
   extends Struct.CollectionTypeSchema {
   collectionName: 'home_hero_messages';
@@ -699,11 +734,16 @@ export interface ApiOrderOrder extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     customer_name: Schema.Attribute.String;
     delivery_date: Schema.Attribute.Date;
+    invoice_pdf: Schema.Attribute.Media<'files'>;
     items: Schema.Attribute.JSON;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::order.order'> &
       Schema.Attribute.Private;
     payment_method: Schema.Attribute.String;
+    payment_status: Schema.Attribute.Enumeration<
+      ['PENDING', 'APPROVED', 'DECLINED', 'ERROR']
+    > &
+      Schema.Attribute.DefaultTo<'PENDING'>;
     publishedAt: Schema.Attribute.DateTime;
     reconciled: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     shipping_address: Schema.Attribute.String;
@@ -1474,6 +1514,7 @@ export interface PluginUsersPermissionsUser
     >;
     social_handle: Schema.Attribute.String;
     social_id: Schema.Attribute.String;
+    unread: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1503,6 +1544,7 @@ declare module '@strapi/strapi' {
       'api::blog-hero.blog-hero': ApiBlogHeroBlogHero;
       'api::category.category': ApiCategoryCategory;
       'api::chat.chat': ApiChatChat;
+      'api::google-review.google-review': ApiGoogleReviewGoogleReview;
       'api::home-hero-message.home-hero-message': ApiHomeHeroMessageHomeHeroMessage;
       'api::home-hero-setting.home-hero-setting': ApiHomeHeroSettingHomeHeroSetting;
       'api::instagram-post.instagram-post': ApiInstagramPostInstagramPost;
