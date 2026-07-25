@@ -137,6 +137,57 @@ async function getDynamicPromptsData() {
   }
 }
 
+function isWithinSupportHours() {
+  const now = new Date();
+  
+  // Convertir fecha actual a la hora de Bogotá, Colombia (UTC-5)
+  const colTimeStr = now.toLocaleString("en-US", { timeZone: "America/Bogota" });
+  const colDate = new Date(colTimeStr);
+  
+  const day = colDate.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+  const hours = colDate.getHours();
+  const minutes = colDate.getMinutes();
+  const timeVal = hours * 60 + minutes; // Minutos del día transcurridos
+
+  // Lista de festivos de Colombia para 2026 (formato YYYY-MM-DD)
+  const COLOMBIAN_HOLIDAYS_2026 = new Set([
+    '2026-01-01', '2026-01-12', '2026-03-23', '2026-04-02', '2026-04-03',
+    '2026-05-01', '2026-05-18', '2026-06-08', '2026-06-15', '2026-06-29',
+    '2026-07-13', '2026-07-20', '2026-08-07', '2026-08-17', '2026-10-12',
+    '2026-11-02', '2026-11-16', '2026-12-08', '2026-12-25'
+  ]);
+
+  const yyyy = colDate.getFullYear();
+  const mm = String(colDate.getMonth() + 1).padStart(2, '0');
+  const dd = String(colDate.getDate()).padStart(2, '0');
+  const dateKey = `${yyyy}-${mm}-${dd}`;
+
+  // Si es festivo en Colombia, no hay soporte humano disponible
+  if (COLOMBIAN_HOLIDAYS_2026.has(dateKey)) {
+    return false;
+  }
+
+  // Lunes a Viernes: 8:00 AM (480 minutos) a 6:00 PM (1080 minutos)
+  if (day >= 1 && day <= 5) {
+    return timeVal >= 480 && timeVal <= 1080;
+  }
+  
+  // Sábado: 9:00 AM (540 minutos) a 1:00 PM (780 minutos)
+  if (day === 6) {
+    return timeVal >= 540 && timeVal <= 780;
+  }
+  
+  // Domingo: no hay atención
+  return false;
+}
+
+function getTransferMessage() {
+  const withinHours = isWithinSupportHours();
+  return withinHours
+    ? `Entendido. He pausado mis respuestas automáticas. Un compañero del equipo de carne y hueso revisará este chat muy pronto para ayudarte directamente. ¡Gracias por tu paciencia! 🥦`
+    : `Entendido. He pausado mis respuestas automáticas. Ten en cuenta que nuestro equipo de soporte humano está disponible de lunes a viernes de 8:00 AM a 6:00 PM y sábados de 9:00 AM a 1:00 PM (domingos y festivos no tenemos soporte en vivo). Apenas nuestro equipo regrese, un compañero revisará tu mensaje. ¡Gracias por tu paciencia! 🥦`;
+}
+
 function shouldTakeoverHuman(msgText) {
   const clean = msgText.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
@@ -620,7 +671,7 @@ module.exports = {
                 },
               });
 
-              const transferMessage = `Entendido. He pausado mis respuestas automáticas. Un compañero del equipo de carne y hueso revisará este chat muy pronto para ayudarte directamente. ¡Gracias por tu paciencia! 🥦`;
+              const transferMessage = getTransferMessage();
               await this.sendWhatsAppMessage(phone_number_id, from, transferMessage);
 
               await strapi.entityService.create("api::chat.chat", {
@@ -1588,7 +1639,7 @@ module.exports = {
                     { data: { kira_active: false } }
                   );
 
-                  const transferMessage = `Entendido. He pausado mis respuestas automáticas. Un compañero del equipo de carne y hueso revisará este chat muy pronto para ayudarte directamente. ¡Gracias por tu paciencia! 🥦`;
+                  const transferMessage = getTransferMessage();
                   await this.sendWhatsAppMessage(phone_number_id, from, transferMessage);
 
                   await strapi.entityService.create("api::chat.chat", {
@@ -1842,7 +1893,7 @@ module.exports = {
                 },
               });
 
-              const transferMessage = `Entendido. He pausado mis respuestas automáticas. Un compañero del equipo de carne y hueso revisará este chat muy pronto para ayudarte directamente. ¡Gracias por tu paciencia! 🥦`;
+              const transferMessage = getTransferMessage();
 
               await axios.post(
                 `https://graph.facebook.com/v21.0/me/messages`,
@@ -2101,7 +2152,7 @@ module.exports = {
                   { data: { kira_active: false } }
                 );
 
-                const transferMessage = `Entendido. He pausado mis respuestas automáticas. Un compañero del equipo de carne y hueso revisará este chat muy pronto para ayudarte directamente. ¡Gracias por tu paciencia! 🥦`;
+                const transferMessage = getTransferMessage();
 
                 await axios.post(
                   `https://graph.facebook.com/v21.0/me/messages`,
