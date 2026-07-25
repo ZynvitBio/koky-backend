@@ -137,6 +137,78 @@ async function getDynamicPromptsData() {
   }
 }
 
+function getColombianHolidays(year) {
+  const holidays = new Set();
+
+  // 1. Festivos Fijos (No se trasladan)
+  holidays.add(`${year}-01-01`); // Año Nuevo
+  holidays.add(`${year}-05-01`); // Día del Trabajo
+  holidays.add(`${year}-07-20`); // Independencia
+  holidays.add(`${year}-08-07`); // Batalla de Boyacá
+  holidays.add(`${year}-12-08`); // Inmaculada Concepción
+  holidays.add(`${year}-12-25`); // Navidad
+
+  // Helper para mover al siguiente lunes (Ley Emiliani)
+  const getNextMondayStr = (month, day) => {
+    const date = new Date(year, month - 1, day);
+    const dayOfWeek = date.getDay(); // 0 = Dom, 1 = Lun, ...
+    if (dayOfWeek === 1) {
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+    const daysToAdd = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+    date.setDate(date.getDate() + daysToAdd);
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  // 2. Festivos con fecha fija pero que se mueven al siguiente lunes
+  holidays.add(getNextMondayStr(1, 6));   // Reyes Magos (6 Ene)
+  holidays.add(getNextMondayStr(3, 19));  // San José (19 Mar)
+  holidays.add(getNextMondayStr(6, 29));  // San Pedro y San Pablo (29 Jun)
+  holidays.add(getNextMondayStr(7, 9));   // Virgen de Chiquinquirá (9 Jul - Nuevo Festivo Ley 2578)
+  holidays.add(getNextMondayStr(8, 15));  // Asunción de la Virgen (15 Ago)
+  holidays.add(getNextMondayStr(10, 12)); // Día de la Raza (12 Oct)
+  holidays.add(getNextMondayStr(11, 1));  // Todos los Santos (1 Nov)
+  holidays.add(getNextMondayStr(11, 11)); // Independencia de Cartagena (11 Nov)
+
+  // 3. Festivos basados en la Pascua (Algoritmo Butcher-Oudin para el Domingo de Resurrección)
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const L = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * L) / 451);
+  const month = Math.floor((h + L - 7 * m + 114) / 31);
+  const day = ((h + L - 7 * m + 114) % 31) + 1;
+  
+  const easter = new Date(year, month - 1, day);
+
+  const addDaysStr = (baseDate, days) => {
+    const date = new Date(baseDate);
+    date.setDate(baseDate.getDate() + days);
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  holidays.add(addDaysStr(easter, -3)); // Jueves Santo
+  holidays.add(addDaysStr(easter, -2)); // Viernes Santo
+  holidays.add(addDaysStr(easter, 43)); // Ascensión
+  holidays.add(addDaysStr(easter, 64)); // Corpus Christi
+  holidays.add(addDaysStr(easter, 71)); // Sagrado Corazón
+
+  return holidays;
+}
+
 function isWithinSupportHours() {
   const now = new Date();
   
@@ -149,21 +221,16 @@ function isWithinSupportHours() {
   const minutes = colDate.getMinutes();
   const timeVal = hours * 60 + minutes; // Minutos del día transcurridos
 
-  // Lista de festivos de Colombia para 2026 (formato YYYY-MM-DD)
-  const COLOMBIAN_HOLIDAYS_2026 = new Set([
-    '2026-01-01', '2026-01-12', '2026-03-23', '2026-04-02', '2026-04-03',
-    '2026-05-01', '2026-05-18', '2026-06-08', '2026-06-15', '2026-06-29',
-    '2026-07-13', '2026-07-20', '2026-08-07', '2026-08-17', '2026-10-12',
-    '2026-11-02', '2026-11-16', '2026-12-08', '2026-12-25'
-  ]);
-
   const yyyy = colDate.getFullYear();
   const mm = String(colDate.getMonth() + 1).padStart(2, '0');
   const dd = String(colDate.getDate()).padStart(2, '0');
   const dateKey = `${yyyy}-${mm}-${dd}`;
 
+  // Obtener los festivos dinámicos para el año actual
+  const holidays = getColombianHolidays(yyyy);
+
   // Si es festivo en Colombia, no hay soporte humano disponible
-  if (COLOMBIAN_HOLIDAYS_2026.has(dateKey)) {
+  if (holidays.has(dateKey)) {
     return false;
   }
 
