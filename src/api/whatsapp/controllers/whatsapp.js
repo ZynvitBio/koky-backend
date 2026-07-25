@@ -2181,4 +2181,30 @@ module.exports = {
       }
     });
   },
+
+  async improveMessage(ctx) {
+    try {
+      const { text } = ctx.request.body;
+      if (!text || !text.trim()) {
+        return ctx.badRequest("El texto no puede estar vacío");
+      }
+
+      const prompt = `Eres un asistente de redacción experto para Koky (ventas de tofu artesanal). 
+Tu tarea es corregir la ortografía, mejorar la gramática y optimizar la redacción del siguiente borrador escrito por un asesor de soporte humano.
+El mensaje debe sonar muy profesional, amable y cálido, pero manteniendo el mensaje original del asesor y su intención.
+
+Borrador del asesor:
+"${text}"
+
+Devuelve ÚNICAMENTE el mensaje mejorado final. No incluyas explicaciones, no incluyas introducciones como "Aquí tienes la corrección", no uses comillas alrededor de la respuesta final y no agregues notas adicionales.`;
+
+      const result = await model.generateContent(prompt);
+      const improvedText = result.response.text().trim();
+
+      return { improvedText };
+    } catch (error) {
+      console.error("❌ Error al mejorar el mensaje con Gemini:", error);
+      return ctx.internalServerError("Error al procesar el mensaje con Gemini");
+    }
+  },
 };
