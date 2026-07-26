@@ -35,24 +35,9 @@ module.exports = {
    * y la retorna en formato ISO 8601 UTC.
    */
   getTomorrowMorningISO() {
-    const now = new Date();
-    const formatter = new Intl.DateTimeFormat("en-US", {
-      timeZone: "America/Bogota",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-    const parts = formatter.formatToParts(now);
-    const year = parts.find((p) => p.type === "year").value;
-    const month = parts.find((p) => p.type === "month").value;
-    const day = parts.find((p) => p.type === "day").value;
-
-    const todayInColombia = new Date(`${year}-${month}-${day}T00:00:00-05:00`);
-    const tomorrow830Colombia = new Date(
-      todayInColombia.getTime() + 24 * 60 * 60 * 1000 + 8.5 * 60 * 60 * 1000
-    );
-
-    return tomorrow830Colombia.toISOString();
+    const deliveryDateStr = calculateDeliveryDate(new Date());
+    const scheduledTime = new Date(`${deliveryDateStr}T15:00:00-05:00`);
+    return scheduledTime.toISOString();
   },
 
   /**
@@ -263,8 +248,148 @@ module.exports = {
       throw new Error(
         `Error de API Cabify al registrar webhook: ${err.message}. Detalles: ${errorDetails}`
       );
-    }
-  },
 };
+
+function calculateDeliveryDate(createdAtDate) {
+  // Convertir a la hora de Bogotá para asegurar consistencia
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Bogota',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+  
+  const parts = formatter.formatToParts(new Date(createdAtDate));
+  const year = parseInt(parts.find(p => p.type === 'year').value);
+  const month = parseInt(parts.find(p => p.type === 'month').value) - 1;
+  const day = parseInt(parts.find(p => p.type === 'day').value);
+  const hour = parseInt(parts.find(p => p.type === 'hour').value);
+
+  const bogotaDate = new Date(year, month, day, hour);
+  const dayOfWeek = bogotaDate.getDay(); // 0 = Dom, 1 = Lun, ...
+
+  const isHoliday = (dateToCheck) => {
+    const y = dateToCheck.getFullYear();
+    const holidays = getColombianHolidays(y);
+    const m = String(dateToCheck.getMonth() + 1).padStart(2, '0');
+    const d = String(dateToCheck.getDate()).padStart(2, '0');
+    return holidays.has(`${y}-${m}-${d}`);
+  };
+
+  const isWeekend = (dateToCheck) => {
+    const d = dateToCheck.getDay();
+    return d === 0 || d === 6;
+  };
+
+  let targetDate = new Date(bogotaDate);
+
+  // Determinamos la ventana del fin de semana largo (Jueves 4:00 PM al Domingo 4:00 PM)
+  const isWeekendWindow = 
+    (dayOfWeek === 4 && hour >= 16) || // Jueves después de las 4 PM
+    (dayOfWeek === 5) ||               // Viernes todo el día
+    (dayOfWeek === 6) ||               // Sábado todo el día
+    (dayOfWeek === 0 && hour < 16);    // Domingo antes de las 4 PM
+
+  if (isWeekendWindow) {
+    // Pedidos en ventana de fin de semana se entregan el lunes inicialmente
+    const daysToAdd = dayOfWeek === 4 ? 4 : (dayOfWeek === 5 ? 3 : (dayOfWeek === 6 ? 2 : 1));
+    targetDate.setDate(bogotaDate.getDate() + daysToAdd);
+  } else if (dayOfWeek === 0 && hour >= 16) {
+    // Domingo después de las 4:00 PM se entrega el martes inicialmente
+    targetDate.setDate(bogotaDate.getDate() + 2);
+  } else {
+    // Caso estándar de lunes a jueves
+    if (hour < 16) {
+      targetDate.setDate(bogotaDate.getDate() + 1); // Entrega mañana
+    } else {
+      targetDate.setDate(bogotaDate.getDate() + 2); // Entrega pasado mañana
+    }
+  }
+
+  // Bucle para saltar fines de semana y festivos
+  while (isWeekend(targetDate) || isHoliday(targetDate)) {
+    targetDate.setDate(targetDate.getDate() + 1);
+  }
+
+  const yyyy = targetDate.getFullYear();
+  const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+  const dd = String(targetDate.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function getColombianHolidays(year) {
+  const holidays = new Set();
+
+  // 1. Festivos Fijos (No se trasladan)
+  holidays.add(`${year}-01-01`); // Año Nuevo
+  holidays.add(`${year}-05-01`); // Día del Trabajo
+  holidays.add(`${year}-07-20`); // Independencia
+  holidays.add(`${year}-08-07`); // Batalla de Boyacá
+  holidays.add(`${year}-12-08`); // Inmaculada Concepción
+  holidays.add(`${year}-12-25`); // Navidad
+
+  // Helper para mover al siguiente lunes (Ley Emiliani)
+  const getNextMondayStr = (month, day) => {
+    const date = new Date(year, month - 1, day);
+    const dayOfWeek = date.getDay(); // 0 = Dom, 1 = Lun, ...
+    if (dayOfWeek === 1) {
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+    const daysToAdd = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+    date.setDate(date.getDate() + daysToAdd);
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  // 2. Festivos con fecha fija pero que se mueven al siguiente lunes
+  holidays.add(getNextMondayStr(1, 6));   // Reyes Magos (6 Ene)
+  holidays.add(getNextMondayStr(3, 19));  // San José (19 Mar)
+  holidays.add(getNextMondayStr(6, 29));  // San Pedro y San Pablo (29 Jun)
+  holidays.add(getNextMondayStr(7, 9));   // Virgen de Chiquinquirá (9 Jul - Nuevo Festivo Ley 2578)
+  holidays.add(getNextMondayStr(8, 15));  // Asunción de la Virgen (15 Ago)
+  holidays.add(getNextMondayStr(10, 12)); // Día de la Raza (12 Oct)
+  holidays.add(getNextMondayStr(11, 1));  // Todos los Santos (1 Nov)
+  holidays.add(getNextMondayStr(11, 11)); // Independencia de Cartagena (11 Nov)
+
+  // 3. Festivos basados en la Pascua (Algoritmo Butcher-Oudin para el Domingo de Resurrección)
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const L = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * L) / 451);
+  const month = Math.floor((h + L - 7 * m + 114) / 31);
+  const day = ((h + L - 7 * m + 114) % 31) + 1;
+  
+  const easter = new Date(year, month - 1, day);
+
+  const addDaysStr = (baseDate, days) => {
+    const date = new Date(baseDate);
+    date.setDate(baseDate.getDate() + days);
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  holidays.add(addDaysStr(easter, -3)); // Jueves Santo
+  holidays.add(addDaysStr(easter, -2)); // Viernes Santo
+  holidays.add(addDaysStr(easter, 43)); // Ascensión
+  holidays.add(addDaysStr(easter, 64)); // Corpus Christi
+  holidays.add(addDaysStr(easter, 71)); // Sagrado Corazón
+
+  return holidays;
+}
 
 
