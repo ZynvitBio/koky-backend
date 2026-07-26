@@ -712,6 +712,23 @@ module.exports = {
               buttonId = message.interactive.button_reply.id || "";
             }
 
+            // Si el mensaje es una URL de WhatsApp (wa.me o api.whatsapp.com), extraemos el texto predefinido
+            if (rawText && (rawText.includes("wa.me") || rawText.includes("api.whatsapp.com"))) {
+              try {
+                let urlString = rawText.trim();
+                if (!urlString.startsWith("http://") && !urlString.startsWith("https://")) {
+                  urlString = "https://" + urlString;
+                }
+                const urlObj = new URL(urlString);
+                const textParam = urlObj.searchParams.get("text");
+                if (textParam) {
+                  rawText = decodeURIComponent(textParam);
+                }
+              } catch (e) {
+                // Si falla el parseo, dejamos el texto original
+              }
+            }
+
             // Obtener el estado real del usuario de la base de datos para verificar si la IA está activa
             const dbUser = await strapi.db.query("plugin::users-permissions.user").findOne({
               where: { id: user.id }
