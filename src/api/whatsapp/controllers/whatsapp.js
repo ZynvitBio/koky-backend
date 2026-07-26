@@ -584,7 +584,7 @@ module.exports = {
   async sendWompiPaymentLink(phone_number_id, to, orderId, listText, deliveryCost, totalAmount, address, details, checkoutUrl) {
     let messageBody = `¡Pedido recibido! 🥦 (Orden #${orderId})\n\n`;
     messageBody += `📋 **Detalles del Pedido:**\n${listText}\n\n`;
-    messageBody += `🛵 **Envío (Cabify):** $${deliveryCost.toLocaleString('es-CO')} COP\n`;
+    messageBody += `🛵 **Envío:** $${deliveryCost.toLocaleString('es-CO')} COP\n`;
     messageBody += `💰 **Total Final:** $${totalAmount.toLocaleString('es-CO')} COP\n\n`;
     messageBody += `📍 **Dirección:** ${address}\n`;
     if (details) {
@@ -1179,7 +1179,7 @@ module.exports = {
 
                       let messageBody = `¡Pedido confirmado! 🥦 (Orden #${newOrder.id})\n\n`;
                       messageBody += `📋 **Detalles del Pedido:**\n${activeCart.listText}\n\n`;
-                      messageBody += `🛵 **Envío (Cabify):** $${deliveryCost.toLocaleString('es-CO')} COP\n`;
+                      messageBody += `🛵 **Envío:** $${deliveryCost.toLocaleString('es-CO')} COP\n`;
                       messageBody += `💰 **Total Final:** $${totalAmount.toLocaleString('es-CO')} COP\n\n`;
                       messageBody += `📍 **Dirección:** ${selected.address}\n\n`;
 

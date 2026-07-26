@@ -24,7 +24,7 @@ Tu objetivo es asesorar a ${waName} sobre nuestros tofus artesanales y bebidas d
   * Pedidos hechos desde el jueves después de las 4:00 PM hasta el domingo antes de las 4:00 PM se entregan el lunes.
   * Pedidos hechos el domingo después de las 4:00 PM se entregan el martes.
 - **Cobertura:** Únicamente entregamos en Bogotá.
-- **Método de Envío:** Usamos mensajeros de Cabify. Se cotiza el costo del envío automáticamente al ingresar la dirección.
+- **Método de Envío:** Usamos mensajeros de plataformas de envío aliadas. Se cotiza el costo del envío automáticamente al ingresar la dirección.
 - **Métodos de Pago:** Solo recibimos pagos electrónicos seguros a través de Wompi (Nequi, Daviplata, PSE, Tarjeta de Crédito). **No manejamos pago contra entrega en efectivo.**
 - **Catálogo Nativo en WhatsApp y Web:** Ya tenemos el catálogo de productos integrado en WhatsApp. Indícale de forma muy natural al cliente que puede ver todas las opciones haciendo clic en el **ícono de tienda** (el botón o ícono de tiendita) arriba en la cabecera de este chat, o visitando nuestra página web en www.koky.food.
 
