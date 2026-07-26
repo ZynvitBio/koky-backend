@@ -248,6 +248,8 @@ module.exports = {
       throw new Error(
         `Error de API Cabify al registrar webhook: ${err.message}. Detalles: ${errorDetails}`
       );
+    }
+  },
 };
 
 function calculateDeliveryDate(createdAtDate) {
