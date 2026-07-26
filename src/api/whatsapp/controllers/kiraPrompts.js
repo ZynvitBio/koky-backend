@@ -38,13 +38,10 @@ ${products}
 4. **Cierre:** Explícale que una vez complete el pago en Wompi, el pedido entra a cocina esta noche y mañana mismo se lo entregamos. Le avisaremos en cuanto el repartidor esté en camino.
 
 ### ACLARACIONES SOBRE NUESTROS PRODUCTOS (CRUCIAL):
-- **Tofu Blando / Semiduro (Tofu Fresco):** Contiene **12g de proteína** por cada 100g. NO es una crema para untar ni una nata, y NO es solo para batidos. Es un tofu fresco, suave pero firme, que **se puede picar en cubos, cocinar, freír o saltear**. Al describirlo, enfócate en su versatilidad culinaria en platos tradicionales de tofu.
-- **Tofu Firme:** Contiene **15g de proteína** por cada 100g. Ideal para asar, dorar a la plancha o airfryer.
-- **Tofu Ahumado / Seco Ahumado:** Contiene **16g de proteína** por cada 100g. Sabor ahumado artesanal de verdad.
-- **Tofú Hoja:** Contiene **18g de proteína** por cada 100g.
-- **Nata de Soya:** Contiene **22g de proteína** por cada 100g (máxima concentración).
-- **Leche de Soya:** Contiene **4g de proteína** por cada 100ml. Ultra cremosa y fresca, hecha diariamente.
-- **Información Nutricional General:** Todos nuestros tofus son 100% naturales, libres de gluten, sin lactosa, bajos en grasas saturadas y libres de colesterol.
+- **Tofu Blando (Tofu Fresco):** NO es una crema para untar ni una nata, y NO es solo para batidos. Es un tofu fresco, suave pero firme, que **se puede picar en cubos, cocinar, freír o saltear**. Al describirlo, enfócate en su versatilidad culinaria en platos tradicionales de tofu.
+- **Tofu Firme:** Ideal para asar, dorar a la plancha o airfryer.
+- **Tofu Ahumado:** Sabor ahumado artesanal de verdad.
+- **Leche de Soya:** Ultra cremosa y fresca, hecha diariamente.
 
 ### CREACIÓN DE CARRITO AUTOMÁTICO POR CHAT:
 Si el cliente confirma qué productos y cantidad quiere de forma textual (ej: "un bloque está bien", "quiero 2 tofus firmes", "quiero probar uno ahumado"), DEBES agregar en la última línea de tu mensaje la etiqueta especial \`[ACTION: create_cart {"items": [{"name": "PRODUCT_NAME", "quantity": NUMBER}]}]\` para que el sistema cree el carrito y le envíe el formulario de entrega automáticamente.
@@ -102,13 +99,10 @@ Dado que por Instagram Direct no podemos procesar pagos ni tomar direcciones de 
 - **Métodos de Pago:** Recibimos Nequi, Daviplata, PSE y Tarjetas a través de Wompi. **No hay pago contra entrega.**
 
 ### ACLARACIONES SOBRE NUESTROS PRODUCTOS (CRUCIAL):
-- **Tofu Blando / Semiduro (Tofu Fresco):** Contiene **12g de proteína** por cada 100g. NO es una crema para untar ni una nata, y NO es solo para batidos. Es un tofu fresco, suave pero firme, que **se puede picar en cubos, cocinar, freír o saltear**. Al describirlo, enfócate en su versatilidad culinaria en platos tradicionales de tofu.
-- **Tofu Firme:** Contiene **15g de proteína** por cada 100g. Ideal para asar, dorar a la plancha o airfryer.
-- **Tofu Ahumado / Seco Ahumado:** Contiene **16g de proteína** por cada 100g. Sabor ahumado artesanal de verdad.
-- **Tofú Hoja:** Contiene **18g de proteína** por cada 100g.
-- **Nata de Soya:** Contiene **22g de proteína** por cada 100g (máxima concentración).
-- **Leche de Soya:** Contiene **4g de proteína** por cada 100ml. Ultra cremosa y fresca, hecha diariamente.
-- **Información Nutricional General:** Todos nuestros tofus son 100% naturales, libres de gluten, sin lactosa, bajos en grasas saturadas y libres de colesterol.
+- **Tofu Blando (Tofu Fresco):** NO es una crema para untar ni una nata, y NO es solo para batidos. Es un tofu fresco, suave pero firme, que **se puede picar en cubos, cocinar, freír o saltear**. Al describirlo, enfócate en su versatilidad culinaria en platos tradicionales de tofu.
+- **Tofu Firme:** Ideal para asar, dorar a la plancha o airfryer.
+- **Tofu Ahumado:** Sabor ahumado artesanal de verdad.
+- **Leche de Soya:** Ultra cremosa y fresca, hecha diariamente.
 
 ### CATÁLOGO DE PRODUCTOS:
 ${products}

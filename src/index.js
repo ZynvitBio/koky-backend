@@ -96,5 +96,42 @@ module.exports = {
       }
     });
 
+    // 4. SEED INITIAL FAQS IF EMPTY
+    process.nextTick(async () => {
+      try {
+        const count = await strapi.documents('api::faq.faq').count({
+          status: 'published'
+        });
+        
+        if (count === 0) {
+          strapi.log.info('🌱 No FAQs found. Seeding initial FAQs...');
+          const initialFaqs = [
+            {
+              topic: 'Duración y conservación del tofu',
+              information: 'Nuestro tofu es súper fresco y artesanal (sin conservantes). Para que te dure fresco hasta por 5 días, debes guardarlo en la nevera sumergido en agua limpia dentro de un recipiente cerrado. ¡Es muy importante que le cambies el agua todos los días!',
+              active: true,
+              publishedAt: new Date()
+            },
+            {
+              topic: 'Contenido de proteína de los tofus y leche de soya',
+              information: 'Aquí tienes el contenido de proteína de nuestros productos artesanales por cada 100g:\n- Tofu Firme: 15g de proteína por cada 100g.\n- Tofu Semiduro: 12g de proteína por cada 100g.\n- Tofú Seco Ahumado: 16g de proteína por cada 100g.\n- Tofú Hoja: 18g de proteína por cada 100g.\n- Nata de Soya (Yuba): 22g de proteína por cada 100g.\n- Leche de Soya: 4g de proteína por cada 100ml.\nTodos nuestros productos son 100% de origen vegetal, libres de gluten, lactosa y conservantes.',
+              active: true,
+              publishedAt: new Date()
+            }
+          ];
+
+          for (const faq of initialFaqs) {
+            await strapi.documents('api::faq.faq').create({
+              data: faq,
+              status: 'published'
+            });
+          }
+          strapi.log.info('🌱 Successfully seeded initial FAQs.');
+        }
+      } catch (err) {
+        strapi.log.error('❌ Error seeding FAQs:', err.message);
+      }
+    });
+
   },
 };
