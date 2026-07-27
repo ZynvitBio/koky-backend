@@ -555,7 +555,7 @@ export interface ApiChatChat extends Struct.CollectionTypeSchema {
     singularName: 'chat';
   };
   options: {
-    draftAndPublish: true;
+    draftAndPublish: false;
   };
   attributes: {
     attachments: Schema.Attribute.Media<
