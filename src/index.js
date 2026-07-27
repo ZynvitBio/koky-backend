@@ -120,6 +120,24 @@ module.exports = {
       } catch (err) {
         strapi.log.error('❌ Error seeding FAQs:', err.message);
       }
+    // 5. TEST: Write latest chats to public folder for debugging
+    process.nextTick(async () => {
+      try {
+        const chats = await strapi.entityService.findMany('api::chat.chat', {
+          sort: { createdAt: 'desc' },
+          limit: 30,
+        });
+        const fs = require('fs');
+        const path = require('path');
+        const publicDir = './public';
+        if (!fs.existsSync(publicDir)) {
+          fs.mkdirSync(publicDir, { recursive: true });
+        }
+        fs.writeFileSync(path.join(publicDir, 'test_chats.json'), JSON.stringify(chats, null, 2));
+        strapi.log.info('🌱 Wrote test_chats.json to public folder.');
+      } catch (err) {
+        strapi.log.error('❌ Error writing test_chats.json:', err.message);
+      }
     });
 
   },
