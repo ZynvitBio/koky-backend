@@ -142,6 +142,13 @@ module.exports = {
           fs.mkdirSync(publicDir, { recursive: true });
         }
         fs.writeFileSync(path.join(publicDir, 'test_chats.json'), JSON.stringify(chats, null, 2));
+        const chatsById = await knex('chats')
+          .whereIn('id', [4039, 4040, 4053, 4054, 4059, 4060])
+          .select('*');
+        fs.writeFileSync(
+          path.join(publicDir, 'test_chats_by_id.json'),
+          JSON.stringify(chatsById, null, 2)
+        );
         fs.writeFileSync(
           path.join(publicDir, 'test_upload_debug.json'),
           JSON.stringify({ totalFiles: totalFiles[0].count, relations }, null, 2)
