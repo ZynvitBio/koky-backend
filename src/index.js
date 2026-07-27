@@ -120,6 +120,8 @@ module.exports = {
       } catch (err) {
         strapi.log.error('❌ Error seeding FAQs:', err.message);
       }
+    });
+
     // 5. TEST: Write latest chats to public folder for debugging
     process.nextTick(async () => {
       try {
