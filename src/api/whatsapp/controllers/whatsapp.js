@@ -3,6 +3,9 @@
 "use strict";
 
 const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
+const os = require("os");
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
@@ -24,6 +27,150 @@ const model = genAI.getGenerativeModel(
 
 // Set en memoria para deduplicar mensajes de webhook de WhatsApp y evitar respuestas múltiples
 const processedMessageIds = new Set();
+
+function getExtensionFromMime(mimeType) {
+  const map = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+    "audio/mpeg": ".mp3",
+    "audio/ogg": ".ogg",
+    "audio/wav": ".wav",
+    "audio/webm": ".webm",
+    "audio/aac": ".aac",
+    "audio/x-m4a": ".m4a",
+    "video/mp4": ".mp4",
+    "video/webm": ".webm",
+    "video/ogg": ".ogv",
+    "application/pdf": ".pdf",
+    "application/msword": ".doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "application/vnd.ms-excel": ".xls",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+    "text/plain": ".txt"
+  };
+  return map[mimeType] || "";
+}
+
+async function downloadWhatsAppMedia(mediaId) {
+  try {
+    const token = process.env.WHATSAPP_TOKEN;
+    if (!token) {
+      throw new Error("WHATSAPP_TOKEN no está configurado.");
+    }
+    
+    // 1. Obtener la URL del recurso desde Meta Graph API (v21.0)
+    console.log(`📡 Consultando URL de medio WhatsApp para ID: ${mediaId}`);
+    const metaResponse = await axios.get(
+      `https://graph.facebook.com/v21.0/${mediaId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+    const mediaUrl = metaResponse.data.url;
+    const mimeType = metaResponse.data.mime_type;
+    
+    if (!mediaUrl) {
+      throw new Error("No se obtuvo la URL de descarga del medio.");
+    }
+
+    // 2. Descargar el buffer binario usando la URL obtenida
+    console.log(`📥 Descargando binario de medio desde: ${mediaUrl}`);
+    const fileResponse = await axios.get(mediaUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      responseType: "arraybuffer"
+    });
+
+    const ext = getExtensionFromMime(mimeType);
+    const fileName = `wa_media_${mediaId}${ext}`;
+
+    return {
+      buffer: Buffer.from(fileResponse.data),
+      mimeType,
+      fileName
+    };
+  } catch (error) {
+    console.error("❌ Error en downloadWhatsAppMedia:", error.message);
+    throw error;
+  }
+}
+
+async function downloadMetaAttachment(url) {
+  try {
+    console.log(`📥 Descargando adjunto Meta de: ${url}`);
+    const response = await axios.get(url, {
+      responseType: "arraybuffer"
+    });
+    
+    const mimeType = response.headers["content-type"] || "image/jpeg";
+    const ext = getExtensionFromMime(mimeType);
+    const fileName = `meta_attachment_${Date.now()}${ext}`;
+    
+    return {
+      buffer: Buffer.from(response.data),
+      mimeType,
+      fileName
+    };
+  } catch (error) {
+    console.error("❌ Error en downloadMetaAttachment:", error.message);
+    throw error;
+  }
+}
+
+async function saveAndUploadToStrapi(buffer, mimeType, originalName, relationId) {
+  const tempDir = os.tmpdir();
+  const tempFilePath = path.join(tempDir, originalName);
+  
+  try {
+    // 1. Guardar buffer temporalmente
+    fs.writeFileSync(tempFilePath, buffer);
+    const stats = fs.statSync(tempFilePath);
+    
+    const fileData = {
+      path: tempFilePath,
+      filepath: tempFilePath,
+      name: originalName,
+      originalFilename: originalName,
+      type: mimeType,
+      mimetype: mimeType,
+      size: stats.size,
+    };
+
+    console.log(`🚀 Subiendo adjunto a Strapi: ${originalName} (${stats.size} bytes)`);
+
+    // 2. Subir el archivo usando el servicio de carga de Strapi
+    const uploadService = strapi.plugin('upload').service('upload');
+    const uploadedFiles = await uploadService.upload({
+      data: {
+        refId: relationId,
+        ref: 'api::chat.chat',
+        field: 'attachments',
+      },
+      files: fileData,
+    });
+
+    console.log(`✅ Archivo subido correctamente. ID de medio:`, uploadedFiles?.[0]?.id);
+    return uploadedFiles;
+  } catch (uploadErr) {
+    console.error(`❌ Error en saveAndUploadToStrapi: ${uploadErr.message}`);
+    throw uploadErr;
+  } finally {
+    // 3. Limpiar archivo temporal
+    try {
+      if (fs.existsSync(tempFilePath)) {
+        fs.unlinkSync(tempFilePath);
+      }
+    } catch (e) {
+      console.error("⚠️ No se pudo borrar el archivo temporal:", e.message);
+    }
+  }
+}
 
 async function geocodeAddress(address) {
   const apiKey = process.env.G_MAPS_BACKEND_KEY || process.env.G_MAPS_KEY;
@@ -712,6 +859,34 @@ module.exports = {
               buttonId = message.interactive.button_reply.id || "";
             }
 
+            // --- DETECCION DE MEDIOS WHATSAPP ---
+            let mediaAttachmentId = null;
+            let mediaType = null;
+            let mediaMimeType = null;
+            if (["image", "document", "audio", "video", "sticker", "voice"].includes(message.type)) {
+              const mediaObj = message[message.type];
+              if (mediaObj && mediaObj.id) {
+                mediaAttachmentId = mediaObj.id;
+                mediaType = message.type;
+                mediaMimeType = mediaObj.mime_type;
+                
+                if (mediaObj.caption) {
+                  rawText = mediaObj.caption;
+                } else {
+                  const typeLabels = {
+                    image: "📷 Imagen",
+                    document: "📄 Documento",
+                    audio: "🎵 Audio",
+                    voice: "🎙️ Nota de voz",
+                    video: "🎥 Video",
+                    sticker: "🎨 Sticker"
+                  };
+                  rawText = typeLabels[message.type] || `📎 Archivo adjunto (${message.type})`;
+                }
+              }
+            }
+
+
             // Si el mensaje es una URL de WhatsApp (wa.me o api.whatsapp.com), extraemos el texto predefinido
             if (rawText && (rawText.includes("wa.me") || rawText.includes("api.whatsapp.com"))) {
               try {
@@ -745,7 +920,7 @@ module.exports = {
                 { data: { kira_active: false } }
               );
 
-              await strapi.entityService.create("api::chat.chat", {
+              const chatMsg = await strapi.entityService.create("api::chat.chat", {
                 data: {
                   sender: from,
                   message: rawText,
@@ -754,6 +929,26 @@ module.exports = {
                   users_permissions_user: user.id,
                 },
               });
+
+              if (mediaAttachmentId) {
+                setImmediate(async () => {
+                  try {
+                    const mediaInfo = await downloadWhatsAppMedia(mediaAttachmentId);
+                    await saveAndUploadToStrapi(
+                      mediaInfo.buffer,
+                      mediaInfo.mimeType,
+                      mediaInfo.fileName,
+                      chatMsg.id
+                    );
+                    if (strapi["io"]) {
+                      strapi["io"].emit("new_message", { userId: user.id });
+                    }
+                  } catch (err) {
+                    console.error("❌ Error descargando/subiendo adjunto de WhatsApp:", err.message);
+                  }
+                });
+              }
+
 
               const transferMessage = getTransferMessage();
               await this.sendWhatsAppMessage(phone_number_id, from, transferMessage);
@@ -1592,7 +1787,7 @@ module.exports = {
                 );
               }
 
-              await strapi.entityService.create("api::chat.chat", {
+              const chatMsg = await strapi.entityService.create("api::chat.chat", {
                 data: {
                   sender: from,
 
@@ -1605,6 +1800,26 @@ module.exports = {
                   users_permissions_user: user.id,
                 },
               });
+
+              if (mediaAttachmentId) {
+                setImmediate(async () => {
+                  try {
+                    const mediaInfo = await downloadWhatsAppMedia(mediaAttachmentId);
+                    await saveAndUploadToStrapi(
+                      mediaInfo.buffer,
+                      mediaInfo.mimeType,
+                      mediaInfo.fileName,
+                      chatMsg.id
+                    );
+                    if (strapi["io"]) {
+                      strapi["io"].emit("new_message", { userId: user.id });
+                    }
+                  } catch (err) {
+                    console.error("❌ Error descargando/subiendo adjunto de WhatsApp:", err.message);
+                  }
+                });
+              }
+
 
               if (isSystemInteractive && systemInteractiveResponse) {
                 await strapi.entityService.create("api::chat.chat", {
@@ -1901,8 +2116,24 @@ module.exports = {
 
           const from = messaging.sender.id;
 
-          const rawText =
+          let rawText =
             messaging.message?.text || messaging.postback?.title || "";
+
+          const fbAttachments = messaging.message?.attachments;
+          let metaAttachmentsToUpload = [];
+          if (fbAttachments && fbAttachments.length > 0) {
+            metaAttachmentsToUpload = fbAttachments;
+            if (!rawText) {
+              const firstAttType = fbAttachments[0].type;
+              const typeLabels = {
+                image: "📷 Imagen",
+                audio: "🎵 Audio",
+                video: "🎥 Video",
+                file: "📄 Archivo"
+              };
+              rawText = typeLabels[firstAttType] || "📎 Archivo adjunto";
+            }
+          }
 
           const msgText = rawText.toLowerCase().trim();
 
@@ -1967,7 +2198,7 @@ module.exports = {
                 { data: { kira_active: false } }
               );
 
-              await strapi.entityService.create("api::chat.chat", {
+              const chatMsg = await strapi.entityService.create("api::chat.chat", {
                 data: {
                   sender: from,
                   message: rawText,
@@ -1976,6 +2207,30 @@ module.exports = {
                   users_permissions_user: user.id,
                 },
               });
+
+              if (metaAttachmentsToUpload.length > 0) {
+                setImmediate(async () => {
+                  try {
+                    for (const att of metaAttachmentsToUpload) {
+                      if (att.payload && att.payload.url) {
+                        const mediaInfo = await downloadMetaAttachment(att.payload.url);
+                        await saveAndUploadToStrapi(
+                          mediaInfo.buffer,
+                          mediaInfo.mimeType,
+                          mediaInfo.fileName,
+                          chatMsg.id
+                        );
+                      }
+                    }
+                    if (strapi["io"]) {
+                      strapi["io"].emit("new_message", { userId: user.id });
+                    }
+                  } catch (err) {
+                    console.error("❌ Error descargando/subiendo adjunto de Meta:", err.message);
+                  }
+                });
+              }
+
 
               const transferMessage = getTransferMessage();
 
@@ -2123,7 +2378,7 @@ module.exports = {
               }
             }
 
-            await strapi.entityService.create("api::chat.chat", {
+            const chatMsg = await strapi.entityService.create("api::chat.chat", {
               data: {
                 sender: from,
 
@@ -2136,6 +2391,30 @@ module.exports = {
                 users_permissions_user: user.id,
               },
             });
+
+            if (metaAttachmentsToUpload.length > 0) {
+              setImmediate(async () => {
+                try {
+                  for (const att of metaAttachmentsToUpload) {
+                    if (att.payload && att.payload.url) {
+                      const mediaInfo = await downloadMetaAttachment(att.payload.url);
+                      await saveAndUploadToStrapi(
+                        mediaInfo.buffer,
+                        mediaInfo.mimeType,
+                        mediaInfo.fileName,
+                        chatMsg.id
+                      );
+                    }
+                  }
+                  if (strapi["io"]) {
+                    strapi["io"].emit("new_message", { userId: user.id });
+                  }
+                } catch (err) {
+                  console.error("❌ Error descargando/subiendo adjunto de Meta:", err.message);
+                }
+              });
+            }
+
 
             const metaScoreActual = Number(user.kira_score?.curiosity) || 0;
 

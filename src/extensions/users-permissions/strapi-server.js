@@ -19,7 +19,9 @@ module.exports = (plugin) => {
     });
 
     // Sanitizar los datos del usuario antes de responder (evita exponer la contraseña hash, etc.)
-    const sanitizedUser = await strapi.plugins['users-permissions'].services.user.sanitizeUser(updatedUser, ctx);
+    const schema = strapi.getModel('plugin::users-permissions.user');
+    const { auth } = ctx.state || {};
+    const sanitizedUser = await strapi.contentAPI.sanitize.output(updatedUser, schema, { auth });
     
     ctx.body = sanitizedUser;
   };

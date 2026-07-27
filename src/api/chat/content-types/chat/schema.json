@@ -29,6 +29,16 @@
     "sent_to_meta": {
       "type": "boolean",
       "default": false
+    },
+    "attachments": {
+      "type": "media",
+      "multiple": true,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
     }
   }
 }
