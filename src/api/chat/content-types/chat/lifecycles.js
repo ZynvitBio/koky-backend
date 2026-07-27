@@ -5,7 +5,25 @@ module.exports = {
   async afterCreate(event) {
     const { result } = event;
 
-    // 1. SEGURIDAD: Solo procesamos mensajes escritos por el 'Agent' (tú o Kira)
+    // 1. NOTIFICACIÓN EN TIEMPO REAL: Emitimos por socket para actualizar el dashboard de inmediato
+    try {
+      const chatConUsuario = await strapi.entityService.findOne('api::chat.chat', result.id, {
+        populate: ['users_permissions_user'],
+      });
+      const usuario = chatConUsuario ? chatConUsuario['users_permissions_user'] : null;
+      if (usuario && strapi.io) {
+        strapi.io.emit('new_message', { 
+          userId: usuario.id,
+          message: result.message,
+          sender: result.sender,
+          createdAt: result.createdAt
+        });
+      }
+    } catch (socketErr) {
+      console.error('❌ Error emitiendo socket en lifecycles:', socketErr.message);
+    }
+
+    // 2. SEGURIDAD: Solo procesamos mensajes escritos por el 'Agent' (tú o Kira)
     // y evitamos envíos duplicados.
     if (result.sender !== 'Agent') return;
     if (result.sent_to_meta === true) return;
