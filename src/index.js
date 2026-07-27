@@ -122,7 +122,7 @@ module.exports = {
       }
     });
 
-    // 5. TEST: Write latest chats to public folder for debugging
+    // 5. TEST: Write latest chats and upload info to public folder for debugging
     process.nextTick(async () => {
       try {
         const chats = await strapi.entityService.findMany('api::chat.chat', {
@@ -130,6 +130,11 @@ module.exports = {
           limit: 30,
           populate: ['attachments', 'users_permissions_user'],
         });
+        const knex = strapi.db.connection;
+        const totalFiles = await knex('files').count('id as count');
+        const relations = await knex('files_related_mph')
+          .where('related_type', 'api::chat.chat')
+          .select('*');
         const fs = require('fs');
         const path = require('path');
         const publicDir = './public';
@@ -137,9 +142,13 @@ module.exports = {
           fs.mkdirSync(publicDir, { recursive: true });
         }
         fs.writeFileSync(path.join(publicDir, 'test_chats.json'), JSON.stringify(chats, null, 2));
-        strapi.log.info('🌱 Wrote test_chats.json to public folder.');
+        fs.writeFileSync(
+          path.join(publicDir, 'test_upload_debug.json'),
+          JSON.stringify({ totalFiles: totalFiles[0].count, relations }, null, 2)
+        );
+        strapi.log.info('🌱 Wrote test_chats.json and test_upload_debug.json.');
       } catch (err) {
-        strapi.log.error('❌ Error writing test_chats.json:', err.message);
+        strapi.log.error('❌ Error writing debug files:', err.message);
       }
     });
 
