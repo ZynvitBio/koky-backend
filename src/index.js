@@ -121,43 +121,5 @@ module.exports = {
         strapi.log.error('❌ Error seeding FAQs:', err.message);
       }
     });
-
-    // 5. TEST: Write latest chats and upload info to public folder for debugging
-    process.nextTick(async () => {
-      try {
-        const chats = await strapi.entityService.findMany('api::chat.chat', {
-          sort: { createdAt: 'desc' },
-          limit: 30,
-          populate: ['attachments', 'users_permissions_user'],
-        });
-        const knex = strapi.db.connection;
-        const totalFiles = await knex('files').count('id as count');
-        const relations = await knex('files_related_mph')
-          .where('related_type', 'api::chat.chat')
-          .select('*');
-        const fs = require('fs');
-        const path = require('path');
-        const publicDir = './public';
-        if (!fs.existsSync(publicDir)) {
-          fs.mkdirSync(publicDir, { recursive: true });
-        }
-        fs.writeFileSync(path.join(publicDir, 'test_chats.json'), JSON.stringify(chats, null, 2));
-        const chatsById = await knex('chats')
-          .whereIn('id', [4039, 4040, 4053, 4054, 4059, 4060])
-          .select('*');
-        fs.writeFileSync(
-          path.join(publicDir, 'test_chats_by_id.json'),
-          JSON.stringify(chatsById, null, 2)
-        );
-        fs.writeFileSync(
-          path.join(publicDir, 'test_upload_debug.json'),
-          JSON.stringify({ totalFiles: totalFiles[0].count, relations }, null, 2)
-        );
-        strapi.log.info('🌱 Wrote test_chats.json and test_upload_debug.json.');
-      } catch (err) {
-        strapi.log.error('❌ Error writing debug files:', err.message);
-      }
-    });
-
   },
 };
