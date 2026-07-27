@@ -908,7 +908,7 @@ module.exports = {
             const dbUser = await strapi.db.query("plugin::users-permissions.user").findOne({
               where: { id: user.id }
             });
-            const isKiraActive = dbUser && dbUser.kira_active !== false;
+            const isKiraActive = dbUser && dbUser.kira_active !== false && dbUser.kira_active !== 0 && dbUser.kira_active !== '0';
 
             // --- CAPA 1: Interceptador de Handoff Humano por Código (WhatsApp) ---
             if (isKiraActive && shouldTakeoverHuman(rawText)) {
@@ -1870,7 +1870,7 @@ module.exports = {
                 where: { id: user.id }
               });
 
-              if (freshDbUser && freshDbUser.kira_active !== false && !isSystemInteractive) {
+              if (freshDbUser && freshDbUser.kira_active !== false && freshDbUser.kira_active !== 0 && freshDbUser.kira_active !== '0' && !isSystemInteractive) {
                 const history = await strapi.entityService.findMany(
                   "api::chat.chat",
 
@@ -2186,7 +2186,7 @@ module.exports = {
             const dbUser = await strapi.db.query("plugin::users-permissions.user").findOne({
               where: { id: user.id }
             });
-            const isKiraActive = dbUser && dbUser.kira_active !== false;
+            const isKiraActive = dbUser && dbUser.kira_active !== false && dbUser.kira_active !== 0 && dbUser.kira_active !== '0';
 
             // --- CAPA 1: Interceptador de Handoff Humano por Código (Meta) ---
             if (isKiraActive && shouldTakeoverHuman(rawText)) {
@@ -2445,7 +2445,7 @@ module.exports = {
               where: { id: user.id }
             });
 
-            if (freshDbUser && freshDbUser.kira_active !== false) {
+            if (freshDbUser && freshDbUser.kira_active !== false && freshDbUser.kira_active !== 0 && freshDbUser.kira_active !== '0') {
               const history = await strapi.entityService.findMany(
                 "api::chat.chat",
 

@@ -14,8 +14,10 @@ module.exports = (plugin) => {
 
     // Actualizar todos los campos enviados en el body usando el Entity Service
     // Esto permite que campos personalizados como kira_active y unread se guarden correctamente.
+    // Soporta payloads planos (e.g. { kira_active: false }) y payloads anidados en 'data' (e.g. { data: { kira_active: false } })
+    const updateData = ctx.request.body.data !== undefined ? ctx.request.body.data : ctx.request.body;
     const updatedUser = await strapi.entityService.update('plugin::users-permissions.user', id, {
-      data: ctx.request.body,
+      data: updateData,
     });
 
     // Sanitizar los datos del usuario antes de responder (evita exponer la contraseña hash, etc.)

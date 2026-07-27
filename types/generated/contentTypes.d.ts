@@ -558,6 +558,10 @@ export interface ApiChatChat extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
+    attachments: Schema.Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios',
+      true
+    >;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -576,6 +580,34 @@ export interface ApiChatChat extends Struct.CollectionTypeSchema {
       'manyToOne',
       'plugin::users-permissions.user'
     >;
+  };
+}
+
+export interface ApiFaqFaq extends Struct.CollectionTypeSchema {
+  collectionName: 'faqs';
+  info: {
+    description: 'Factual policies and FAQs for Kira WhatsApp bot';
+    displayName: 'FAQ';
+    pluralName: 'faqs';
+    singularName: 'faq';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    active: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    information: Schema.Attribute.Text;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<'oneToMany', 'api::faq.faq'> &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    topic: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
   };
 }
 
@@ -711,6 +743,37 @@ export interface ApiInstagramPostInstagramPost
     >;
     publishedAt: Schema.Attribute.DateTime;
     scheduled_date: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiKiraRuleKiraRule extends Struct.CollectionTypeSchema {
+  collectionName: 'kira_rules';
+  info: {
+    description: 'Behavior rules and corrections for Kira WhatsApp bot';
+    displayName: 'Kira Rule';
+    pluralName: 'kira-rules';
+    singularName: 'kira-rule';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    active: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.String;
+    instruction: Schema.Attribute.Text;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::kira-rule.kira-rule'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1544,10 +1607,12 @@ declare module '@strapi/strapi' {
       'api::blog-hero.blog-hero': ApiBlogHeroBlogHero;
       'api::category.category': ApiCategoryCategory;
       'api::chat.chat': ApiChatChat;
+      'api::faq.faq': ApiFaqFaq;
       'api::google-review.google-review': ApiGoogleReviewGoogleReview;
       'api::home-hero-message.home-hero-message': ApiHomeHeroMessageHomeHeroMessage;
       'api::home-hero-setting.home-hero-setting': ApiHomeHeroSettingHomeHeroSetting;
       'api::instagram-post.instagram-post': ApiInstagramPostInstagramPost;
+      'api::kira-rule.kira-rule': ApiKiraRuleKiraRule;
       'api::order.order': ApiOrderOrder;
       'api::product.product': ApiProductProduct;
       'api::recipe.recipe': ApiRecipeRecipe;

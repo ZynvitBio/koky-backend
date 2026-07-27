@@ -18,6 +18,13 @@ module.exports = {
     const usuario = chatConUsuario ? chatConUsuario['users_permissions_user'] : null;
     if (!usuario) return;
 
+    // Apagar el bot Kira automáticamente ya que el agente humano está interactuando
+    if (usuario.kira_active !== false && usuario.kira_active !== 0) {
+      await strapi.entityService.update('plugin::users-permissions.user', usuario.id, {
+        data: { kira_active: false },
+      });
+    }
+
     // --- LIMPIEZA: Se eliminó el bloque de obtención de avatar para WhatsApp ---
     // Esto evita errores 400 innecesarios y hace el envío más rápido.
 
