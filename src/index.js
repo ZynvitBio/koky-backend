@@ -128,6 +128,7 @@ module.exports = {
         const chats = await strapi.entityService.findMany('api::chat.chat', {
           sort: { createdAt: 'desc' },
           limit: 30,
+          populate: '*',
         });
         const fs = require('fs');
         const path = require('path');
