@@ -32,6 +32,42 @@ module.exports = ({ strapi }) => ({
     }
   },
 
+  async sendMedia(to, mediaUrl, mimeType, filename) {
+    const accessToken = process.env.WHATSAPP_TOKEN;
+    const phoneNumberId = "1037050959491352"; 
+    const url = `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`;
+
+    // Clasificar tipo de archivo
+    const isImage = mimeType && mimeType.startsWith('image/');
+    const type = isImage ? 'image' : 'document';
+    
+    const mediaPayload = isImage 
+      ? { link: mediaUrl }
+      : { link: mediaUrl, filename: filename || 'documento' };
+
+    try {
+      const response = await axios({
+        method: "POST",
+        url: url,
+        data: {
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: to,
+          type: type,
+          [type]: mediaPayload
+        },
+        headers: { 
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error(`❌ [Servicio WA] Error enviando media (${type}):`, error.response ? error.response.data : error.message);
+      throw error;
+    }
+  },
+
   // 2. ENVÍO INSTAGRAM/FACEBOOK (Configurado para el Token de Redes)
   async sendDirectMessage(recipientId, message) {
     const accessToken = process.env.MESSENGER_PAGE_TOKEN;

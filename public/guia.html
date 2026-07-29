@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Impresión de Guías - Koky Kitchen</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  
+  <!-- Google Fonts: Outfit for headers & Inter for UI -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;900&display=swap" rel="stylesheet">
+  
+  <!-- QR Code Library (Qrious) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+
+  <style>
+    /* VARIABLES & THEME */
+    :root {
+      --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      --panel-bg: rgba(30, 41, 59, 0.7);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-green: #2ecc71;
+      --accent-blue: #3b82f6;
+      --accent-hover: #27ae60;
+      --card-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      
+      /* Label colors */
+      --label-bg: #ffffff;
+      --label-text-dark: #1e293b;
+      --label-text-muted: #64748b;
+      --label-green: #2ecc71;
+      --label-blue: #1e3a8a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-gradient);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    header {
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+      backdrop-filter: blur(8px);
+      background: rgba(15, 23, 42, 0.6);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-logo svg {
+      width: 32px;
+      height: 32px;
+      fill: var(--accent-green);
+    }
+
+    .header-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.5rem;
+      background: linear-gradient(to right, #ffffff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .app-container {
+      display: flex;
+      flex: 1;
+      padding: 40px;
+      gap: 40px;
+      max-width: 1600px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* CONTROL PANEL (LEFT) */
+    .control-panel {
+      flex: 1;
+      max-width: 480px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      box-shadow: var(--card-shadow);
+      height: fit-content;
+    }
+
+    .section-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 1.2rem;
+      color: #ffffff;
+      border-left: 4px solid var(--accent-green);
+      padding-left: 10px;
+      margin-bottom: 5px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    input, textarea, select {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: #ffffff;
+      font-family: inherit;
+      font-size: 0.95rem;
+      transition: all 0.3s ease;
+      width: 100%;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--accent-green);
+      box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.2);
+      background: rgba(15, 23, 42, 0.8);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .row-inputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .presets-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 5px;
+    }
+
+    .btn-preset {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 8px 16px;
+      color: var(--text-main);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-preset:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: var(--text-muted);
+      transform: translateY(-1px);
+    }
+
+    .btn-preset.active {
+      background: rgba(46, 204, 113, 0.15);
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+    }
+
+    .action-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .btn-primary {
+      background: var(--accent-green);
+      color: #121824;
+      border: none;
+      border-radius: 10px;
+      padding: 16px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(46, 204, 113, 0.2);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(46, 204, 113, 0.3);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--text-muted);
+    }
+
+    /* PREVIEW PANEL (RIGHT) */
+    .preview-panel {
+      flex: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 30px;
+      background: rgba(15, 23, 42, 0.4);
+      border: 1px dashed var(--border-color);
+      border-radius: 24px;
+      padding: 40px;
+      min-height: 600px;
+      position: relative;
+    }
+
+    .preview-badge {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(59, 130, 246, 0.1);
+      color: var(--accent-blue);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* REALISTIC LABEL STYLING */
+    .label-wrapper {
+      perspective: 1000px;
+      transition: all 0.5s ease;
+    }
+
+    /* Target Aspect Ratio: 3.5:1 (Landscape) - Like the physical label */
+    .label-card {
+      background: var(--label-bg);
+      color: var(--label-text-dark);
+      width: 720px;
+      height: 220px; /* Exact aspect ratio fit */
+      border-radius: 4px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      display: grid;
+      grid-template-columns: 200px 1fr 180px;
+      overflow: hidden;
+      position: relative;
+      font-family: 'Inter', sans-serif;
+      transform-style: preserve-3d;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      border: 1px solid #e2e8f0;
+    }
+
+    /* Hover interactive shine effect */
+    .label-card:hover {
+      transform: rotateX(2deg) rotateY(-2deg) translateY(-5px);
+      box-shadow: 0 35px 60px -10px rgba(0, 0, 0, 0.6);
+    }
+
+    /* Left column (Logo & Origin) */
+    .label-left {
+      border-right: 2px dashed #cbd5e1;
+      padding: 20px 15px 15px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .label-logo {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 900;
+      font-size: 2.6rem;
+      letter-spacing: -2px;
+      line-height: 1.1;
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .logo-kok {
+      color: #0f172a;
+    }
+
+    .logo-y {
+      color: var(--accent-green);
+    }
+
+    .label-origin {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .label-origin-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--label-blue);
+      letter-spacing: 0.5px;
+    }
+
+    .label-origin-text {
+      font-size: 0.75rem;
+      line-height: 1.25;
+      font-weight: 500;
+      color: var(--label-text-dark);
+    }
+
+    .label-origin-phone {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--label-text-dark);
+      margin-top: 1px;
+    }
+
+    /* Middle column (Delivery target) */
+    .label-middle {
+      padding: 20px 20px 15px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      gap: 8px;
+    }
+
+    .label-delivery-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.2rem;
+      color: var(--label-blue);
+      letter-spacing: 0.5px;
+      line-height: 1;
+    }
+
+    .label-delivery-name {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 900;
+      font-size: 1.3rem;
+      color: #000000;
+      line-height: 1.1;
+      margin-top: 2px;
+      text-transform: uppercase;
+    }
+
+    .label-delivery-address {
+      font-size: 0.85rem;
+      line-height: 1.35;
+      color: var(--label-text-dark);
+      font-weight: 500;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .label-delivery-phone {
+      font-size: 0.9rem;
+      font-weight: 800;
+      color: #000000;
+      margin-top: 4px;
+    }
+
+    /* Right column (QR code & Website) */
+    .label-right {
+      border-left: 2px dashed #cbd5e1;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: #fafafa;
+    }
+
+    .qr-container {
+      width: 110px;
+      height: 110px;
+      background: #ffffff;
+      padding: 4px;
+      border: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .qr-container canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    .label-scan-text {
+      text-align: center;
+      font-size: 0.55rem;
+      line-height: 1.2;
+      font-weight: 700;
+      color: var(--label-blue);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .label-website {
+      font-weight: 800;
+      font-size: 0.68rem;
+      color: var(--label-blue);
+      margin-top: -2px;
+    }
+
+    /* FORMAT SWITCHER (VERTICAL 4X6 PREVIEW SUPPORT) */
+    .label-card.vertical {
+      width: 380px;
+      height: 520px;
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    .label-card.vertical .label-left {
+      border-right: none;
+      border-bottom: 2px dashed #cbd5e1;
+      padding: 20px;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .label-card.vertical .label-logo {
+      margin-bottom: 0;
+    }
+
+    .label-card.vertical .label-origin {
+      text-align: right;
+      align-items: flex-end;
+    }
+
+    .label-card.vertical .label-middle {
+      padding: 30px 25px;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .label-card.vertical .label-delivery-title {
+      font-size: 1.3rem;
+    }
+
+    .label-card.vertical .label-delivery-name {
+      font-size: 1.6rem;
+    }
+
+    .label-card.vertical .label-delivery-address {
+      font-size: 1rem;
+      gap: 4px;
+    }
+
+    .label-card.vertical .label-delivery-phone {
+      font-size: 1.1rem;
+      margin-top: 8px;
+    }
+
+    .label-card.vertical .label-right {
+      border-left: none;
+      border-top: 2px dashed #cbd5e1;
+      padding: 20px;
+      flex-direction: row;
+      justify-content: space-around;
+      gap: 15px;
+    }
+
+    .label-card.vertical .qr-container {
+      width: 90px;
+      height: 90px;
+    }
+
+    .label-card.vertical .label-scan-text {
+      text-align: left;
+      font-size: 0.65rem;
+    }
+
+    .label-card.vertical .label-website {
+      font-size: 0.8rem;
+    }
+
+    /* FOOTER */
+    footer {
+      padding: 20px 40px;
+      text-align: center;
+      border-top: 1px solid var(--border-color);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: auto;
+    }
+
+    /* PRINT LAYOUT */
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #000000 !important;
+      }
+      
+      header, .control-panel, footer, .preview-badge, .btn-primary, .btn-secondary, .presets-container, .form-group {
+        display: none !important;
+      }
+
+      .app-container {
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: none !important;
+      }
+
+      .preview-panel {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        min-height: 0 !important;
+        width: 100% !important;
+      }
+
+      .label-wrapper {
+        perspective: none !important;
+      }
+
+      .label-card {
+        box-shadow: none !important;
+        border: 1px solid #000000 !important;
+        transform: none !important;
+        page-break-inside: avoid;
+      }
+
+      /* Horizontal Label Specific Print adjustments */
+      .label-card.horizontal {
+        width: 160mm;
+        height: 50mm;
+        margin: 0 auto;
+      }
+
+      /* Vertical 4x6 Label Specific Print adjustments */
+      .label-card.vertical {
+        width: 100mm;
+        height: 150mm;
+        margin: 0 auto;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-logo">
+      <svg viewBox="0 0 24 24">
+        <path d="M19 8l-4 4h3c0 3.31-2.69 6-6 6-1.01 0-1.97-.25-2.8-.7l-1.46 1.46C8.97 19.54 10.43 20 12 20c4.42 0 8-3.58 8-8h3l-4-4zM6 12c0-3.31 2.69-6 6-6 1.01 0 1.97.25 2.8.7l1.46-1.46C15.03 4.46 13.57 4 12 4c-4.42 0-8 3.58-8 8H1l4 4 4-4H6z"/>
+      </svg>
+      <span class="header-title">Generador de Guías de Envío</span>
+    </div>
+    <div class="presets-container">
+      <span style="font-size: 0.85rem; color: var(--text-muted); align-self: center;">Formato:</span>
+      <button class="btn-preset active" id="btn-format-horiz" onclick="changeFormat('horizontal')">Horizontal (Caja)</button>
+      <button class="btn-preset" id="btn-format-vert" onclick="changeFormat('vertical')">Vertical (Térmica 4x6)</button>
+    </div>
+  </header>
+
+  <div class="app-container">
+    
+    <!-- CONTROL PANEL -->
+    <div class="control-panel">
+      <div class="section-title">Datos del Remitente (Origen)</div>
+      
+      <div class="form-group">
+        <label for="input-origen-dir">Dirección de Origen</label>
+        <input type="text" id="input-origen-dir" value="Calle 119a # 57-40" oninput="updateLabel()">
+      </div>
+
+      <div class="form-group">
+        <label for="input-origen-phone">Teléfono de Koky (Origen)</label>
+        <input type="text" id="input-origen-phone" value="3019447660" oninput="updateLabel()">
+      </div>
+
+      <div class="section-title">Datos del Destinatario (Entrega)</div>
+      
+      <div class="form-group">
+        <label for="input-dest-name">Nombre Completo</label>
+        <input type="text" id="input-dest-name" value="HELVER ANZOLA" oninput="updateLabel()">
+      </div>
+
+      <div class="form-group">
+        <label for="input-dest-addr1">Dirección Línea 1</label>
+        <input type="text" id="input-dest-addr1" value="CALLE 160 58-75, CONJUNTO DALÍ" oninput="updateLabel()">
+      </div>
+
+      <div class="row-inputs">
+        <div class="form-group">
+          <label for="input-dest-addr2">Torre / Apto / Notas</label>
+          <input type="text" id="input-dest-addr2" value="TORRE 28, APTO 401" oninput="updateLabel()">
+        </div>
+        <div class="form-group">
+          <label for="input-dest-city">Ciudad</label>
+          <input type="text" id="input-dest-city" value="BOGOTÁ, D.C." oninput="updateLabel()">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="input-dest-phone">Teléfono de Entrega</label>
+        <input type="text" id="input-dest-phone" value="3182083180" oninput="updateLabel()">
+      </div>
+
+      <div class="section-title">Código QR</div>
+      
+      <div class="form-group">
+        <label for="input-qr-link">Enlace QR (Información)</label>
+        <input type="text" id="input-qr-link" value="https://www.koky.food" oninput="updateLabel()">
+      </div>
+
+      <div class="presets-container">
+        <span style="font-size: 0.85rem; color: var(--text-muted); width: 100%;">Presets rápidos:</span>
+        <button class="btn-preset" onclick="loadPreset('helver')">Cargar Helver Anzola</button>
+        <button class="btn-preset" onclick="loadPreset('clean')">Limpiar Campos</button>
+      </div>
+
+      <div class="action-buttons">
+        <button class="btn-primary" onclick="window.print()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          Imprimir Guía de Envío
+        </button>
+      </div>
+    </div>
+
+    <!-- PREVIEW PANEL -->
+    <div class="preview-panel">
+      <div class="preview-badge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        Vista Previa Realista (Ctrl+P para imprimir)
+      </div>
+
+      <!-- THE LABEL -->
+      <div class="label-wrapper" id="label-wrapper">
+        <div class="label-card horizontal" id="label-card">
+          
+          <!-- LEFT: Logo & Origen -->
+          <div class="label-left">
+            <div class="label-logo">
+              <img src="/logoBlue20.png" alt="Koky Logo" style="width: 120px; height: auto;">
+            </div>
+            
+            <div class="label-origin">
+              <span class="label-origin-title">ORIGEN:</span>
+              <span class="label-origin-text" id="lbl-origen-dir">Calle 119a # 57-40</span>
+              <span class="label-origin-phone" id="lbl-origen-phone">TLF: 3019447660</span>
+            </div>
+          </div>
+
+          <!-- MIDDLE: Target Delivery -->
+          <div class="label-middle">
+            <span class="label-delivery-title">ENTREGAR A:</span>
+            <span class="label-delivery-name" id="lbl-dest-name">HELVER ANZOLA</span>
+            <div class="label-delivery-address">
+              <span id="lbl-dest-addr1">CALLE 160 58-75, CONJUNTO DALÍ</span>
+              <span id="lbl-dest-addr2">TORRE 28, APTO 401</span>
+              <span id="lbl-dest-city">BOGOTÁ, D.C.</span>
+            </div>
+            <span class="label-delivery-phone" id="lbl-dest-phone">TLF: 3182083180</span>
+          </div>
+
+          <!-- RIGHT: QR Code -->
+          <div class="label-right">
+            <div class="qr-container">
+              <canvas id="qr-canvas"></canvas>
+            </div>
+            <div class="label-scan-text">
+              Escanear para<br>más información
+            </div>
+            <span class="label-website">WWW.KOKY.FOOD</span>
+          </div>
+
+        </div>
+      </div>
+      
+    </div>
+
+  </div>
+
+  <footer>
+    &copy; 2026 Koky Food &bull; Herramienta de Operaciones Logísticas de Cocina
+  </footer>
+
+  <script>
+    let qr = null;
+
+    // Initialize QR Code generator
+    function initQR() {
+      const qrCanvas = document.getElementById('qr-canvas');
+      const qrLink = document.getElementById('input-qr-link').value;
+      
+      qr = new QRious({
+        element: qrCanvas,
+        value: qrLink,
+        size: 150,
+        background: '#ffffff',
+        foreground: '#1e3a8a', // Dark blue QR code matches brand
+        level: 'H' // High error correction
+      });
+    }
+
+    // Update Preview Label Elements from Input Form
+    function updateLabel() {
+      // Origen
+      const origDir = document.getElementById('input-origen-dir').value;
+      const origPhone = document.getElementById('input-origen-phone').value;
+      
+      document.getElementById('lbl-origen-dir').textContent = origDir;
+      document.getElementById('lbl-origen-phone').textContent = origPhone ? 'TLF: ' + origPhone : '';
+
+      // Destination
+      document.getElementById('lbl-dest-name').textContent = document.getElementById('input-dest-name').value;
+      document.getElementById('lbl-dest-addr1').textContent = document.getElementById('input-dest-addr1').value;
+      document.getElementById('lbl-dest-addr2').textContent = document.getElementById('input-dest-addr2').value;
+      document.getElementById('lbl-dest-city').textContent = document.getElementById('input-dest-city').value;
+      
+      const destPhone = document.getElementById('input-dest-phone').value;
+      document.getElementById('lbl-dest-phone').textContent = destPhone ? 'TLF: ' + destPhone : '';
+
+      // QR Code
+      const qrLink = document.getElementById('input-qr-link').value;
+      if (qr) {
+        qr.value = qrLink || "https://www.koky.food";
+      }
+    }
+
+    // Change Label Print Layout Formats
+    function changeFormat(format) {
+      const card = document.getElementById('label-card');
+      const btnHoriz = document.getElementById('btn-format-horiz');
+      const btnVert = document.getElementById('btn-format-vert');
+
+      if (format === 'horizontal') {
+        card.className = 'label-card horizontal';
+        btnHoriz.classList.add('active');
+        btnVert.classList.remove('active');
+      } else {
+        card.className = 'label-card vertical';
+        btnVert.classList.add('active');
+        btnHoriz.classList.remove('active');
+      }
+    }
+
+    // Load presets
+    function loadPreset(presetName) {
+      if (presetName === 'helver') {
+        document.getElementById('input-origen-dir').value = "Calle 119a # 57-40";
+        document.getElementById('input-origen-phone').value = "3019447660";
+        document.getElementById('input-dest-name').value = "HELVER ANZOLA";
+        document.getElementById('input-dest-addr1').value = "CALLE 160 58-75, CONJUNTO DALÍ";
+        document.getElementById('input-dest-addr2').value = "TORRE 28, APTO 401";
+        document.getElementById('input-dest-city').value = "BOGOTÁ, D.C.";
+        document.getElementById('input-dest-phone').value = "3182083180";
+        document.getElementById('input-qr-link').value = "https://www.koky.food";
+      } else if (presetName === 'clean') {
+        document.getElementById('input-dest-name').value = "";
+        document.getElementById('input-dest-addr1').value = "";
+        document.getElementById('input-dest-addr2').value = "";
+        document.getElementById('input-dest-city').value = "BOGOTÁ, D.C.";
+        document.getElementById('input-dest-phone').value = "";
+        document.getElementById('input-qr-link').value = "https://www.koky.food";
+      }
+      updateLabel();
+    }
+
+    // Initialize on page load
+    window.onload = function() {
+      initQR();
+      updateLabel();
+    };
+  </script>
+</body>
+</html>

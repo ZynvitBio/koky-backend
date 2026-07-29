@@ -28,12 +28,13 @@ module.exports = {
     if (result.sender !== 'Agent') return;
     if (result.sent_to_meta === true) return;
 
-    // 2. BUSCAMOS AL USUARIO: Necesitamos saber a qué número o ID enviar el mensaje.
-    const chatConUsuario = await strapi.entityService.findOne('api::chat.chat', result.id, {
-      populate: ['users_permissions_user'],
+    // 2. BUSCAMOS AL USUARIO Y ADJUNTOS: Necesitamos saber a qué número o ID enviar el mensaje.
+    const chatCompleto = await strapi.entityService.findOne('api::chat.chat', result.id, {
+      populate: ['users_permissions_user', 'attachments'],
     });
 
-    const usuario = chatConUsuario ? chatConUsuario['users_permissions_user'] : null;
+    const usuario = chatCompleto ? chatCompleto['users_permissions_user'] : null;
+    const adjuntos = chatCompleto ? chatCompleto['attachments'] : [];
     if (!usuario) return;
 
     // Apagar el bot Kira automáticamente ya que el agente humano está interactuando
@@ -72,14 +73,28 @@ module.exports = {
         // Para WhatsApp: Limpiamos a solo números
         const idLimpio = idExterno.replace(/\D/g, '');
         if (idLimpio) {
-          await strapi.service('api::whatsapp.whatsapp').sendText(idLimpio, mensajeTexto);
+          // Enviar mensaje de texto si existe
+          if (mensajeTexto) {
+            await strapi.service('api::whatsapp.whatsapp').sendText(idLimpio, mensajeTexto);
+          }
+          // Enviar adjuntos si existen
+          if (adjuntos && adjuntos.length > 0) {
+            for (const file of adjuntos) {
+              const fileUrl = file.url.startsWith('http') 
+                ? file.url 
+                : `https://koky-backend-production.up.railway.app${file.url}`;
+              await strapi.service('api::whatsapp.whatsapp').sendMedia(idLimpio, fileUrl, file.mime, file.name);
+            }
+          }
         } else {
           console.warn('⚠️ Intentando enviar WhatsApp pero el ID de destino quedó vacío.');
         }
         
       } else if (emailUser.includes('instagram.koky') || emailUser.includes('facebook.koky') || usuario.social_id) {
         // Para Redes Sociales: Enviamos directo con el ID social
-        await strapi.service('api::whatsapp.whatsapp').sendDirectMessage(idExterno, mensajeTexto);
+        if (mensajeTexto) {
+          await strapi.service('api::whatsapp.whatsapp').sendDirectMessage(idExterno, mensajeTexto);
+        }
       }
     } catch (error) {
       console.error('❌ Error en el envío a Meta:', error.message);
