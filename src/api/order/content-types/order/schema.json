@@ -74,6 +74,17 @@
       ],
       "default": "PENDING"
     },
+    "order_status": {
+      "type": "enumeration",
+      "enum": [
+        "PENDING",
+        "PREPARING",
+        "SHIPPED",
+        "DELIVERED",
+        "CANCELLED"
+      ],
+      "default": "PENDING"
+    },
     "invoice_pdf": {
       "type": "media",
       "multiple": false,

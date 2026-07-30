@@ -208,6 +208,51 @@ async function geocodeAddress(address) {
     lng: location.lng,
     formattedAddress: formattedAddress
   };
+async function getOrderContextForUser(from, user) {
+  try {
+    const filters = [];
+    if (from) filters.push({ whatsapp_id: from });
+    if (user?.whatsapp_id) filters.push({ whatsapp_id: user.whatsapp_id });
+    if (user?.id) filters.push({ users_permissions_user: { id: user.id } });
+
+    if (filters.length === 0) return "- No se encontraron órdenes asociadas.";
+
+    const lastOrders = await strapi.db.query("api::order.order").findMany({
+      where: { $or: filters },
+      orderBy: { createdAt: "desc" },
+      limit: 1
+    });
+
+    const lastOrder = lastOrders && lastOrders.length > 0 ? lastOrders[0] : null;
+
+    if (!lastOrder) {
+      return "- El cliente no tiene pedidos registrados en el sistema actualmente.";
+    }
+
+    const statusMap = {
+      'PENDING': '🟡 Pendiente (Recibido)',
+      'PREPARING': '🟠 En Preparación (En cocina)',
+      'SHIPPED': '🔵 ENVIADO (En camino hacia tu dirección)',
+      'DELIVERED': '🟢 ENTREGADO (Completado)',
+      'CANCELLED': '🔴 Cancelado'
+    };
+
+    const statusStr = statusMap[lastOrder.order_status] || lastOrder.order_status || 'PENDIENTE';
+    const notesStr = lastOrder.shipping_notes ? ` (Notas de transporte/envío: ${lastOrder.shipping_notes})` : '';
+    const dateStr = lastOrder.createdAt ? new Date(lastOrder.createdAt).toLocaleDateString('es-CO') : '';
+    const courierStr = lastOrder.cabify_parcel_id ? 'Cabify Express' : 'Envíos Domicilio (Yango / Mensajero)';
+
+    return `Última Orden #${lastOrder.id}:
+- Fecha de Creación: ${dateStr}
+- Estado del Pedido: ${statusStr}${notesStr}
+- Estado del Pago: ${lastOrder.payment_status || 'PENDIENTE'}
+- Valor Total: $${Number(lastOrder.total_amount || 0).toLocaleString('es-CO')} COP
+- Dirección de Entrega: ${lastOrder.shipping_address || 'Bogotá'}
+- Método de Entrega: ${courierStr}`;
+  } catch (err) {
+    console.error("❌ Error construyendo orderContext para Kira:", err.message);
+    return "- No se pudo recuperar la orden reciente del cliente.";
+  }
 }
 
 function calculateScore(msgText, previousScore = 0) {
@@ -1911,6 +1956,7 @@ module.exports = {
                 const infoPreventa = `IMPORTANTE: Estamos en preventa de Miembros Fundadores. Quedan exactamente ${dias} días y ${horas} horas para cerrar inscripciones.`;
 
                 const { rulesStr, faqsStr } = await getDynamicPromptsData();
+                const orderContext = await getOrderContextForUser(from, user);
 
                 const systemPrompt = KiraPrompts.PROMPT_WA(
                   waName,
@@ -1921,7 +1967,8 @@ module.exports = {
                   productList,
                   infoPreventa,
                   rulesStr,
-                  faqsStr
+                  faqsStr,
+                  orderContext
                 );
 
                 const result = await model.generateContent(systemPrompt);
@@ -2488,6 +2535,7 @@ module.exports = {
               const infoPreventaMeta = `IMPORTANTE: Quedan exactamente ${diasMeta} días y ${horasMeta} horas de preventa.`;
 
               const { rulesStr, faqsStr } = await getDynamicPromptsData();
+              const orderContextMeta = await getOrderContextForUser(from, user);
 
               const systemPrompt = KiraPrompts.PROMPT_META(
                 user.username,
@@ -2498,7 +2546,8 @@ module.exports = {
                 productListMeta,
                 infoPreventaMeta,
                 rulesStr,
-                faqsStr
+                faqsStr,
+                orderContextMeta
               );
 
               const result = await model.generateContent(systemPrompt);

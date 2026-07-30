@@ -155,6 +155,43 @@ module.exports = {
         .service("api::cabify-delivery.cabify-delivery")
         .getParcelStatus(parcelId);
 
+      // Actualizamos automáticamente la orden en Strapi si la encontramos por parcelId
+      try {
+        const matchingOrder = await strapi.db.query("api::order.order").findOne({
+          where: { cabify_parcel_id: parcelId }
+        });
+
+        if (matchingOrder) {
+          let newOrderStatus = matchingOrder.order_status;
+          let newShippingNotes = matchingOrder.shipping_notes;
+          const cabifyState = String(statusData?.status || statusData?.state || statusData?.data?.status || '').toUpperCase();
+
+          if (['IN_TRANSIT', 'ACCEPTED', 'ASSIGNED', 'PICKED_UP', 'SHIPPED'].some(s => cabifyState.includes(s))) {
+            newOrderStatus = 'SHIPPED';
+            newShippingNotes = 'Despachado en camino por Cabify Express';
+          } else if (['DELIVERED', 'COMPLETED'].some(s => cabifyState.includes(s))) {
+            newOrderStatus = 'DELIVERED';
+            newShippingNotes = 'Entregado al cliente por Cabify Express';
+          }
+
+          if (newOrderStatus !== matchingOrder.order_status) {
+            await strapi.documents("api::order.order").update({
+              documentId: matchingOrder.documentId,
+              data: {
+                order_status: newOrderStatus,
+                shipping_notes: newShippingNotes
+              }
+            });
+            await strapi.documents("api::order.order").publish({
+              documentId: matchingOrder.documentId
+            });
+            strapi.log.info(`[Cabify Webhook] Orden #${matchingOrder.id} actualizada a order_status: ${newOrderStatus}`);
+          }
+        }
+      } catch (orderUpdateErr) {
+        strapi.log.error(`[Cabify Webhook] Error actualizando orden en Strapi: ${orderUpdateErr.message}`);
+      }
+
       // Emitimos el evento de Socket.io a todos los clientes del dashboard conectados
       if (strapi.io) {
         strapi.io.emit('cabify_status_change', {
