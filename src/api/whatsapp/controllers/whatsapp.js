@@ -208,6 +208,8 @@ async function geocodeAddress(address) {
     lng: location.lng,
     formattedAddress: formattedAddress
   };
+}
+
 async function getOrderContextForUser(from, user) {
   try {
     const filters = [];
