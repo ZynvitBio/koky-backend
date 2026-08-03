@@ -631,18 +631,18 @@
       
       <div class="form-group">
         <label for="input-dest-name">Nombre Completo</label>
-        <input type="text" id="input-dest-name" value="HELVER ANZOLA" oninput="updateLabel()">
+        <input type="text" id="input-dest-name" value="ANTONIO ALEJANDRO BARON MOYA" oninput="updateLabel()">
       </div>
 
       <div class="form-group">
         <label for="input-dest-addr1">Dirección Línea 1</label>
-        <input type="text" id="input-dest-addr1" value="CALLE 160 58-75, CONJUNTO DALÍ" oninput="updateLabel()">
+        <input type="text" id="input-dest-addr1" value="CALLE 161 # 54 - 18" oninput="updateLabel()">
       </div>
 
       <div class="row-inputs">
         <div class="form-group">
           <label for="input-dest-addr2">Torre / Apto / Notas</label>
-          <input type="text" id="input-dest-addr2" value="TORRE 28, APTO 401" oninput="updateLabel()">
+          <input type="text" id="input-dest-addr2" value="TORRE 5, APTO 1004, SENDEROS DEL CARMEN I" oninput="updateLabel()">
         </div>
         <div class="form-group">
           <label for="input-dest-city">Ciudad</label>
@@ -652,7 +652,7 @@
 
       <div class="form-group">
         <label for="input-dest-phone">Teléfono de Entrega</label>
-        <input type="text" id="input-dest-phone" value="3182083180" oninput="updateLabel()">
+        <input type="text" id="input-dest-phone" value="312 4785371" oninput="updateLabel()">
       </div>
 
       <div class="section-title">Código QR</div>
@@ -665,6 +665,7 @@
       <div class="presets-container">
         <span style="font-size: 0.85rem; color: var(--text-muted); width: 100%;">Presets rápidos:</span>
         <button class="btn-preset" onclick="loadPreset('helver')">Cargar Helver Anzola</button>
+        <button class="btn-preset" onclick="loadPreset('antonio')">Cargar Antonio Barón</button>
         <button class="btn-preset" onclick="loadPreset('clean')">Limpiar Campos</button>
       </div>
 
@@ -698,7 +699,7 @@
           <!-- LEFT: Logo & Origen -->
           <div class="label-left">
             <div class="label-logo">
-              <img src="/logoBlue20.png" alt="Koky Logo" style="width: 120px; height: auto;">
+              <img src="logoBlue20.png" alt="Koky Logo" style="width: 120px; height: auto;">
             </div>
             
             <div class="label-origin">
@@ -711,13 +712,13 @@
           <!-- MIDDLE: Target Delivery -->
           <div class="label-middle">
             <span class="label-delivery-title">ENTREGAR A:</span>
-            <span class="label-delivery-name" id="lbl-dest-name">HELVER ANZOLA</span>
+            <span class="label-delivery-name" id="lbl-dest-name">ANTONIO ALEJANDRO BARON MOYA</span>
             <div class="label-delivery-address">
-              <span id="lbl-dest-addr1">CALLE 160 58-75, CONJUNTO DALÍ</span>
-              <span id="lbl-dest-addr2">TORRE 28, APTO 401</span>
+              <span id="lbl-dest-addr1">CALLE 161 # 54 - 18</span>
+              <span id="lbl-dest-addr2">TORRE 5, APTO 1004, SENDEROS DEL CARMEN I</span>
               <span id="lbl-dest-city">BOGOTÁ, D.C.</span>
             </div>
-            <span class="label-delivery-phone" id="lbl-dest-phone">TLF: 3182083180</span>
+            <span class="label-delivery-phone" id="lbl-dest-phone">TLF: 312 4785371</span>
           </div>
 
           <!-- RIGHT: QR Code -->
@@ -812,6 +813,15 @@
         document.getElementById('input-dest-addr2').value = "TORRE 28, APTO 401";
         document.getElementById('input-dest-city').value = "BOGOTÁ, D.C.";
         document.getElementById('input-dest-phone').value = "3182083180";
+        document.getElementById('input-qr-link').value = "https://www.koky.food";
+      } else if (presetName === 'antonio') {
+        document.getElementById('input-origen-dir').value = "Calle 119a # 57-40";
+        document.getElementById('input-origen-phone').value = "3019447660";
+        document.getElementById('input-dest-name').value = "ANTONIO ALEJANDRO BARON MOYA";
+        document.getElementById('input-dest-addr1').value = "CALLE 161 # 54 - 18";
+        document.getElementById('input-dest-addr2').value = "TORRE 5, APTO 1004, SENDEROS DEL CARMEN I";
+        document.getElementById('input-dest-city').value = "BOGOTÁ, D.C.";
+        document.getElementById('input-dest-phone').value = "3124785371";
         document.getElementById('input-qr-link').value = "https://www.koky.food";
       } else if (presetName === 'clean') {
         document.getElementById('input-dest-name').value = "";
