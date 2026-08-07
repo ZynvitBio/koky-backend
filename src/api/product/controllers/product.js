@@ -32,7 +32,10 @@ module.exports = createCoreController('api::product.product', ({ strapi }) => ({
 
       for (const prod of products) {
         const id = prod.sku || prod.id;
-        const title = escapeXml(prod.name);
+        const weightSuffix = (prod.contentPerUnit && prod.unitAbbreviation) 
+          ? ` ${prod.contentPerUnit}${prod.unitAbbreviation}` 
+          : '';
+        const title = escapeXml(prod.name + weightSuffix);
         const description = escapeXml(prod.shortDescription || prod.longDescription || prod.name);
         const link = `https://www.koky.food/productdetails/${prod.slug || prod.id}`;
         
