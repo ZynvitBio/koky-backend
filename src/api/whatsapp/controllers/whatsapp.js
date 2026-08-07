@@ -960,10 +960,12 @@ module.exports = {
             const isKiraActive = dbUser && dbUser.kira_active !== false && dbUser.kira_active !== 0 && dbUser.kira_active !== '0';
 
             // --- NOTIFICACIONES AL ADMINISTRADOR (Mensajes ordinarios) ---
-            if (isKiraActive && !shouldTakeoverHuman(rawText)) {
+            if (!shouldTakeoverHuman(rawText)) {
               const adminPhone = process.env.ADMIN_PHONE || "573007979419";
               if (adminPhone && from !== adminPhone) {
-                const infoMsg = `💬 *Mensaje para Kira*\n\n*Cliente:* ${waName} (${from})\n*Mensaje:* "${rawText}"`;
+                const header = isKiraActive ? "💬 *Mensaje para Kira*" : "👤 *Mensaje para Humano*";
+                const note = isKiraActive ? "" : "\n\n_Nota: Kira está desactivada en este chat._";
+                const infoMsg = `${header}\n\n*Cliente:* ${waName} (${from})\n*Mensaje:* "${rawText}"${note}`;
                 await this.sendWhatsAppMessage(phone_number_id, adminPhone, infoMsg);
               }
             }
