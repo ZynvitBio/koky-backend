@@ -540,6 +540,8 @@ module.exports = {
         social_id: identifier,
 
         social_handle: handle,
+
+        kira_active: true,
       });
     } else {
       const updateData = {};
@@ -957,6 +959,15 @@ module.exports = {
             });
             const isKiraActive = dbUser && dbUser.kira_active !== false && dbUser.kira_active !== 0 && dbUser.kira_active !== '0';
 
+            // --- NOTIFICACIONES AL ADMINISTRADOR (Mensajes ordinarios) ---
+            if (isKiraActive && !shouldTakeoverHuman(rawText)) {
+              const adminPhone = process.env.ADMIN_PHONE || "573007979419";
+              if (adminPhone && from !== adminPhone) {
+                const infoMsg = `💬 *Mensaje para Kira*\n\n*Cliente:* ${waName} (${from})\n*Mensaje:* "${rawText}"`;
+                await this.sendWhatsAppMessage(phone_number_id, adminPhone, infoMsg);
+              }
+            }
+
             // --- CAPA 1: Interceptador de Handoff Humano por Código (WhatsApp) ---
             if (isKiraActive && shouldTakeoverHuman(rawText)) {
               console.log(`⚠️ Cliente WhatsApp ${from} solicita hablar con un humano. Pausando bot Kira.`);
@@ -966,6 +977,13 @@ module.exports = {
                 user.id,
                 { data: { kira_active: false } }
               );
+
+              // NOTIFICACIÓN AL ADMINISTRADOR
+              const adminPhone = process.env.ADMIN_PHONE || "573007979419";
+              if (adminPhone && from !== adminPhone) {
+                const alertMsg = `🚨 *Solicitud de Atención Humana*\n\nEl cliente *${waName}* (${from}) solicita hablar con un humano.\n\n*Último mensaje:* "${rawText}"\n\n_Kira ha sido pausada en este chat. Por favor, asume la conversación._`;
+                await this.sendWhatsAppMessage(phone_number_id, adminPhone, alertMsg);
+              }
 
               const chatMsg = await strapi.entityService.create("api::chat.chat", {
                 data: {
@@ -1987,6 +2005,13 @@ module.exports = {
                     { data: { kira_active: false } }
                   );
 
+                  // NOTIFICACIÓN AL ADMINISTRADOR
+                  const adminPhone = process.env.ADMIN_PHONE || "573007979419";
+                  if (adminPhone && from !== adminPhone) {
+                    const alertMsg = `🚨 *Solicitud de Atención Humana (IA)*\n\nKira determinó que el cliente *${waName}* (${from}) necesita ayuda humana.\n\n*Último mensaje:* "${rawText}"\n\n_Kira ha sido pausada en este chat. Por favor, asume la conversación._`;
+                    await this.sendWhatsAppMessage(phone_number_id, adminPhone, alertMsg);
+                  }
+
                   const transferMessage = getTransferMessage();
                   await this.sendWhatsAppMessage(phone_number_id, from, transferMessage);
 
@@ -2246,6 +2271,15 @@ module.exports = {
                 user.id,
                 { data: { kira_active: false } }
               );
+
+              // NOTIFICACIÓN AL ADMINISTRADOR POR WHATSAPP
+              const adminPhone = process.env.ADMIN_PHONE || "573007979419";
+              const defaultPhoneId = process.env.ID_PHONE_WS || "1037050959491352";
+              if (adminPhone && from !== adminPhone) {
+                const platformLabel = body.object === "instagram" ? "Instagram" : "Facebook Messenger";
+                const alertMsg = `🚨 *Solicitud de Atención Humana (${platformLabel})*\n\nEl cliente *${waName}* (${from}) solicita hablar con un humano en ${platformLabel}.\n\n*Último mensaje:* "${rawText}"\n\n_Kira ha sido pausada en este chat. Por favor, asume la conversación._`;
+                await this.sendWhatsAppMessage(defaultPhoneId, adminPhone, alertMsg);
+              }
 
               const chatMsg = await strapi.entityService.create("api::chat.chat", {
                 data: {
@@ -2565,6 +2599,15 @@ module.exports = {
                   user.id,
                   { data: { kira_active: false } }
                 );
+
+                // NOTIFICACIÓN AL ADMINISTRADOR POR WHATSAPP
+                const adminPhone = process.env.ADMIN_PHONE || "573007979419";
+                const defaultPhoneId = process.env.ID_PHONE_WS || "1037050959491352";
+                if (adminPhone && from !== adminPhone) {
+                  const platformLabel = body.object === "instagram" ? "Instagram" : "Facebook Messenger";
+                  const alertMsg = `🚨 *Solicitud de Atención Humana - IA (${platformLabel})*\n\nKira determinó que el cliente *${waName}* (${from}) en ${platformLabel} necesita ayuda humana.\n\n*Último mensaje:* "${rawText}"\n\n_Kira ha sido pausada en este chat. Por favor, asume la conversación._`;
+                  await this.sendWhatsAppMessage(defaultPhoneId, adminPhone, alertMsg);
+                }
 
                 const transferMessage = getTransferMessage();
 
