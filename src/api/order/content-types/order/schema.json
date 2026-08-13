@@ -79,6 +79,7 @@
       "enum": [
         "PENDING",
         "PREPARING",
+        "READY",
         "SHIPPED",
         "DELIVERED",
         "CANCELLED"

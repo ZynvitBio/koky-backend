@@ -233,7 +233,8 @@ async function getOrderContextForUser(from, user) {
 
     const statusMap = {
       'PENDING': '🟡 Pendiente (Recibido)',
-      'PREPARING': '🟠 En Preparación (En cocina)',
+      'PREPARING': '🥣 En Cocina (Procesando)',
+      'READY': '🟠 Listo de Cocina (Listo para despacho)',
       'SHIPPED': '🔵 ENVIADO (En camino hacia tu dirección)',
       'DELIVERED': '🟢 ENTREGADO (Completado)',
       'CANCELLED': '🔴 Cancelado'

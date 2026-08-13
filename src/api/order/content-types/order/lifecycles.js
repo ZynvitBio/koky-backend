@@ -94,6 +94,14 @@ module.exports = {
           try {
             let messageText = "";
             if (newStatus === "PREPARING") {
+              strapi.log.info(`[Lifecycle Order] Estado cambió a PREPARING. Enviando plantilla pedido_en_cocina a ${to}...`);
+              await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_en_cocina", [
+                { type: "text", text: customerName },
+                { type: "text", text: String(orderId) }
+              ]);
+
+              messageText = `👨‍🍳 ¡Tu pedido va rumbo a la cocina!\n\nHola ${customerName}, ¡esperamos que estés muy bien!\n\nQueremos confirmarte que hemos cerrado nuestra lista de pedidos de hoy y tu orden #${orderId} ya se encuentra en manos de nuestros artesanos en la cocina para ser preparada fresca esta noche. 🥣\n\nMañana por la mañana te avisaremos apenas salga de la cocina y se programe su despacho. ¡Gracias por apoyar lo artesanal!`;
+            } else if (newStatus === "READY") {
               // Calcular saludo según la hora de Bogotá (UTC-5)
               const formatter = new Intl.DateTimeFormat("en-US", {
                 timeZone: "America/Bogota",
@@ -103,7 +111,7 @@ module.exports = {
               const hour = parseInt(formatter.format(new Date()), 10);
               const greeting = hour < 12 ? "¡buenos días!" : "¡buenas tardes!";
 
-              strapi.log.info(`[Lifecycle Order] Estado cambió a PREPARING. Enviando plantilla pedido_listo_cocina a ${to}...`);
+              strapi.log.info(`[Lifecycle Order] Estado cambió a READY. Enviando plantilla pedido_listo_cocina a ${to}...`);
               await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_listo_cocina", [
                 { type: "text", text: customerName },
                 { type: "text", text: greeting },
