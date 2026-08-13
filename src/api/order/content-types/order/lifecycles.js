@@ -19,14 +19,21 @@ module.exports = {
     // Si se está actualizando el estado de la orden o las notas, guardamos el estado actual como "anterior"
     if (data && (data.order_status !== undefined || data.shipping_notes !== undefined)) {
       try {
-        const existingOrder = await strapi.db.query("api::order.order").findOne({ where });
+        const existingOrder = await strapi.db.query("api::order.order").findOne({
+          where,
+          populate: ["users_permissions_users"]
+        });
         if (existingOrder) {
+          const userRelation = existingOrder.users_permissions_users;
+          const userId = Array.isArray(userRelation) && userRelation.length > 0 ? userRelation[0].id : null;
+          
           event.state = {
             previousStatus: existingOrder.order_status,
             whatsappId: existingOrder.whatsapp_id,
             customerName: existingOrder.customer_name,
             orderId: existingOrder.id,
-            shippingNotes: existingOrder.shipping_notes
+            shippingNotes: existingOrder.shipping_notes,
+            userId: userId
           };
         }
       } catch (err) {
@@ -36,7 +43,7 @@ module.exports = {
   },
 
   async afterUpdate(event) {
-    const { result, params } = event;
+    const { result, params, state } = event;
     const { data } = params;
 
     // Detectamos si el campo cabify_parcel_id está siendo actualizado y el stock no se ha descontado aún
@@ -74,12 +81,25 @@ module.exports = {
 
         if (whatsapp_token) {
           try {
+            let messageText = "";
             if (newStatus === "PREPARING") {
+              // Calcular saludo según la hora de Bogotá (UTC-5)
+              const formatter = new Intl.DateTimeFormat("en-US", {
+                timeZone: "America/Bogota",
+                hour: "numeric",
+                hour12: false
+              });
+              const hour = parseInt(formatter.format(new Date()), 10);
+              const greeting = hour < 12 ? "¡buenos días!" : "¡buenas tardes!";
+
               strapi.log.info(`[Lifecycle Order] Estado cambió a PREPARING. Enviando plantilla pedido_listo_cocina a ${to}...`);
               await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_listo_cocina", [
                 { type: "text", text: customerName },
+                { type: "text", text: greeting },
                 { type: "text", text: String(orderId) }
               ]);
+
+              messageText = `¡Tu pedido está listo y fresco! 🥦\n\nHola ${customerName}, ${greeting} Queremos contarte que tu tofu artesanal ya está recién preparado y ha salido de nuestra cocina. 🧑‍🍳\n\nTu pedido #${orderId} será despachado en el transcurso de esta tarde. Tan pronto como el conductor vaya en camino hacia tu dirección, te enviaremos un nuevo mensaje con la hora estimada de llegada para que puedas programarte para recibirlo.\n\n¡Gracias por elegir lo fresco y natural!`;
             } else if (newStatus === "SHIPPED") {
               const deliveryWindow = (data.shipping_notes !== undefined ? data.shipping_notes : (state.shippingNotes || "en el transcurso de la tarde")).trim();
               strapi.log.info(`[Lifecycle Order] Estado cambió a SHIPPED. Enviando plantilla pedido_en_camino a ${to}...`);
@@ -88,6 +108,31 @@ module.exports = {
                 { type: "text", text: String(orderId) },
                 { type: "text", text: deliveryWindow }
               ]);
+
+              messageText = `🛵 Pedido en Camino\n\nHola ${customerName}, ¡tu pedido de Koky Food ya va en camino hacia tu dirección! 🚀\n\nTu entrega #${orderId} llegará aproximadamente ${deliveryWindow}.\n\n*Recomendación:* Recuerda que nuestro tofu es artesanal y fresco, por lo que te sugerimos refrigerarlo tan pronto como lo recibas para conservar su frescura intacta. 🧊\n\nSi tienes alguna duda o necesitas dar indicaciones adicionales al conductor, puedes responder directamente a este mensaje.`;
+            }
+
+            // Guardar registro en la base de datos de chat si se envió el mensaje
+            if (messageText) {
+              await strapi.entityService.create("api::chat.chat", {
+                data: {
+                  sender: "Kira",
+                  message: messageText,
+                  timestamp: new Date(),
+                  publishedAt: new Date(),
+                  users_permissions_user: state.userId
+                }
+              });
+
+              // Emitir WebSocket en vivo para actualizar la Bandeja Omnicanal de inmediato
+              if (strapi.io) {
+                strapi.io.emit("new_chat_message", {
+                  sender: "Kira",
+                  message: messageText,
+                  timestamp: new Date(),
+                  whatsapp_id: to
+                });
+              }
             }
           } catch (wsErr) {
             strapi.log.error(`[Lifecycle Order] Error enviando plantilla de WhatsApp: ${wsErr.message}`);
@@ -335,7 +380,7 @@ async function sendWhatsAppTemplate(phone_number_id, token, to, templateName, bo
         type: "template",
         template: {
           name: templateName,
-          language: { code: "es" },
+          language: { code: "es_CO" },
           components: [
             {
               type: "body",
