@@ -24,7 +24,7 @@ module.exports = {
           let userId = null;
           if (existingOrder.whatsapp_id) {
             const rawPhone = existingOrder.whatsapp_id.replace(/\D/g, "");
-            const dbUser = await strapi.db.query("plugin::users-permissions.user").findOne({
+            let dbUser = await strapi.db.query("plugin::users-permissions.user").findOne({
               where: {
                 $or: [
                   { whatsapp_id: rawPhone },
@@ -33,6 +33,26 @@ module.exports = {
                 ]
               }
             });
+
+            // Si el cliente no existe en la base de datos de chats, lo creamos
+            if (!dbUser) {
+              try {
+                dbUser = await strapi.plugins["users-permissions"].services.user.add({
+                  username: existingOrder.customer_name || "Cliente Koky",
+                  email: `${rawPhone}@koky.food`,
+                  password: "Password123!",
+                  confirmed: true,
+                  is_founder: false,
+                  whatsapp_id: rawPhone,
+                  kira_active: true,
+                  unread: false
+                });
+                strapi.log.info(`[Lifecycle Order] Creado nuevo usuario de chat para Armando: ${dbUser.username} (${rawPhone})`);
+              } catch (createErr) {
+                strapi.log.error(`[Lifecycle Order] Error al crear usuario de chat: ${createErr.message}`);
+              }
+            }
+
             if (dbUser) {
               userId = dbUser.id;
             }
