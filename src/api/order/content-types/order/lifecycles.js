@@ -25,7 +25,13 @@ module.exports = {
           if (existingOrder.whatsapp_id) {
             const rawPhone = existingOrder.whatsapp_id.replace(/\D/g, "");
             const dbUser = await strapi.db.query("plugin::users-permissions.user").findOne({
-              where: { whatsapp_id: rawPhone }
+              where: {
+                $or: [
+                  { whatsapp_id: rawPhone },
+                  { email: `${rawPhone}@koky.food` },
+                  { email: `${rawPhone}@wa.koky` }
+                ]
+              }
             });
             if (dbUser) {
               userId = dbUser.id;
@@ -76,7 +82,7 @@ module.exports = {
     // --- ENVÍO DE NOTIFICACIONES WHATSAPP POR CAMBIO DE ESTADO ---
     if (state && data && data.order_status && data.order_status !== state.previousStatus) {
       const newStatus = data.order_status;
-      const to = state.whatsappId;
+      const to = state.whatsappId ? state.whatsappId.replace(/\D/g, "") : null;
       const customerName = state.customerName || "Cliente";
       const orderId = state.orderId;
 
