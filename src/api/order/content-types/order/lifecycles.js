@@ -19,13 +19,18 @@ module.exports = {
     // Si se está actualizando el estado de la orden o las notas, guardamos el estado actual como "anterior"
     if (data && (data.order_status !== undefined || data.shipping_notes !== undefined)) {
       try {
-        const existingOrder = await strapi.db.query("api::order.order").findOne({
-          where,
-          populate: ["users_permissions_users"]
-        });
+        const existingOrder = await strapi.db.query("api::order.order").findOne({ where });
         if (existingOrder) {
-          const userRelation = existingOrder.users_permissions_users;
-          const userId = Array.isArray(userRelation) && userRelation.length > 0 ? userRelation[0].id : null;
+          let userId = null;
+          if (existingOrder.whatsapp_id) {
+            const rawPhone = existingOrder.whatsapp_id.replace(/\D/g, "");
+            const dbUser = await strapi.db.query("plugin::users-permissions.user").findOne({
+              where: { whatsapp_id: rawPhone }
+            });
+            if (dbUser) {
+              userId = dbUser.id;
+            }
+          }
           
           event.state = {
             previousStatus: existingOrder.order_status,
