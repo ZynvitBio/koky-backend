@@ -1,5 +1,7 @@
 "use strict";
 
+const axios = require("axios");
+
 module.exports = {
   async beforeCreate(event) {
     const { data } = event.params;
@@ -8,6 +10,28 @@ module.exports = {
     if (!data.delivery_date) {
       data.delivery_date = calculateDeliveryDate(new Date());
       strapi.log.info(`[Lifecycle Order] Fecha de entrega calculada en beforeCreate: ${data.delivery_date}`);
+    }
+  },
+
+  async beforeUpdate(event) {
+    const { data, where } = event.params;
+    
+    // Si se está actualizando el estado de la orden o las notas, guardamos el estado actual como "anterior"
+    if (data && (data.order_status !== undefined || data.shipping_notes !== undefined)) {
+      try {
+        const existingOrder = await strapi.db.query("api::order.order").findOne({ where });
+        if (existingOrder) {
+          event.state = {
+            previousStatus: existingOrder.order_status,
+            whatsappId: existingOrder.whatsapp_id,
+            customerName: existingOrder.customer_name,
+            orderId: existingOrder.id,
+            shippingNotes: existingOrder.shipping_notes
+          };
+        }
+      } catch (err) {
+        strapi.log.error(`[Lifecycle Order] Error en beforeUpdate: ${err.message}`);
+      }
     }
   },
 
@@ -34,6 +58,43 @@ module.exports = {
         strapi.log.info(`[Lifecycle Order] Stock marcado como descontado para la orden ID: ${result.id}`);
       } catch (err) {
         strapi.log.error(`[Lifecycle Order] Error al descontar stock en afterUpdate: ${err.message}`);
+      }
+    }
+
+    // --- ENVÍO DE NOTIFICACIONES WHATSAPP POR CAMBIO DE ESTADO ---
+    if (state && data && data.order_status && data.order_status !== state.previousStatus) {
+      const newStatus = data.order_status;
+      const to = state.whatsappId;
+      const customerName = state.customerName || "Cliente";
+      const orderId = state.orderId;
+
+      if (to) {
+        const phone_number_id = process.env.ID_PHONE_WS || "1037050959491352";
+        const whatsapp_token = process.env.WHATSAPP_TOKEN;
+
+        if (whatsapp_token) {
+          try {
+            if (newStatus === "PREPARING") {
+              strapi.log.info(`[Lifecycle Order] Estado cambió a PREPARING. Enviando plantilla pedido_listo_cocina a ${to}...`);
+              await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_listo_cocina", [
+                { type: "text", text: customerName },
+                { type: "text", text: String(orderId) }
+              ]);
+            } else if (newStatus === "SHIPPED") {
+              const deliveryWindow = (data.shipping_notes !== undefined ? data.shipping_notes : (state.shippingNotes || "en el transcurso de la tarde")).trim();
+              strapi.log.info(`[Lifecycle Order] Estado cambió a SHIPPED. Enviando plantilla pedido_en_camino a ${to}...`);
+              await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_en_camino", [
+                { type: "text", text: customerName },
+                { type: "text", text: String(orderId) },
+                { type: "text", text: deliveryWindow }
+              ]);
+            }
+          } catch (wsErr) {
+            strapi.log.error(`[Lifecycle Order] Error enviando plantilla de WhatsApp: ${wsErr.message}`);
+          }
+        } else {
+          strapi.log.warn("[Lifecycle Order] WHATSAPP_TOKEN no configurado. Se omite envío de plantilla.");
+        }
       }
     }
   },
@@ -261,4 +322,39 @@ function getColombianHolidays(year) {
   holidays.add(addDaysStr(easter, 71)); // Sagrado Corazón
 
   return holidays;
+}
+
+async function sendWhatsAppTemplate(phone_number_id, token, to, templateName, bodyParameters) {
+  try {
+    await axios({
+      method: "POST",
+      url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+      data: {
+        messaging_product: "whatsapp",
+        to: to,
+        type: "template",
+        template: {
+          name: templateName,
+          language: { code: "es" },
+          components: [
+            {
+              type: "body",
+              parameters: bodyParameters
+            }
+          ]
+        }
+      },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
+    });
+    strapi.log.info(`[Lifecycle Order] Plantilla de WhatsApp ${templateName} enviada con éxito a ${to}.`);
+  } catch (err) {
+    strapi.log.error(
+      `[Lifecycle Order] Error en API de Meta al enviar plantilla ${templateName}:`,
+      err.response?.data || err.message
+    );
+    throw err;
+  }
 }
