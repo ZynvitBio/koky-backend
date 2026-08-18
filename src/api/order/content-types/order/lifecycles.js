@@ -131,41 +131,14 @@ module.exports = {
               const hour = parseInt(formatter.format(new Date()), 10);
               const greeting = hour < 12 ? "¡buenos días!" : "¡buenas tardes!";
 
-              strapi.log.info(`[Lifecycle Order] Estado cambió a READY. Enviando plantilla pedido_listo_cocina_v2 a ${to}...`);
-              
-              const addressText = result.shipping_address || "No registrada";
-              const notesText = result.shipping_notes || "Ninguna registrada";
-
-              const buttonParams = [
-                {
-                  type: "action",
-                  action: {
-                    flow_token: `edit_${orderId}_${Date.now()}`,
-                    flow_action_data: {
-                      flow_action: "navigate",
-                      navigate_screen: "EDIT_SCREEN",
-                      data: {
-                        order_id: String(orderId),
-                        customer_name: customerName,
-                        shipping_address: addressText,
-                        shipping_notes: notesText,
-                        items_summary: "",
-                        cart_total_text: ""
-                      }
-                    }
-                  }
-                }
-              ];
-
-              await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_listo_cocina_v2", [
+              strapi.log.info(`[Lifecycle Order] Estado cambió a READY. Enviando plantilla simple pedido_listo_cocina a ${to}...`);
+              await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_listo_cocina", [
                 { type: "text", text: customerName },
                 { type: "text", text: greeting },
-                { type: "text", text: String(orderId) },
-                { type: "text", text: addressText },
-                { type: "text", text: notesText }
-              ], buttonParams);
+                { type: "text", text: String(orderId) }
+              ]);
 
-              messageText = `¡Tu pedido está listo y fresco! 🥦\n\nHola ${customerName}, ${greeting} Queremos contarte que tu tofu artesanal ya está recién preparado y ha salido de nuestra cocina. 🧑‍🍳\n\nTu pedido #${orderId} será despachado en el transcurso de esta tarde.\n\nPor favor, verifica tus datos de entrega:\n📍 Dirección: ${addressText}\n🏢 Apto/Torre/Notas: ${notesText}\n\nSi tus datos están correctos, no debes hacer nada. Si necesitas corregir o agregar algún detalle de tu torre o apartamento, haz clic en el botón de abajo o responde a este mensaje. ¡Gracias por elegir lo fresco y natural!`;
+              messageText = `¡Tu pedido está listo y fresco! 🥦\n\nHola ${customerName}, ${greeting} Queremos contarte que tu tofu artesanal ya está recién preparado y ha salido de nuestra cocina. 🧑‍🍳\n\nTu pedido #${orderId} será despachado en el transcurso de esta tarde. Tan pronto como el conductor vaya en camino hacia tu dirección, te enviaremos un nuevo mensaje con la hora estimada de llegada para que puedas programarte para recibirlo.\n\n¡Gracias por elegir lo fresco y natural!`;
             } else if (newStatus === "SHIPPED") {
               const deliveryWindow = (data.shipping_notes !== undefined ? data.shipping_notes : (state.shippingNotes || "en el transcurso de la tarde")).trim();
               strapi.log.info(`[Lifecycle Order] Estado cambió a SHIPPED. Enviando plantilla pedido_en_camino a ${to}...`);
