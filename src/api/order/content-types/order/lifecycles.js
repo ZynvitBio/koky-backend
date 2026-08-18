@@ -142,10 +142,13 @@ module.exports = {
                   action: {
                     flow_token: `edit_${orderId}_${Date.now()}`,
                     flow_action_payload: {
-                      order_id: Number(orderId),
-                      customer_name: customerName,
-                      shipping_address: addressText,
-                      shipping_notes: notesText
+                      screen: "DELIVERY_SCREEN",
+                      data: {
+                        order_id: Number(orderId),
+                        customer_name: customerName,
+                        shipping_address: addressText,
+                        shipping_notes: notesText
+                      }
                     }
                   }
                 }
