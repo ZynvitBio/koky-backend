@@ -148,7 +148,9 @@ module.exports = {
                         order_id: String(orderId),
                         customer_name: customerName,
                         shipping_address: addressText,
-                        shipping_notes: notesText
+                        shipping_notes: notesText,
+                        items_summary: "",
+                        cart_total_text: ""
                       }
                     }
                   }
