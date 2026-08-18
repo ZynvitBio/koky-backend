@@ -41,6 +41,10 @@ ${products}
 4. **Cierre:** Explícale que una vez complete el pago en Wompi, el pedido entra a cocina esta noche y mañana mismo se lo entregamos. Le avisaremos en cuanto el repartidor esté en camino.
 
 ### ACLARACIONES SOBRE NUESTROS PRODUCTOS (CRUCIAL):
+- **Coagulación/Cuajado (Nigari):** Coagulamos nuestro tofu usando únicamente **sales minerales naturales (Nigari)**, siguiendo el método tradicional japonés. No usamos conservantes, aditivos químicos ni coagulantes industriales.
+- **Proceso Artesanal:** Molemos soya no transgénica seleccionada y prensamos a mano en moldes tradicionales. No usamos procesos mecánicos masivos.
+- **Elaboración y Despacho:** Producimos fresco cada noche bajo pedido, sale de cocina por la mañana y se entrega ese mismo día (del grano a tu plato en menos de 12 horas).
+- **Tip de Conservación (Hasta 6 días):** Debe mantenerse refrigerado sumergido en agua limpia dentro de un recipiente cerrado, cambiando el agua cada 2 días para que dure fresco hasta por 6 días.
 - **Tofu Blando (Tofu Fresco):** NO es una crema para untar ni una nata, y NO es solo para batidos. Es un tofu fresco, suave pero firme, que **se puede picar en cubos, cocinar, freír o saltear**. Al describirlo, enfócate en su versatilidad culinaria en platos tradicionales de tofu.
 - **Tofu Firme:** Ideal para asar, dorar a la plancha o airfryer.
 - **Tofu Ahumado:** Sabor ahumado artesanal de verdad.
@@ -105,6 +109,10 @@ Dado que por Instagram Direct no podemos procesar pagos ni tomar direcciones de 
 - **Métodos de Pago:** Recibimos Nequi, Daviplata, PSE y Tarjetas a través de Wompi. **No hay pago contra entrega.**
 
 ### ACLARACIONES SOBRE NUESTROS PRODUCTOS (CRUCIAL):
+- **Coagulación/Cuajado (Nigari):** Coagulamos nuestro tofu usando únicamente **sales minerales naturales (Nigari)**, siguiendo el método tradicional japonés. No usamos conservantes, aditivos químicos ni coagulantes industriales.
+- **Proceso Artesanal:** Molemos soya no transgénica seleccionada y prensamos a mano en moldes tradicionales. No usamos procesos mecánicos masivos.
+- **Elaboración y Despacho:** Producimos fresco cada noche bajo pedido, sale de cocina por la mañana y se entrega ese mismo día (del grano a tu plato en menos de 12 horas).
+- **Tip de Conservación (Hasta 6 días):** Debe mantenerse refrigerado sumergido en agua limpia dentro de un recipiente cerrado, cambiando el agua cada 2 días para que dure fresco hasta por 6 días.
 - **Tofu Blando (Tofu Fresco):** NO es una crema para untar ni una nata, y NO es solo para batidos. Es un tofu fresco, suave pero firme, que **se puede picar en cubos, cocinar, freír o saltear**. Al describirlo, enfócate en su versatilidad culinaria en platos tradicionales de tofu.
 - **Tofu Firme:** Ideal para asar, dorar a la plancha o airfryer.
 - **Tofu Ahumado:** Sabor ahumado artesanal de verdad.

@@ -131,14 +131,35 @@ module.exports = {
               const hour = parseInt(formatter.format(new Date()), 10);
               const greeting = hour < 12 ? "¡buenos días!" : "¡buenas tardes!";
 
-              strapi.log.info(`[Lifecycle Order] Estado cambió a READY. Enviando plantilla pedido_listo_cocina a ${to}...`);
-              await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_listo_cocina", [
+              strapi.log.info(`[Lifecycle Order] Estado cambió a READY. Enviando plantilla pedido_listo_cocina_v2 a ${to}...`);
+              
+              const addressText = result.shipping_address || "No registrada";
+              const notesText = result.shipping_notes || "Ninguna registrada";
+
+              const buttonParams = [
+                {
+                  type: "action",
+                  action: {
+                    flow_token: `edit_${orderId}_${Date.now()}`,
+                    flow_action_payload: {
+                      order_id: Number(orderId),
+                      customer_name: customerName,
+                      shipping_address: addressText,
+                      shipping_notes: notesText
+                    }
+                  }
+                }
+              ];
+
+              await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_listo_cocina_v2", [
                 { type: "text", text: customerName },
                 { type: "text", text: greeting },
-                { type: "text", text: String(orderId) }
-              ]);
+                { type: "text", text: String(orderId) },
+                { type: "text", text: addressText },
+                { type: "text", text: notesText }
+              ], buttonParams);
 
-              messageText = `¡Tu pedido está listo y fresco! 🥦\n\nHola ${customerName}, ${greeting} Queremos contarte que tu tofu artesanal ya está recién preparado y ha salido de nuestra cocina. 🧑‍🍳\n\nTu pedido #${orderId} será despachado en el transcurso de esta tarde. Tan pronto como el conductor vaya en camino hacia tu dirección, te enviaremos un nuevo mensaje con la hora estimada de llegada para que puedas programarte para recibirlo.\n\n¡Gracias por elegir lo fresco y natural!`;
+              messageText = `¡Tu pedido está listo y fresco! 🥦\n\nHola ${customerName}, ${greeting} Queremos contarte que tu tofu artesanal ya está recién preparado y ha salido de nuestra cocina. 🧑‍🍳\n\nTu pedido #${orderId} será despachado en el transcurso de esta tarde.\n\nPor favor, verifica tus datos de entrega:\n📍 Dirección: ${addressText}\n🏢 Apto/Torre/Notas: ${notesText}\n\nSi tus datos están correctos, no debes hacer nada. Si necesitas corregir o agregar algún detalle de tu torre o apartamento, haz clic en el botón de abajo o responde a este mensaje. ¡Gracias por elegir lo fresco y natural!`;
             } else if (newStatus === "SHIPPED") {
               const deliveryWindow = (data.shipping_notes !== undefined ? data.shipping_notes : (state.shippingNotes || "en el transcurso de la tarde")).trim();
               strapi.log.info(`[Lifecycle Order] Estado cambió a SHIPPED. Enviando plantilla pedido_en_camino a ${to}...`);
@@ -408,8 +429,24 @@ function getColombianHolidays(year) {
   return holidays;
 }
 
-async function sendWhatsAppTemplate(phone_number_id, token, to, templateName, bodyParameters) {
+async function sendWhatsAppTemplate(phone_number_id, token, to, templateName, bodyParameters, buttonParameters = null) {
   try {
+    const components = [
+      {
+        type: "body",
+        parameters: bodyParameters
+      }
+    ];
+
+    if (buttonParameters) {
+      components.push({
+        type: "button",
+        sub_type: "flow",
+        index: 0,
+        parameters: buttonParameters
+      });
+    }
+
     await axios({
       method: "POST",
       url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
@@ -420,12 +457,7 @@ async function sendWhatsAppTemplate(phone_number_id, token, to, templateName, bo
         template: {
           name: templateName,
           language: { code: "es_CO" },
-          components: [
-            {
-              type: "body",
-              parameters: bodyParameters
-            }
-          ]
+          components: components
         }
       },
       headers: {

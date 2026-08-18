@@ -802,6 +802,10 @@ export interface ApiOrderOrder extends Struct.CollectionTypeSchema {
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::order.order'> &
       Schema.Attribute.Private;
+    order_status: Schema.Attribute.Enumeration<
+      ['PENDING', 'PREPARING', 'READY', 'SHIPPED', 'DELIVERED', 'CANCELLED']
+    > &
+      Schema.Attribute.DefaultTo<'PENDING'>;
     payment_method: Schema.Attribute.String;
     payment_status: Schema.Attribute.Enumeration<
       ['PENDING', 'APPROVED', 'DECLINED', 'ERROR']

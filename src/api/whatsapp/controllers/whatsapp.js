@@ -28,6 +28,29 @@ const model = genAI.getGenerativeModel(
 // Set en memoria para deduplicar mensajes de webhook de WhatsApp y evitar respuestas múltiples
 const processedMessageIds = new Set();
 
+// Mapa de localidades urbanas de Bogotá con tarifas de envío de la web ajustadas (+1,300 COP) y coordenadas aproximadas
+const LOCALIDADES_BOGOTA = {
+  "1": { name: "Usaquén", price: 7300, lat: 4.7214, lon: -74.0253 },
+  "2": { name: "Suba", price: 6300, lat: 4.7431, lon: -74.0886 },
+  "3": { name: "Chapinero", price: 9800, lat: 4.6465, lon: -74.0612 },
+  "4": { name: "Teusaquillo", price: 9800, lat: 4.6397, lon: -74.0841 },
+  "5": { name: "Barrios Unidos", price: 8800, lat: 4.6685, lon: -74.0753 },
+  "6": { name: "Engativá", price: 8800, lat: 4.7003, lon: -74.1166 },
+  "7": { name: "Fontibón", price: 10800, lat: 4.6757, lon: -74.1376 },
+  "8": { name: "Kennedy", price: 13300, lat: 4.6231, lon: -74.1486 },
+  "9": { name: "Puente Aranda", price: 10800, lat: 4.6166, lon: -74.1167 },
+  "10": { name: "Santa Fe", price: 12300, lat: 4.6067, lon: -74.0712 },
+  "11": { name: "La Candelaria", price: 12300, lat: 4.5956, lon: -74.0736 },
+  "12": { name: "Los Mártires", price: 11300, lat: 4.6061, lon: -74.0906 },
+  "13": { name: "Antonio Nariño", price: 13300, lat: 4.5912, lon: -74.0991 },
+  "14": { name: "Tunjuelito", price: 14300, lat: 4.5778, lon: -74.1353 },
+  "15": { name: "Bosa", price: 15300, lat: 4.6146, lon: -74.1953 },
+  "16": { name: "Rafael Uribe Uribe", price: 15300, lat: 4.5663, lon: -74.1105 },
+  "17": { name: "San Cristóbal", price: 16300, lat: 4.5728, lon: -74.0864 },
+  "18": { name: "Ciudad Bolívar", price: 16300, lat: 4.5593, lon: -74.1472 },
+  "19": { name: "Usme", price: 19300, lat: 4.4716, lon: -74.1105 }
+};
+
 function getExtensionFromMime(mimeType) {
   const map = {
     "image/jpeg": ".jpg",
@@ -1235,6 +1258,52 @@ module.exports = {
               try {
                 const responseData = JSON.parse(flowReply.response_json);
                 console.log("📥 Flow Response Data:", responseData);
+
+                // --- PROCESAR RESPUESTA DE EDICIÓN DE DIRECCIÓN / APARTAMENTO ---
+                if (responseData.order_id || responseData.flow_type === "edit_address_details") {
+                  const orderId = responseData.order_id;
+                  const newNotes = responseData.shipping_notes || "";
+                  const newAddress = responseData.shipping_address || "";
+
+                  // Buscar la orden en la base de datos de Strapi
+                  const order = await strapi.entityService.findOne("api::order.order", orderId);
+                  if (order) {
+                    await strapi.entityService.update("api::order.order", order.id, {
+                      data: {
+                        shipping_notes: newNotes || order.shipping_notes,
+                        shipping_address: newAddress || order.shipping_address
+                      }
+                    });
+
+                    // Enviar confirmación al cliente por WhatsApp
+                    const confirmMsg = `✅ *¡Datos actualizados con éxito!*\n\nHemos actualizado tus detalles de entrega para la orden *#${orderId}*:\n\n📍 *Dirección:* ${newAddress || order.shipping_address}\n🏢 *Notas/Apto:* ${newNotes || "Ninguno"}\n\nTu pedido sigue su curso normal. ¡Gracias!`;
+                    await this.sendWhatsAppMessage(phone_number_id, from, confirmMsg);
+
+                    // Registrar en la colección de chats para la bandeja omnicanal
+                    await strapi.entityService.create("api::chat.chat", {
+                      data: {
+                        sender: "Kira",
+                        message: confirmMsg,
+                        timestamp: new Date(),
+                        publishedAt: new Date(),
+                        users_permissions_user: user.id
+                      }
+                    });
+
+                    // Emitir actualización por websocket para refrescar la vista al operador al instante
+                    if (strapi.io) {
+                      strapi.io.emit("new_chat_message", {
+                        sender: "Kira",
+                        message: confirmMsg,
+                        timestamp: new Date(),
+                        whatsapp_id: from
+                      });
+                    }
+                  } else {
+                    console.error(`❌ Orden #${orderId} no encontrada al procesar Flow de edición.`);
+                  }
+                  return;
+                }
                 
                 const name = responseData.customer_name || waName;
                 const address = responseData.shipping_address;
@@ -1266,10 +1335,50 @@ module.exports = {
                 }
 
                 if (!isAddressReal) {
-                  // Informar de error y reenviar Flow
-                  const errorMsg = `❌ No logramos ubicar la dirección *"${address}"*. Por favor, abre de nuevo el formulario e ingresa una dirección completa con calle y número.`;
-                  await this.sendWhatsAppMessage(phone_number_id, from, errorMsg);
-                  await this.sendDeliveryFlow(phone_number_id, from, activeCart.listText, activeCart.subtotal);
+                  // Activar flujo de tolerancia por localidad
+                  user.kira_score.checkout_state = "AWAITING_LOCALITY";
+                  user.kira_score.temp_checkout = {
+                    customer_name: name,
+                    shipping_address: address, // Conservamos la dirección tal cual la escribió
+                    shipping_notes: notes,
+                    latitude: 4.6976, // Ubicación temporal de Bogotá Centro
+                    longitude: -74.0617,
+                    manual_address: true,
+                    active_cart: {
+                      items: activeCart.items,
+                      subtotal: activeCart.subtotal,
+                      listText: activeCart.listText
+                    }
+                  };
+                  
+                  await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                    data: { kira_score: user.kira_score }
+                  });
+
+                  const localityMsg = `📍 *Por favor indícanos a qué localidad pertenece tu dirección seleccionando el número correspondiente:*\n\n` +
+                    `1. *Usaquén*\n` +
+                    `2. *Suba*\n` +
+                    `3. *Chapinero*\n` +
+                    `4. *Teusaquillo*\n` +
+                    `5. *Barrios Unidos*\n` +
+                    `6. *Engativá*\n` +
+                    `7. *Fontibón*\n` +
+                    `8. *Kennedy*\n` +
+                    `9. *Puente Aranda*\n` +
+                    `10. *Santa Fe*\n` +
+                    `11. *La Candelaria*\n` +
+                    `12. *Los Mártires*\n` +
+                    `13. *Antonio Nariño*\n` +
+                    `14. *Tunjuelito*\n` +
+                    `15. *Bosa*\n` +
+                    `16. *Rafael Uribe Uribe*\n` +
+                    `17. *San Cristóbal*\n` +
+                    `18. *Ciudad Bolívar*\n` +
+                    `19. *Usme*`;
+                  
+                  await this.sendWhatsAppMessage(phone_number_id, from, localityMsg);
+                  systemInteractiveResponse = `📍 Dirección no geocodificada. Preguntando localidad al usuario en chat.`;
+                  isSystemInteractive = true;
                   return;
                 }
 
@@ -1322,7 +1431,73 @@ module.exports = {
               if (!skipStateMachine && user.kira_score && user.kira_score.checkout_state) {
                 const checkoutState = user.kira_score.checkout_state;
 
-                if (checkoutState === "AWAITING_ADDRESS_SELECTION") {
+                if (checkoutState === "AWAITING_LOCALITY") {
+                  let selectedLocality = null;
+                  const numInput = msgText.trim();
+                  
+                  // 1. Validar si es una opción por número
+                  if (LOCALIDADES_BOGOTA[numInput]) {
+                    selectedLocality = LOCALIDADES_BOGOTA[numInput];
+                  } else {
+                    // 2. Intentar buscar coincidencia aproximada por texto
+                    const cleanText = msgText.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                    for (const key in LOCALIDADES_BOGOTA) {
+                      const locName = LOCALIDADES_BOGOTA[key].name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                      if (cleanText.includes(locName) || locName.includes(cleanText)) {
+                        selectedLocality = LOCALIDADES_BOGOTA[key];
+                        break;
+                      }
+                    }
+                  }
+
+                  if (!selectedLocality) {
+                    const errorMsg = `❌ No logramos reconocer la localidad que ingresaste. Por favor, escribe únicamente el NÚMERO (1 al 19) de tu localidad del listado anterior.`;
+                    await this.sendWhatsAppMessage(phone_number_id, from, errorMsg);
+                    return;
+                  }
+
+                  const temp = user.kira_score.temp_checkout;
+                  if (!temp) {
+                    throw new Error("No se encontraron detalles temporales del checkout.");
+                  }
+
+                  // Guardar datos de la localidad en el checkout temporal
+                  temp.latitude = selectedLocality.lat;
+                  temp.longitude = selectedLocality.lon;
+                  temp.delivery_cost = selectedLocality.price;
+                  temp.manual_address = true;
+                  temp.locality_name = selectedLocality.name;
+                  user.kira_score.temp_checkout = temp;
+
+                  // Formatear dirección para confirmación
+                  const formattedAddress = `${temp.shipping_address} (${selectedLocality.name})`;
+                  const confirmMsg = `📍 Dirección registrada: *${formattedAddress}*\nTarifa fija de envío: *$${selectedLocality.price.toLocaleString()} COP*`;
+                  
+                  const cleanAddress = temp.shipping_address.toLowerCase();
+                  const hasApartmentInfo = /\b(apt|apto|apartamento|dep|depto|casa\s*\d+|casa\s*[a-z])\b/i.test(cleanAddress);
+
+                  if (hasApartmentInfo) {
+                    user.kira_score.checkout_state = "AWAITING_SIMPLE_CONFIRMATION";
+                    await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                      data: { kira_score: user.kira_score }
+                    });
+                    
+                    await this.sendWhatsAppMessage(phone_number_id, from, confirmMsg);
+                    await this.sendHousingConfirmation(phone_number_id, from, formattedAddress, true);
+                  } else {
+                    user.kira_score.checkout_state = "AWAITING_HOUSING_TYPE";
+                    await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                      data: { kira_score: user.kira_score }
+                    });
+                    
+                    await this.sendWhatsAppMessage(phone_number_id, from, confirmMsg);
+                    await this.sendHousingConfirmation(phone_number_id, from, formattedAddress, false);
+                  }
+
+                  systemInteractiveResponse = `📍 Localidad seleccionada: ${selectedLocality.name}. Preguntando tipo de vivienda.`;
+                  isSystemInteractive = true;
+                  return;
+                } else if (checkoutState === "AWAITING_ADDRESS_SELECTION") {
                   if (msgText.includes("nueva") || msgText.includes("otra") || msgText.includes("cambiar")) {
                     const flowId = process.env.WHATSAPP_FLOW_ID;
                     const activeCart = user.kira_score.active_cart;
@@ -1575,24 +1750,30 @@ module.exports = {
                       throw new Error("No se encontraron detalles temporales del checkout.");
                     }
 
-                    let deliveryCost = 10000;
-                    try {
-                      const cabifyResult = await strapi
-                        .service("api::cabify-delivery.cabify-delivery")
-                        .getPriceEstimate({
-                          dropoff_location: { lat: temp.latitude, lon: temp.longitude },
-                          dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
-                          weight: { value: 1000, unit: "g" },
-                        });
-                      if (cabifyResult?.deliveries?.[0]?.estimation?.price?.amount) {
-                        deliveryCost = cabifyResult.deliveries[0].estimation.price.amount;
+                    let deliveryCost = temp.manual_address ? (temp.delivery_cost || 9300) : 10000;
+                    if (!temp.manual_address) {
+                      try {
+                        const cabifyResult = await strapi
+                          .service("api::cabify-delivery.cabify-delivery")
+                          .getPriceEstimate({
+                            dropoff_location: { lat: temp.latitude, lon: temp.longitude },
+                            dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
+                            weight: { value: 1000, unit: "g" },
+                          });
+                        if (cabifyResult?.deliveries?.[0]?.estimation?.price?.amount) {
+                          deliveryCost = cabifyResult.deliveries[0].estimation.price.amount;
+                        }
+                      } catch (cabifyErr) {
+                        console.error("❌ Error consultando Cabify:", cabifyErr.message);
                       }
-                    } catch (cabifyErr) {
-                      console.error("❌ Error consultando Cabify:", cabifyErr.message);
                     }
 
                     const totalAmount = temp.active_cart.subtotal + deliveryCost;
                     const ref = `WA_${Date.now()}`;
+
+                    const shippingNotes = temp.manual_address 
+                      ? `[Dirección manual - Localidad: ${temp.locality_name || "Desconocida"}] ${temp.shipping_notes || ""}` 
+                      : (temp.shipping_notes || "");
 
                     const newOrder = await strapi.entityService.create("api::order.order", {
                       data: {
@@ -1606,7 +1787,7 @@ module.exports = {
                         shipping_address: temp.shipping_address,
                         shipping_latitude: Number(temp.latitude),
                         shipping_longitude: Number(temp.longitude),
-                        shipping_notes: temp.shipping_notes || "",
+                        shipping_notes: shippingNotes,
                         users_permissions_users: [user.id],
                         publishedAt: new Date()
                       }
@@ -1664,24 +1845,30 @@ module.exports = {
                       throw new Error("No se encontraron detalles temporales del checkout.");
                     }
 
-                    let deliveryCost = 10000;
-                    try {
-                      const cabifyResult = await strapi
-                        .service("api::cabify-delivery.cabify-delivery")
-                        .getPriceEstimate({
-                          dropoff_location: { lat: temp.latitude, lon: temp.longitude },
-                          dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
-                          weight: { value: 1000, unit: "g" },
-                        });
-                      if (cabifyResult?.deliveries?.[0]?.estimation?.price?.amount) {
-                        deliveryCost = cabifyResult.deliveries[0].estimation.price.amount;
+                    let deliveryCost = temp.manual_address ? (temp.delivery_cost || 9300) : 10000;
+                    if (!temp.manual_address) {
+                      try {
+                        const cabifyResult = await strapi
+                          .service("api::cabify-delivery.cabify-delivery")
+                          .getPriceEstimate({
+                            dropoff_location: { lat: temp.latitude, lon: temp.longitude },
+                            dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
+                            weight: { value: 1000, unit: "g" },
+                          });
+                        if (cabifyResult?.deliveries?.[0]?.estimation?.price?.amount) {
+                          deliveryCost = cabifyResult.deliveries[0].estimation.price.amount;
+                        }
+                      } catch (cabifyErr) {
+                        console.error("❌ Error consultando Cabify:", cabifyErr.message);
                       }
-                    } catch (cabifyErr) {
-                      console.error("❌ Error consultando Cabify:", cabifyErr.message);
                     }
 
                     const totalAmount = temp.active_cart.subtotal + deliveryCost;
                     const ref = `WA_${Date.now()}`;
+
+                    const shippingNotes = temp.manual_address 
+                      ? `[Dirección manual - Localidad: ${temp.locality_name || "Desconocida"}] ${temp.shipping_notes || ""}` 
+                      : (temp.shipping_notes || "");
 
                     const newOrder = await strapi.entityService.create("api::order.order", {
                       data: {
@@ -1695,7 +1882,7 @@ module.exports = {
                         shipping_address: temp.shipping_address,
                         shipping_latitude: Number(temp.latitude),
                         shipping_longitude: Number(temp.longitude),
-                        shipping_notes: temp.shipping_notes || "",
+                        shipping_notes: shippingNotes,
                         users_permissions_users: [user.id],
                         publishedAt: new Date()
                       }
@@ -1765,24 +1952,29 @@ module.exports = {
                   }
 
                   const apartmentDetails = rawText.trim();
-                  const finalNotes = temp.shipping_notes 
+                  let finalNotes = temp.shipping_notes 
                     ? `${temp.shipping_notes} | Apto/Torre: ${apartmentDetails}`
                     : `Apto/Torre: ${apartmentDetails}`;
+                  if (temp.manual_address) {
+                    finalNotes = `[Dirección manual - Localidad: ${temp.locality_name || "Desconocida"}] ${finalNotes}`;
+                  }
 
-                  let deliveryCost = 10000;
-                  try {
-                    const cabifyResult = await strapi
-                      .service("api::cabify-delivery.cabify-delivery")
-                      .getPriceEstimate({
-                        dropoff_location: { lat: temp.latitude, lon: temp.longitude },
-                        dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
-                        weight: { value: 1000, unit: "g" },
-                      });
-                    if (cabifyResult?.deliveries?.[0]?.estimation?.price?.amount) {
-                      deliveryCost = cabifyResult.deliveries[0].estimation.price.amount;
+                  let deliveryCost = temp.manual_address ? (temp.delivery_cost || 9300) : 10000;
+                  if (!temp.manual_address) {
+                    try {
+                      const cabifyResult = await strapi
+                        .service("api::cabify-delivery.cabify-delivery")
+                        .getPriceEstimate({
+                          dropoff_location: { lat: temp.latitude, lon: temp.longitude },
+                          dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
+                          weight: { value: 1000, unit: "g" },
+                        });
+                      if (cabifyResult?.deliveries?.[0]?.estimation?.price?.amount) {
+                        deliveryCost = cabifyResult.deliveries[0].estimation.price.amount;
+                      }
+                    } catch (cabifyErr) {
+                      console.error("❌ Error consultando Cabify:", cabifyErr.message);
                     }
-                  } catch (cabifyErr) {
-                    console.error("❌ Error consultando Cabify:", cabifyErr.message);
                   }
 
                   const totalAmount = temp.active_cart.subtotal + deliveryCost;
