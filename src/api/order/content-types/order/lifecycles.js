@@ -74,112 +74,116 @@ module.exports = {
   },
 
   async afterUpdate(event) {
-    const { result, params, state } = event;
-    const { data } = params;
+    try {
+      const { result, params, state } = event;
+      const { data } = params;
 
-    // Detectamos si el campo cabify_parcel_id está siendo actualizado y el stock no se ha descontado aún
-    if (data && data.cabify_parcel_id && result && result.cabify_parcel_id && !result.stock_deducted) {
-      try {
-        strapi.log.info(`[Lifecycle Order] Descontando stock para la orden ID: ${result.id}`);
-        await deductOrderStock(result);
+      // Detectamos si el campo cabify_parcel_id está siendo actualizado y el stock no se ha descontado aún
+      if (data && data.cabify_parcel_id && result && result.cabify_parcel_id && !result.stock_deducted) {
+        try {
+          strapi.log.info(`[Lifecycle Order] Descontando stock para la orden ID: ${result.id}`);
+          await deductOrderStock(result);
 
-        // Marcamos la orden con stock_deducted = true para no repetir el proceso
-        await strapi.documents("api::order.order").update({
-          documentId: result.documentId,
-          data: {
-            stock_deducted: true,
-          },
-        });
-        await strapi.documents("api::order.order").publish({
-          documentId: result.documentId,
-        });
-        strapi.log.info(`[Lifecycle Order] Stock marcado como descontado para la orden ID: ${result.id}`);
-      } catch (err) {
-        strapi.log.error(`[Lifecycle Order] Error al descontar stock en afterUpdate: ${err.message}`);
-      }
-    }
-
-    // --- ENVÍO DE NOTIFICACIONES WHATSAPP POR CAMBIO DE ESTADO ---
-    if (state && data && data.order_status && data.order_status !== state.previousStatus) {
-      const newStatus = data.order_status;
-      const to = state.whatsappId ? state.whatsappId.replace(/\D/g, "") : null;
-      const customerName = state.customerName || "Cliente";
-      const orderId = state.orderId;
-
-      if (to) {
-        const phone_number_id = process.env.ID_PHONE_WS || "1037050959491352";
-        const whatsapp_token = process.env.WHATSAPP_TOKEN;
-
-        if (whatsapp_token) {
-          try {
-            let messageText = "";
-            if (newStatus === "PREPARING") {
-              strapi.log.info(`[Lifecycle Order] Estado cambió a PREPARING. Enviando plantilla pedido_en_cocina a ${to}...`);
-              await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_en_cocina", [
-                { type: "text", text: customerName },
-                { type: "text", text: String(orderId) }
-              ]);
-
-              messageText = `👨‍🍳 ¡Tu pedido va rumbo a la cocina!\n\nHola ${customerName}, ¡esperamos que estés muy bien!\n\nQueremos confirmarte que hemos cerrado nuestra lista de pedidos de hoy y tu orden #${orderId} ya se encuentra en manos de nuestros artesanos en la cocina para ser preparada fresca esta noche. 🥣\n\nMañana por la mañana te avisaremos apenas salga de la cocina y se programe su despacho. ¡Gracias por apoyar lo artesanal!`;
-            } else if (newStatus === "READY") {
-              // Calcular saludo según la hora de Bogotá (UTC-5)
-              const formatter = new Intl.DateTimeFormat("en-US", {
-                timeZone: "America/Bogota",
-                hour: "numeric",
-                hour12: false
-              });
-              const hour = parseInt(formatter.format(new Date()), 10);
-              const greeting = hour < 12 ? "¡buenos días!" : "¡buenas tardes!";
-
-              strapi.log.info(`[Lifecycle Order] Estado cambió a READY. Enviando plantilla simple pedido_listo_cocina a ${to}...`);
-              await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_listo_cocina", [
-                { type: "text", text: customerName },
-                { type: "text", text: greeting },
-                { type: "text", text: String(orderId) }
-              ]);
-
-              messageText = `¡Tu pedido está listo y fresco! 🥦\n\nHola ${customerName}, ${greeting} Queremos contarte que tu tofu artesanal ya está recién preparado y ha salido de nuestra cocina. 🧑‍🍳\n\nTu pedido #${orderId} será despachado en el transcurso de esta tarde. Tan pronto como el conductor vaya en camino hacia tu dirección, te enviaremos un nuevo mensaje con la hora estimada de llegada para que puedas programarte para recibirlo.\n\n¡Gracias por elegir lo fresco y natural!`;
-            } else if (newStatus === "SHIPPED") {
-              const deliveryWindow = (data.shipping_notes !== undefined ? data.shipping_notes : (state.shippingNotes || "en el transcurso de la tarde")).trim();
-              strapi.log.info(`[Lifecycle Order] Estado cambió a SHIPPED. Enviando plantilla pedido_en_camino a ${to}...`);
-              await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_en_camino", [
-                { type: "text", text: customerName },
-                { type: "text", text: String(orderId) },
-                { type: "text", text: deliveryWindow }
-              ]);
-
-              messageText = `🛵 Pedido en Camino\n\nHola ${customerName}, ¡tu pedido de Koky Food ya va en camino hacia tu dirección! 🚀\n\nTu entrega #${orderId} llegará aproximadamente ${deliveryWindow}.\n\n*Recomendación:* Recuerda que nuestro tofu es artesanal y fresco, por lo que te sugerimos refrigerarlo tan pronto como lo recibas para conservar su frescura intacta. 🧊\n\nSi tienes alguna duda o necesitas dar indicaciones adicionales al conductor, puedes responder directamente a este mensaje.`;
-            }
-
-            // Guardar registro en la base de datos de chat si se envió el mensaje
-            if (messageText) {
-              await strapi.entityService.create("api::chat.chat", {
-                data: {
-                  sender: "Kira",
-                  message: messageText,
-                  timestamp: new Date(),
-                  publishedAt: new Date(),
-                  users_permissions_user: state.userId
-                }
-              });
-
-              // Emitir WebSocket en vivo para actualizar la Bandeja Omnicanal de inmediato
-              if (strapi.io) {
-                strapi.io.emit("new_chat_message", {
-                  sender: "Kira",
-                  message: messageText,
-                  timestamp: new Date(),
-                  whatsapp_id: to
-                });
-              }
-            }
-          } catch (wsErr) {
-            strapi.log.error(`[Lifecycle Order] Error enviando plantilla de WhatsApp: ${wsErr.message}`);
-          }
-        } else {
-          strapi.log.warn("[Lifecycle Order] WHATSAPP_TOKEN no configurado. Se omite envío de plantilla.");
+          // Marcamos la orden con stock_deducted = true para no repetir el proceso
+          await strapi.documents("api::order.order").update({
+            documentId: result.documentId,
+            data: {
+              stock_deducted: true,
+            },
+          });
+          await strapi.documents("api::order.order").publish({
+            documentId: result.documentId,
+          });
+          strapi.log.info(`[Lifecycle Order] Stock marcado como descontado para la orden ID: ${result.id}`);
+        } catch (err) {
+          strapi.log.error(`[Lifecycle Order] Error al descontar stock en afterUpdate: ${err.message}`);
         }
       }
+
+      // --- ENVÍO DE NOTIFICACIONES WHATSAPP POR CAMBIO DE ESTADO ---
+      if (state && data && data.order_status && data.order_status !== state.previousStatus) {
+        const newStatus = data.order_status;
+        const to = state.whatsappId ? state.whatsappId.replace(/\D/g, "") : null;
+        const customerName = state.customerName || "Cliente";
+        const orderId = state.orderId;
+
+        if (to) {
+          const phone_number_id = process.env.ID_PHONE_WS || "1037050959491352";
+          const whatsapp_token = process.env.WHATSAPP_TOKEN;
+
+          if (whatsapp_token) {
+            try {
+              let messageText = "";
+              if (newStatus === "PREPARING") {
+                strapi.log.info(`[Lifecycle Order] Estado cambió a PREPARING. Enviando plantilla pedido_en_cocina a ${to}...`);
+                await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_en_cocina", [
+                  { type: "text", text: customerName },
+                  { type: "text", text: String(orderId) }
+                ]);
+
+                messageText = `👨‍🍳 ¡Tu pedido va rumbo a la cocina!\n\nHola ${customerName}, ¡esperamos que estés muy bien!\n\nQueremos confirmarte que hemos cerrado nuestra lista de pedidos de hoy y tu orden #${orderId} ya se encuentra en manos de nuestros artesanos en la cocina para ser preparada fresca esta noche. 🥣\n\nMañana por la mañana te avisaremos apenas salga de la cocina y se programe su despacho. ¡Gracias por apoyar lo artesanal!`;
+              } else if (newStatus === "READY") {
+                // Calcular saludo según la hora de Bogotá (UTC-5)
+                const formatter = new Intl.DateTimeFormat("en-US", {
+                  timeZone: "America/Bogota",
+                  hour: "numeric",
+                  hour12: false
+                });
+                const hour = parseInt(formatter.format(new Date()), 10);
+                const greeting = hour < 12 ? "¡buenos días!" : "¡buenas tardes!";
+
+                strapi.log.info(`[Lifecycle Order] Estado cambió a READY. Enviando plantilla simple pedido_listo_cocina a ${to}...`);
+                await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_listo_cocina", [
+                  { type: "text", text: customerName },
+                  { type: "text", text: greeting },
+                  { type: "text", text: String(orderId) }
+                ]);
+
+                messageText = `¡Tu pedido está listo y fresco! 🥦\n\nHola ${customerName}, ${greeting} Queremos contarte que tu tofu artesanal ya está recién preparado y ha salido de nuestra cocina. 🧑‍🍳\n\nTu pedido #${orderId} será despachado en el transcurso de esta tarde. Tan pronto como el conductor vaya en camino hacia tu dirección, te enviaremos un nuevo mensaje con la hora estimada de llegada para que puedas programarte para recibirlo.\n\n¡Gracias por elegir lo fresco y natural!`;
+              } else if (newStatus === "SHIPPED") {
+                const deliveryWindow = (data.shipping_notes !== undefined ? data.shipping_notes : (state.shippingNotes || "en el transcurso de la tarde")).trim();
+                strapi.log.info(`[Lifecycle Order] Estado cambió a SHIPPED. Enviando plantilla pedido_en_camino a ${to}...`);
+                await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_en_camino", [
+                  { type: "text", text: customerName },
+                  { type: "text", text: String(orderId) },
+                  { type: "text", text: deliveryWindow }
+                ]);
+
+                messageText = `🛵 Pedido en Camino\n\nHola ${customerName}, ¡tu pedido de Koky Food ya va en camino hacia tu dirección! 🚀\n\nTu entrega #${orderId} llegará aproximadamente ${deliveryWindow}.\n\n*Recomendación:* Recuerda que nuestro tofu es artesanal y fresco, por lo que te sugerimos refrigerarlo tan pronto como lo recibas para conservar su frescura intacta. 🧊\n\nSi tienes alguna duda o necesitas dar indicaciones adicionales al conductor, puedes responder directamente a este mensaje.`;
+              }
+
+              // Guardar registro en la base de datos de chat si se envió el mensaje
+              if (messageText) {
+                await strapi.entityService.create("api::chat.chat", {
+                  data: {
+                    sender: "Kira",
+                    message: messageText,
+                    timestamp: new Date(),
+                    publishedAt: new Date(),
+                    users_permissions_user: state.userId
+                  }
+                });
+
+                // Emitir WebSocket en vivo para actualizar la Bandeja Omnicanal de inmediato
+                if (strapi.io) {
+                  strapi.io.emit("new_chat_message", {
+                    sender: "Kira",
+                    message: messageText,
+                    timestamp: new Date(),
+                    whatsapp_id: to
+                  });
+                }
+              }
+            } catch (wsErr) {
+              strapi.log.error(`[Lifecycle Order] Error enviando plantilla de WhatsApp: ${wsErr.message}`);
+            }
+          } else {
+            strapi.log.warn("[Lifecycle Order] WHATSAPP_TOKEN no configurado. Se omite envío de plantilla.");
+          }
+        }
+      }
+    } catch (globalErr) {
+      strapi.log.error(`[Lifecycle Order Global Error] Error en afterUpdate: ${globalErr.message}`);
     }
   },
 
