@@ -143,7 +143,7 @@ module.exports = {
                     flow_token: `edit_${orderId}_${Date.now()}`,
                     flow_action_data: {
                       flow_action: "navigate",
-                      navigate_screen: "DELIVERY_SCREEN",
+                      navigate_screen: "EDIT_SCREEN",
                       data: {
                         order_id: String(orderId),
                         customer_name: customerName,
