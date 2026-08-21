@@ -469,8 +469,8 @@ function isWithinSupportHours() {
 function getTransferMessage() {
   const withinHours = isWithinSupportHours();
   return withinHours
-    ? `Entendido. He pausado mis respuestas automáticas. Un compañero del equipo de carne y hueso revisará este chat muy pronto para ayudarte directamente. ¡Gracias por tu paciencia! 🥦`
-    : `Entendido. He pausado mis respuestas automáticas. Ten en cuenta que nuestro equipo de soporte humano está disponible de lunes a viernes de 8:00 AM a 6:00 PM y sábados de 9:00 AM a 1:00 PM (domingos y festivos no tenemos soporte en vivo). Apenas nuestro equipo regrese, un compañero revisará tu mensaje. ¡Gracias por tu paciencia! 🥦`;
+    ? `¡Listo! Para darte la mejor respuesta, un compañero de nuestro equipo de carne y hueso revisará este chat de inmediato para ayudarte directamente. ¡Gracias por tu paciencia! 🥦`
+    : `¡Listo! Para darte la mejor respuesta, un compañero de nuestro equipo revisará tu mensaje. Nuestro horario de atención habitual es de lunes a viernes de 8:00 AM a 6:00 PM y sábados de 9:00 AM a 1:00 PM. Fuera de este horario, intentamos responderte lo antes posible si hay disponibilidad; de lo contrario, te responderemos a primera hora del siguiente día hábil. ¡Gracias por tu paciencia! 🥦`;
 }
 
 function shouldTakeoverHuman(msgText) {
