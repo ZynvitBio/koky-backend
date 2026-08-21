@@ -28,27 +28,27 @@ const model = genAI.getGenerativeModel(
 // Set en memoria para deduplicar mensajes de webhook de WhatsApp y evitar respuestas múltiples
 const processedMessageIds = new Set();
 
-// Mapa de localidades urbanas de Bogotá con tarifas de envío de la web ajustadas (+1,300 COP) y coordenadas aproximadas
+// Mapa de localidades urbanas de Bogotá con tarifas de envío de la web ajustadas (+22%) y coordenadas aproximadas
 const LOCALIDADES_BOGOTA = {
   "1": { name: "Usaquén", price: 7300, lat: 4.7214, lon: -74.0253 },
-  "2": { name: "Suba", price: 6300, lat: 4.7431, lon: -74.0886 },
-  "3": { name: "Chapinero", price: 9800, lat: 4.6465, lon: -74.0612 },
-  "4": { name: "Teusaquillo", price: 9800, lat: 4.6397, lon: -74.0841 },
-  "5": { name: "Barrios Unidos", price: 8800, lat: 4.6685, lon: -74.0753 },
-  "6": { name: "Engativá", price: 8800, lat: 4.7003, lon: -74.1166 },
-  "7": { name: "Fontibón", price: 10800, lat: 4.6757, lon: -74.1376 },
-  "8": { name: "Kennedy", price: 13300, lat: 4.6231, lon: -74.1486 },
-  "9": { name: "Puente Aranda", price: 10800, lat: 4.6166, lon: -74.1167 },
-  "10": { name: "Santa Fe", price: 12300, lat: 4.6067, lon: -74.0712 },
-  "11": { name: "La Candelaria", price: 12300, lat: 4.5956, lon: -74.0736 },
-  "12": { name: "Los Mártires", price: 11300, lat: 4.6061, lon: -74.0906 },
-  "13": { name: "Antonio Nariño", price: 13300, lat: 4.5912, lon: -74.0991 },
-  "14": { name: "Tunjuelito", price: 14300, lat: 4.5778, lon: -74.1353 },
-  "15": { name: "Bosa", price: 15300, lat: 4.6146, lon: -74.1953 },
-  "16": { name: "Rafael Uribe Uribe", price: 15300, lat: 4.5663, lon: -74.1105 },
-  "17": { name: "San Cristóbal", price: 16300, lat: 4.5728, lon: -74.0864 },
-  "18": { name: "Ciudad Bolívar", price: 16300, lat: 4.5593, lon: -74.1472 },
-  "19": { name: "Usme", price: 19300, lat: 4.4716, lon: -74.1105 }
+  "2": { name: "Suba", price: 6100, lat: 4.7431, lon: -74.0886 },
+  "3": { name: "Chapinero", price: 10400, lat: 4.6465, lon: -74.0612 },
+  "4": { name: "Teusaquillo", price: 10400, lat: 4.6397, lon: -74.0841 },
+  "5": { name: "Barrios Unidos", price: 9200, lat: 4.6685, lon: -74.0753 },
+  "6": { name: "Engativá", price: 9200, lat: 4.7003, lon: -74.1166 },
+  "7": { name: "Fontibón", price: 11600, lat: 4.6757, lon: -74.1376 },
+  "8": { name: "Kennedy", price: 14600, lat: 4.6231, lon: -74.1486 },
+  "9": { name: "Puente Aranda", price: 11600, lat: 4.6166, lon: -74.1167 },
+  "10": { name: "Santa Fe", price: 13400, lat: 4.6067, lon: -74.0712 },
+  "11": { name: "La Candelaria", price: 13400, lat: 4.5956, lon: -74.0736 },
+  "12": { name: "Los Mártires", price: 12200, lat: 4.6061, lon: -74.0906 },
+  "13": { name: "Antonio Nariño", price: 14600, lat: 4.5912, lon: -74.0991 },
+  "14": { name: "Tunjuelito", price: 15900, lat: 4.5778, lon: -74.1353 },
+  "15": { name: "Bosa", price: 17100, lat: 4.6146, lon: -74.1953 },
+  "16": { name: "Rafael Uribe Uribe", price: 17100, lat: 4.5663, lon: -74.1105 },
+  "17": { name: "San Cristóbal", price: 18300, lat: 4.5728, lon: -74.0864 },
+  "18": { name: "Ciudad Bolívar", price: 18300, lat: 4.5593, lon: -74.1472 },
+  "19": { name: "Usme", price: 22000, lat: 4.4716, lon: -74.1105 }
 };
 
 function getExtensionFromMime(mimeType) {
