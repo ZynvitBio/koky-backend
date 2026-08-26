@@ -31,20 +31,20 @@ function getDeliverySchedule(date) {
   let deliveryDay = "";
 
   if (dayOfWeek >= 1 && dayOfWeek <= 3) { // Lunes, Martes, Miércoles
-    if (hour < 16) { // Antes de las 4:00 PM
+    if (hour < 19) { // Antes de las 7:00 PM
       const days = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
       productionNight = "esta misma noche";
       deliveryDay = `mañana mismo (${days[dayOfWeek + 1]})`;
-    } else { // Después de las 4:00 PM
+    } else { // Después de las 7:00 PM
       const days = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
       productionNight = "mañana por la noche";
       deliveryDay = `pasado mañana (${days[dayOfWeek + 2]})`;
     }
   } else if (dayOfWeek === 4) { // Jueves
-    if (hour < 16) { // Antes de las 4:00 PM
+    if (hour < 19) { // Antes de las 7:00 PM
       productionNight = "esta misma noche";
       deliveryDay = "mañana mismo (viernes)";
-    } else { // Después de las 4:00 PM
+    } else { // Después de las 7:00 PM
       productionNight = "el domingo por la noche";
       deliveryDay = "el próximo lunes";
     }
@@ -52,10 +52,10 @@ function getDeliverySchedule(date) {
     productionNight = "el domingo por la noche";
     deliveryDay = "el próximo lunes";
   } else if (dayOfWeek === 0) { // Domingo
-    if (hour < 16) { // Antes de las 4:00 PM
+    if (hour < 19) { // Antes de las 7:00 PM
       productionNight = "esta misma noche";
       deliveryDay = "mañana mismo (lunes)";
-    } else { // Después de las 4:00 PM
+    } else { // Después de las 7:00 PM
       productionNight = "mañana por la noche";
       deliveryDay = "el próximo martes";
     }
