@@ -200,7 +200,7 @@ module.exports = {
  * Calcula la fecha de entrega según las reglas de negocio de Koky:
  * - Despachos de lunes a viernes.
  * - Sábado y Domingo no hay entregas, todos los pedidos de viernes, sábado y domingo se entregan el lunes.
- * - Lunes a Jueves: pedidos antes de las 19:00 (7:00 PM) se entregan mañana (D+1). Pedidos después de las 19:00 se entregan el día después (D+2). Si cae en sábado, se pasa al lunes.
+ * - Lunes a Jueves: pedidos antes de las 20:00 (8:00 PM) se entregan mañana (D+1). Pedidos después de las 20:00 se entregan el día después (D+2). Si cae en sábado, se pasa al lunes.
  */
 function calculateDeliveryDate(createdAtDate) {
   // Convertir a la hora de Bogotá para asegurar consistencia
@@ -238,23 +238,23 @@ function calculateDeliveryDate(createdAtDate) {
 
   let targetDate = new Date(bogotaDate);
 
-  // Determinamos la ventana del fin de semana largo (Jueves 7:00 PM al Domingo 7:00 PM)
+  // Determinamos la ventana del fin de semana largo (Jueves 8:00 PM al Domingo 8:00 PM)
   const isWeekendWindow = 
-    (dayOfWeek === 4 && hour >= 19) || // Jueves después de las 7 PM
+    (dayOfWeek === 4 && hour >= 20) || // Jueves después de las 8 PM
     (dayOfWeek === 5) ||               // Viernes todo el día
     (dayOfWeek === 6) ||               // Sábado todo el día
-    (dayOfWeek === 0 && hour < 19);    // Domingo antes de las 7 PM
+    (dayOfWeek === 0 && hour < 20);    // Domingo antes de las 8 PM
 
   if (isWeekendWindow) {
     // Pedidos en ventana de fin de semana se entregan el lunes inicialmente
     const daysToAdd = dayOfWeek === 4 ? 4 : (dayOfWeek === 5 ? 3 : (dayOfWeek === 6 ? 2 : 1));
     targetDate.setDate(bogotaDate.getDate() + daysToAdd);
-  } else if (dayOfWeek === 0 && hour >= 19) {
-    // Domingo después de las 7:00 PM se entrega el martes inicialmente
+  } else if (dayOfWeek === 0 && hour >= 20) {
+    // Domingo después de las 8:00 PM se entrega el martes inicialmente
     targetDate.setDate(bogotaDate.getDate() + 2);
   } else {
     // Caso estándar de lunes a jueves
-    if (hour < 19) {
+    if (hour < 20) {
       targetDate.setDate(bogotaDate.getDate() + 1); // Entrega mañana
     } else {
       targetDate.setDate(bogotaDate.getDate() + 2); // Entrega pasado mañana
