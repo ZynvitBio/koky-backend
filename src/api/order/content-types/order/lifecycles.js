@@ -64,6 +64,7 @@ module.exports = {
             customerName: existingOrder.customer_name,
             orderId: existingOrder.id,
             shippingNotes: existingOrder.shipping_notes,
+            deliveryWindow: existingOrder.delivery_window,
             userId: userId
           };
         }
@@ -141,8 +142,11 @@ module.exports = {
 
                 messageText = `¡Tu pedido está listo y fresco! 🥦\n\nHola ${customerName}, ${greeting} Queremos contarte que tu tofu artesanal ya está recién preparado y ha salido de nuestra cocina. 🧑‍🍳\n\nTu pedido #${orderId} será despachado en el transcurso de esta tarde. Tan pronto como el conductor vaya en camino hacia tu dirección, te enviaremos un nuevo mensaje con la hora estimada de llegada para que puedas programarte para recibirlo.\n\n¡Gracias por elegir lo fresco y natural!`;
               } else if (newStatus === "SHIPPED") {
-                const deliveryWindow = (data.shipping_notes !== undefined ? data.shipping_notes : (state.shippingNotes || "en el transcurso de la tarde")).trim();
-                strapi.log.info(`[Lifecycle Order] Estado cambió a SHIPPED. Enviando plantilla pedido_en_camino a ${to}...`);
+                const rawWindow = data.delivery_window !== undefined ? data.delivery_window : state.deliveryWindow;
+                const deliveryWindow = (rawWindow && String(rawWindow).trim().length > 0)
+                  ? String(rawWindow).trim()
+                  : "en el transcurso de la tarde";
+                strapi.log.info(`[Lifecycle Order] Estado cambió a SHIPPED. Enviando plantilla pedido_en_camino a ${to} con ventana: ${deliveryWindow}...`);
                 await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_en_camino", [
                   { type: "text", text: customerName },
                   { type: "text", text: String(orderId) },

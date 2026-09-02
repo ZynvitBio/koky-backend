@@ -50,6 +50,9 @@
     "shipping_notes": {
       "type": "text"
     },
+    "delivery_window": {
+      "type": "string"
+    },
     "cabify_parcel_id": {
       "type": "string"
     },
