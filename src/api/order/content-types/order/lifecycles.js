@@ -17,9 +17,26 @@ module.exports = {
     const { data, where } = event.params;
     
     // Si se está actualizando el estado de la orden o las notas, guardamos el estado actual como "anterior"
-    if (data && (data.order_status !== undefined || data.shipping_notes !== undefined)) {
+    if (data && (data.order_status !== undefined || data.shipping_notes !== undefined || data.delivery_window !== undefined)) {
       try {
-        const existingOrder = await strapi.db.query("api::order.order").findOne({ where });
+        let existingOrder = null;
+        const docId = where?.documentId || where?.document_id;
+
+        // 1. Intentar obtener el documento oficial publicado vía Document Service (Strapi v5)
+        if (docId) {
+          try {
+            existingOrder = await strapi.documents("api::order.order").findOne({ documentId: docId });
+          } catch (docErr) {}
+        }
+
+        // 2. Fallback de seguridad: buscar en base de datos ordenando por ID descendente (para tomar siempre la versión publicada oficial)
+        if (!existingOrder) {
+          existingOrder = await strapi.db.query("api::order.order").findOne({
+            where,
+            orderBy: { id: "desc" }
+          });
+        }
+
         if (existingOrder) {
           let userId = null;
           if (existingOrder.whatsapp_id) {

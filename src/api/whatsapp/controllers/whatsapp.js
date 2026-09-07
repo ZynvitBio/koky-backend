@@ -244,7 +244,7 @@ async function getOrderContextForUser(from, user) {
 
     const lastOrders = await strapi.db.query("api::order.order").findMany({
       where: { $or: filters },
-      orderBy: { createdAt: "desc" },
+      orderBy: { id: "desc" },
       limit: 1
     });
 

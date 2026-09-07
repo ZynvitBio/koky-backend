@@ -150,31 +150,40 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
           documentId: order.documentId,
         });
 
-        strapi.log.info(`[Wompi Webhook] Orden ID ${order.id} actualizada y re-publicada.`);
+        // Obtenemos el documento oficial publicado para asegurar el ID definitivo
+        let finalOrder = order;
+        try {
+          const pubDoc = await strapi.documents("api::order.order").findOne({
+            documentId: order.documentId,
+          });
+          if (pubDoc) finalOrder = pubDoc;
+        } catch (pubErr) {}
+
+        strapi.log.info(`[Wompi Webhook] Orden ID ${finalOrder.id} actualizada y re-publicada.`);
 
         // Emitir evento por WebSockets para refrescar panel de administración en tiempo real
         if (strapi.io) {
           strapi.io.emit("order_payment_update", {
-            orderId: order.id,
-            documentId: order.documentId,
+            orderId: finalOrder.id,
+            documentId: finalOrder.documentId,
             paymentStatus: status,
           });
-          strapi.log.info(`[Wompi Webhook] WebSocket emitido para orden ID: ${order.id}`);
+          strapi.log.info(`[Wompi Webhook] WebSocket emitido para orden ID: ${finalOrder.id}`);
         }
 
         // Si el estado es APPROVED y la orden se originó en WhatsApp, enviar un WhatsApp automático de confirmación al cliente
-        if (status === "APPROVED" && order.source === "whatsapp" && order.whatsapp_id) {
+        if (status === "APPROVED" && finalOrder.source === "whatsapp" && finalOrder.whatsapp_id) {
           try {
             const phone_number_id = process.env.ID_PHONE_WS || "1037050959491352";
             const whatsapp_token = process.env.WHATSAPP_TOKEN;
 
             if (whatsapp_token) {
-              strapi.log.info(`[Wompi Webhook] Generando factura PDF para la orden #${order.id}...`);
+              strapi.log.info(`[Wompi Webhook] Generando factura PDF para la orden #${finalOrder.id}...`);
               let pdfUrl = null;
               let mediaId = null;
               try {
                 // Volvemos a obtener el objeto orden completo para tener los datos más recientes
-                const fullOrder = await strapi.entityService.findOne("api::order.order", order.id);
+                const fullOrder = await strapi.entityService.findOne("api::order.order", finalOrder.id);
                 const pdfResult = await strapi.service("api::order.order").generateInvoicePDF(fullOrder, {
                   phone_number_id,
                   whatsapp_token
@@ -188,16 +197,16 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
 
               const { productionNight, deliveryDay } = getDeliverySchedule(new Date());
 
-              strapi.log.info(`[Wompi Webhook] Enviando confirmación de pago por WhatsApp a ${order.whatsapp_id}`);
+              strapi.log.info(`[Wompi Webhook] Enviando confirmación de pago por WhatsApp a ${finalOrder.whatsapp_id}`);
               await axios({
                 method: "POST",
                 url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
                 data: {
                   messaging_product: "whatsapp",
-                  to: order.whatsapp_id,
+                  to: finalOrder.whatsapp_id,
                   type: "text",
                   text: {
-                    body: `¡Pago confirmado! 💳\n\nTu pago con Wompi ha sido aprobado con éxito. Tu pedido (Orden #${order.id}) entrará a nuestra cocina ${productionNight} para prepararse con ingredientes frescos, y te lo entregaremos ${deliveryDay}. Te avisaremos por este medio en cuanto tu pedido esté en camino con el repartidor. 🛵\n\n¡Muchas gracias por tu compra! 🥦`,
+                    body: `¡Pago confirmado! 💳\n\nTu pago con Wompi ha sido aprobado con éxito. Tu pedido (Orden #${finalOrder.id}) entrará a nuestra cocina ${productionNight} para prepararse con ingredientes frescos, y te lo entregaremos ${deliveryDay}. Te avisaremos por este medio en cuanto tu pedido esté en camino con el repartidor. 🛵\n\n¡Muchas gracias por tu compra! 🥦`,
                   },
                 },
                 headers: {
@@ -208,14 +217,14 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
 
               // Si se pudo generar el PDF (URL o Media ID), enviarlo como documento adjunto
               if (pdfUrl || mediaId) {
-                strapi.log.info(`[Wompi Webhook] Enviando archivo PDF de factura a ${order.whatsapp_id} (usando ${mediaId ? 'Media ID: ' + mediaId : 'Link: ' + pdfUrl})`);
+                strapi.log.info(`[Wompi Webhook] Enviando archivo PDF de factura a ${finalOrder.whatsapp_id} (usando ${mediaId ? 'Media ID: ' + mediaId : 'Link: ' + pdfUrl})`);
                 
                 const docPayload = {
                   messaging_product: "whatsapp",
-                  to: order.whatsapp_id,
+                  to: finalOrder.whatsapp_id,
                   type: "document",
                   document: {
-                    filename: `Factura_Koky_${order.id}.pdf`
+                    filename: `Factura_Koky_${finalOrder.id}.pdf`
                   }
                 };
 
@@ -265,6 +274,7 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
 
       const order = await strapi.db.query("api::order.order").findOne({
         where: { wompi_reference: reference },
+        orderBy: { id: "desc" },
         populate: { invoice_pdf: true },
       });
 
