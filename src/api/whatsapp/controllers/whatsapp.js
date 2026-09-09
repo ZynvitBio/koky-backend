@@ -28,6 +28,9 @@ const model = genAI.getGenerativeModel(
 // Set en memoria para deduplicar mensajes de webhook de WhatsApp y evitar respuestas múltiples
 const processedMessageIds = new Set();
 
+// Set en memoria para deduplicar comentarios de Instagram y evitar respuestas múltiples
+const processedCommentIds = new Set();
+
 // Mapa de localidades urbanas de Bogotá con tarifas de envío de la web ajustadas (+22%) y coordenadas aproximadas
 const LOCALIDADES_BOGOTA = {
   "1": { name: "Usaquén", price: 7300, lat: 4.7214, lon: -74.0253 },
@@ -2373,6 +2376,105 @@ module.exports = {
         else if (body.object === "page" || body.object === "instagram") {
           const entry = body.entry?.[0];
 
+          // ----------------------------------------------------
+          // 1. MANEJO DE COMENTARIOS Y MENCIONES (INSTAGRAM / FEED)
+          // ----------------------------------------------------
+          const changes = entry?.changes?.[0];
+          if (changes) {
+            // Caso A: Comentario o Mencion en Instagram
+            if (changes.field === "comments" || changes.field === "mentions") {
+              const commentValue = changes.value;
+              if (commentValue && commentValue.id) {
+                const commentId = commentValue.id;
+                if (processedCommentIds.has(commentId)) return;
+                processedCommentIds.add(commentId);
+                if (processedCommentIds.size > 2000) {
+                  const oldest = processedCommentIds.values().next().value;
+                  processedCommentIds.delete(oldest);
+                }
+
+                const commenterUsername = commentValue.from?.username || "";
+                const commenterId = commentValue.from?.id;
+                const commentText = (commentValue.text || "").trim();
+
+                // Evitar responder a publicaciones propias de Koky
+                if (
+                  (commenterUsername && commenterUsername.toLowerCase() === "koky.food") ||
+                  (commenterId && commenterId === entry.id)
+                ) {
+                  return;
+                }
+
+                console.log(`[Instagram Comentario] Detectado comentario de @${commenterUsername || commenterId} (ID: ${commentId}): "${commentText}"`);
+
+                const privateReplyText = `¡Hola @${commenterUsername || "amigo"}! Aquí tienes acceso al recetario oficial de Koky Food con más de 100 recetas en video de tofu artesanal: https://koky.food/recetas`;
+                const publicReplyText = `¡Hola @${commenterUsername || "amigo"}! Te acabamos de enviar el enlace al recetario por mensaje directo.`;
+
+                // Enviar DM privado (Comment-to-DM)
+                try {
+                  await strapi.service("api::whatsapp.whatsapp").replyCommentPrivate(commentId, privateReplyText);
+                  console.log(`[Instagram Comentario] DM enviado exitosamente a comentario ID: ${commentId}`);
+                } catch (dmErr) {
+                  console.error("[Instagram Comentario] Error enviando DM privado:", dmErr.response?.data || dmErr.message);
+                }
+
+                // Enviar respuesta publica en el hilo del comentario (si los permisos lo permiten)
+                try {
+                  await strapi.service("api::whatsapp.whatsapp").replyCommentPublic(commentId, publicReplyText);
+                  console.log(`[Instagram Comentario] Respuesta publica enviada a comentario ID: ${commentId}`);
+                } catch (pubErr) {
+                  console.log("[Instagram Comentario] Respuesta publica omitida:", pubErr.response?.data?.error?.message || pubErr.message);
+                }
+
+                // Registro en base de datos para trazabilidad
+                try {
+                  const user = await this.getOrCreateUser(
+                    commenterId || commenterUsername || commentId,
+                    commenterUsername ? `@${commenterUsername}` : "Seguidor Instagram",
+                    "instagram",
+                    null,
+                    commenterUsername ? `@${commenterUsername}` : null
+                  );
+
+                  await strapi.entityService.create("api::chat.chat", {
+                    data: {
+                      sender: "Kira",
+                      message: `[Comentario en Publicacion: "${commentText}"] Enlace de recetario enviado por DM`,
+                      timestamp: new Date(),
+                      publishedAt: new Date(),
+                      users_permissions_user: user.id
+                    }
+                  });
+                } catch (dbErr) {
+                  console.error("[Instagram Comentario] Error registrando en chat:", dbErr.message);
+                }
+
+                return;
+              }
+            }
+
+            // Caso B: Comentario en Publicacion de Pagina Facebook (feed)
+            if (changes.field === "feed" && changes.value?.item === "comment" && changes.value?.verb === "add") {
+              const commentId = changes.value.comment_id;
+              if (commentId && !processedCommentIds.has(commentId)) {
+                processedCommentIds.add(commentId);
+                const commenterName = changes.value.from?.name || "amigo";
+                const commentText = changes.value.message || "";
+                const replyMsg = `¡Hola ${commenterName}! Aquí tienes acceso al recetario oficial de Koky Food con más de 100 recetas en video de tofu artesanal: https://koky.food/recetas`;
+
+                try {
+                  await strapi.service("api::whatsapp.whatsapp").replyCommentPrivate(commentId, replyMsg);
+                } catch (fbErr) {
+                  console.error("[Facebook Comentario] Error enviando respuesta privada:", fbErr.response?.data || fbErr.message);
+                }
+                return;
+              }
+            }
+          }
+
+          // ----------------------------------------------------
+          // 2. MANEJO DE MENSAJES DIRECTOS (DMs)
+          // ----------------------------------------------------
           const messaging = entry?.messaging?.[0];
 
           if (
@@ -2395,12 +2497,12 @@ module.exports = {
             if (!rawText) {
               const firstAttType = fbAttachments[0].type;
               const typeLabels = {
-                image: "📷 Imagen",
-                audio: "🎵 Audio",
-                video: "🎥 Video",
-                file: "📄 Archivo"
+                image: "[Imagen]",
+                audio: "[Audio]",
+                video: "[Video]",
+                file: "[Archivo]"
               };
-              rawText = typeLabels[firstAttType] || "📎 Archivo adjunto";
+              rawText = typeLabels[firstAttType] || "[Archivo adjunto]";
             }
           }
 

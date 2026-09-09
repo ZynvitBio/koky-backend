@@ -2,8 +2,25 @@
 'use strict';
 const axios = require('axios');
 
+let cachedPageToken = null;
+
+async function getPageAccessToken() {
+  if (cachedPageToken) return cachedPageToken;
+  const sysToken = process.env.MESSENGER_PAGE_TOKEN;
+  try {
+    const res = await axios.get(`https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token&access_token=${sysToken}`);
+    if (res.data && res.data.data && res.data.data.length > 0) {
+      cachedPageToken = res.data.data[0].access_token;
+      return cachedPageToken;
+    }
+  } catch (e) {
+    console.error("[Servicio Social] Error obteniendo Page Token:", e.response ? e.response.data : e.message);
+  }
+  return sysToken;
+}
+
 module.exports = ({ strapi }) => ({
-  // 1. ENVÍO WHATSAPP (Intacto y Seguro)
+  // 1. ENVIO WHATSAPP (Intacto y Seguro)
   async sendText(to, message) {
     const accessToken = process.env.WHATSAPP_TOKEN;
     const phoneNumberId = "1037050959491352"; 
@@ -27,7 +44,7 @@ module.exports = ({ strapi }) => ({
       });
       return response.data;
     } catch (error) {
-      console.error("❌ [Servicio WA] Error:", error.response ? error.response.data : error.message);
+      console.error("[Servicio WA] Error:", error.response ? error.response.data : error.message);
       throw error;
     }
   },
@@ -63,14 +80,14 @@ module.exports = ({ strapi }) => ({
       });
       return response.data;
     } catch (error) {
-      console.error(`❌ [Servicio WA] Error enviando media (${type}):`, error.response ? error.response.data : error.message);
+      console.error(`[Servicio WA] Error enviando media (${type}):`, error.response ? error.response.data : error.message);
       throw error;
     }
   },
 
-  // 2. ENVÍO INSTAGRAM/FACEBOOK (Configurado para el Token de Redes)
+  // 2. ENVIO INSTAGRAM/FACEBOOK DIRECT MESSAGE
   async sendDirectMessage(recipientId, message) {
-    const accessToken = process.env.MESSENGER_PAGE_TOKEN;
+    const accessToken = await getPageAccessToken();
     const url = `https://graph.facebook.com/v21.0/me/messages`;
 
     try {
@@ -89,35 +106,77 @@ module.exports = ({ strapi }) => ({
       );
       return response.data;
     } catch (error) {
-      console.error("❌ [Servicio Social] Error:", error.response ? error.response.data : error.message);
+      console.error("[Servicio Social] Error:", error.response ? error.response.data : error.message);
       throw error;
     }
   },
 
-  // 3. CAPTURA DE PERFIL (La clave para el video y la BD)
+  // 3. CAPTURA DE PERFIL
   async getUserProfile(externalId, platform) {
     try {
-      // Si es WhatsApp, retorno inmediato (Principio de Privacidad/Velocidad)
       if (platform === 'whatsapp') return null;
 
-      const igToken = process.env.MESSENGER_PAGE_TOKEN; 
-      
-      // Usamos los campos que confirmamos en el log: 'name' y 'profile_pic'
-      // Bajamos a v21.0 para total compatibilidad
-      let urlSocial = `https://graph.facebook.com/v21.0/${externalId}?fields=name,profile_pic&access_token=${igToken}`;
-      
+      const igToken = await getPageAccessToken();
+      const urlSocial = `https://graph.facebook.com/v21.0/${externalId}?fields=name,profile_pic&access_token=${igToken}`;
       const responseSocial = await axios.get(urlSocial);
       
-      // Retornamos el objeto mapeado exactamente a lo que espera tu BD
       return {
         name: responseSocial.data.name || null,
         avatar_url: responseSocial.data.profile_pic || null
       };
 
     } catch (error) {
-      // Fallo silencioso: Si Meta falla, Kira sigue viva (Principio de Estabilidad)
-      console.log(`⚠️ [SERVICIO SOCIAL] No se pudo obtener perfil para ${externalId}: ${error.message}`);
+      console.log(`[Servicio Social] No se pudo obtener perfil para ${externalId}: ${error.message}`);
       return null;
+    }
+  },
+
+  // 4. RESPUESTA PRIVADA A UN COMENTARIO DE INSTAGRAM (COMMENT-TO-DM)
+  async replyCommentPrivate(commentId, message) {
+    const accessToken = await getPageAccessToken();
+    const url = `https://graph.facebook.com/v21.0/me/messages`;
+
+    try {
+      const response = await axios.post(
+        url,
+        {
+          recipient: { comment_id: commentId },
+          message: { text: message }
+        },
+        {
+          headers: { 
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error("[Servicio Social - Reply Private] Error:", error.response ? error.response.data : error.message);
+      throw error;
+    }
+  },
+
+  // 5. RESPUESTA PUBLICA EN EL HILO DEL COMENTARIO DE INSTAGRAM
+  async replyCommentPublic(commentId, message) {
+    const accessToken = await getPageAccessToken();
+    const url = `https://graph.facebook.com/v21.0/${commentId}/replies`;
+
+    try {
+      const response = await axios.post(
+        url,
+        { message },
+        {
+          headers: { 
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error("[Servicio Social - Reply Public] Error:", error.response ? error.response.data : error.message);
+      throw error;
     }
   }
 });
