@@ -526,6 +526,37 @@ function shouldTakeoverHuman(msgText) {
   });
 }
 
+function isRecipeRequest(msgText) {
+  if (!msgText) return false;
+  const clean = msgText.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+  const recipeKeywords = [
+    "receta",
+    "recetas",
+    "recetario",
+    "libro de recetas",
+    "libro de tofu",
+    "libro de koky",
+    "recetario koky",
+    "link del recetario",
+    "enlace del recetario",
+    "quiero la receta",
+    "quiero las recetas",
+    "me pasas la receta",
+    "enviame la receta",
+    "enviame el recetario",
+    "donde veo las recetas",
+    "como cocinarlo",
+    "como prepararlo"
+  ];
+
+  return recipeKeywords.some(keyword => {
+    const cleanKeyword = keyword.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const regex = new RegExp(`\\b${cleanKeyword}s?\\b`, 'i');
+    return regex.test(clean);
+  });
+}
+
 module.exports = {
   async getOrCreateUser(
     identifier,
@@ -1063,6 +1094,40 @@ module.exports = {
 
               return;
             }
+
+            // --- CAPA 1.5: Interceptador de Solicitud de Recetas (WhatsApp) ---
+            if (isKiraActive && isRecipeRequest(rawText)) {
+              console.log(`[WhatsApp] Cliente ${from} solicita recetas. Enviando enlace oficial de recetario.`);
+              const recipeMsg = `¡Hola ${waName}! Aquí tienes acceso directo al recetario interactivo oficial de Koky Food con más de 100 recetas en video de tofu artesanal: https://koky.food/recetas`;
+              await this.sendWhatsAppMessage(phone_number_id, from, recipeMsg);
+
+              await strapi.entityService.create("api::chat.chat", {
+                data: {
+                  sender: from,
+                  message: rawText,
+                  timestamp: new Date(),
+                  publishedAt: new Date(),
+                  users_permissions_user: user.id,
+                },
+              });
+
+              await strapi.entityService.create("api::chat.chat", {
+                data: {
+                  sender: "Kira",
+                  message: recipeMsg,
+                  timestamp: new Date(),
+                  publishedAt: new Date(),
+                  users_permissions_user: user.id,
+                },
+              });
+
+              if (strapi["io"]) {
+                strapi["io"].emit("new_message", { userId: user.id });
+              }
+
+              return;
+            }
+
             let isSystemInteractive = false;
             let systemInteractiveResponse = "";
             let skipStateMachine = false;
@@ -2436,15 +2501,31 @@ module.exports = {
                     commenterUsername ? `@${commenterUsername}` : null
                   );
 
+                  // 1. Registrar el comentario entrante del usuario
                   await strapi.entityService.create("api::chat.chat", {
                     data: {
-                      sender: "Kira",
-                      message: `[Comentario en Publicacion: "${commentText}"] Enlace de recetario enviado por DM`,
+                      sender: commenterId || commenterUsername || "Cliente",
+                      message: `[Comentario en Instagram]: "${commentText}"`,
                       timestamp: new Date(),
                       publishedAt: new Date(),
                       users_permissions_user: user.id
                     }
                   });
+
+                  // 2. Registrar la respuesta de Kira con el recetario
+                  await strapi.entityService.create("api::chat.chat", {
+                    data: {
+                      sender: "Kira",
+                      message: privateReplyText,
+                      timestamp: new Date(),
+                      publishedAt: new Date(),
+                      users_permissions_user: user.id
+                    }
+                  });
+
+                  if (strapi["io"]) {
+                    strapi["io"].emit("new_message", { userId: user.id });
+                  }
                 } catch (dbErr) {
                   console.error("[Instagram Comentario] Error registrando en chat:", dbErr.message);
                 }
@@ -2486,6 +2567,13 @@ module.exports = {
             return;
 
           const from = messaging.sender.id;
+
+          // Ignorar mensajes enviados por la propia cuenta de Koky o pagina (evitar bucles/ecos)
+          const kokyPageId = "799666596554539";
+          const kokyIgId = "17841476077618408";
+          if (from === kokyPageId || from === kokyIgId || from === entry.id) {
+            return;
+          }
 
           let rawText =
             messaging.message?.text || messaging.postback?.title || "";
@@ -2631,6 +2719,42 @@ module.exports = {
                 data: {
                   sender: "Kira",
                   message: transferMessage,
+                  timestamp: new Date(),
+                  publishedAt: new Date(),
+                  users_permissions_user: user.id,
+                },
+              });
+
+              if (strapi["io"]) {
+                strapi["io"].emit("new_message", { userId: user.id });
+              }
+
+              return;
+            }
+
+            // --- CAPA 1.5: Interceptador de Solicitud de Recetas (Instagram / Meta) ---
+            if (isKiraActive && isRecipeRequest(rawText)) {
+              console.log(`[Instagram DM] Cliente ${from} solicita recetas. Enviando enlace oficial de recetario.`);
+
+              const displayName = metaHandle ? metaHandle.replace('@', '') : metaName;
+              const recipeMsg = `¡Hola @${displayName}! Aquí tienes acceso directo al recetario oficial de Koky Food con más de 100 recetas en video de tofu artesanal: https://koky.food/recetas`;
+
+              await strapi.service("api::whatsapp.whatsapp").sendDirectMessage(from, recipeMsg);
+
+              await strapi.entityService.create("api::chat.chat", {
+                data: {
+                  sender: from,
+                  message: rawText,
+                  timestamp: new Date(),
+                  publishedAt: new Date(),
+                  users_permissions_user: user.id,
+                },
+              });
+
+              await strapi.entityService.create("api::chat.chat", {
+                data: {
+                  sender: "Kira",
+                  message: recipeMsg,
                   timestamp: new Date(),
                   publishedAt: new Date(),
                   users_permissions_user: user.id,
