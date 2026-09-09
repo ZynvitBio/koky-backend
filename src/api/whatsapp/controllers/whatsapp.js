@@ -530,14 +530,29 @@ function isRecipeRequest(msgText) {
   if (!msgText) return false;
   const clean = msgText.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
+  // Si contiene palabras de compra, despacho, fechas o precio, NO es solicitud exclusiva de recetario
+  const logisticOrPurchaseWords = [
+    "llega", "llegaria", "entreg", "cuand", "viernes", "lunes", "martes", "miercol", "jueves", "sabado", "domingo",
+    "compr", "pedid", "pedir", "orden", "preci", "cuant", "cost", "cuest", "domicili", "envi", "pag", "tiend"
+  ];
+  const hasLogistics = logisticOrPurchaseWords.some(w => clean.includes(w));
+  if (hasLogistics) return false;
+
+  // Debe ser un mensaje corto (maximo 6 palabras) enfocado exclusivamente en pedir el recetario
+  const wordCount = clean.split(/\s+/).filter(Boolean).length;
+  if (wordCount > 6) return false;
+
   const recipeKeywords = [
     "receta",
     "recetas",
     "recetario",
+    "libro",
     "libro de recetas",
     "libro de tofu",
     "libro de koky",
     "recetario koky",
+    "link",
+    "enlace",
     "link del recetario",
     "enlace del recetario",
     "quiero la receta",
@@ -545,9 +560,7 @@ function isRecipeRequest(msgText) {
     "me pasas la receta",
     "enviame la receta",
     "enviame el recetario",
-    "donde veo las recetas",
-    "como cocinarlo",
-    "como prepararlo"
+    "donde veo las recetas"
   ];
 
   return recipeKeywords.some(keyword => {
@@ -1082,39 +1095,6 @@ module.exports = {
                 data: {
                   sender: "Kira",
                   message: transferMessage,
-                  timestamp: new Date(),
-                  publishedAt: new Date(),
-                  users_permissions_user: user.id,
-                },
-              });
-
-              if (strapi["io"]) {
-                strapi["io"].emit("new_message", { userId: user.id });
-              }
-
-              return;
-            }
-
-            // --- CAPA 1.5: Interceptador de Solicitud de Recetas (WhatsApp) ---
-            if (isKiraActive && isRecipeRequest(rawText)) {
-              console.log(`[WhatsApp] Cliente ${from} solicita recetas. Enviando enlace oficial de recetario.`);
-              const recipeMsg = `¡Hola ${waName}! Aquí tienes acceso directo al recetario interactivo oficial de Koky Food con más de 100 recetas en video de tofu artesanal: https://koky.food/recetas`;
-              await this.sendWhatsAppMessage(phone_number_id, from, recipeMsg);
-
-              await strapi.entityService.create("api::chat.chat", {
-                data: {
-                  sender: from,
-                  message: rawText,
-                  timestamp: new Date(),
-                  publishedAt: new Date(),
-                  users_permissions_user: user.id,
-                },
-              });
-
-              await strapi.entityService.create("api::chat.chat", {
-                data: {
-                  sender: "Kira",
-                  message: recipeMsg,
                   timestamp: new Date(),
                   publishedAt: new Date(),
                   users_permissions_user: user.id,
