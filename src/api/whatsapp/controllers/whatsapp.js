@@ -570,6 +570,28 @@ function isRecipeRequest(msgText) {
   });
 }
 
+function getRandomRecipePrivateReply(username) {
+  const handle = username ? `@${username.replace(/^@/, "")}` : "amigo";
+  const messages = [
+    `¡Hola ${handle}! Aquí tienes acceso exclusivo a nuestra colección de 500 recetas con tofu artesanal Koky. Ya liberamos las primeras 100 recetas en video con buscador interactivo: https://koky.food/recetas`,
+    `¡Hola ${handle}! Bienvenido al recetario oficial de Koky Food. De nuestra colección de 500 recetas de tofu fresco, ya tienes disponibles las primeras 100 para cocinar hoy mismo: https://koky.food/recetas`,
+    `¡Hola ${handle}! Ya puedes explorar el recetario interactivo de Koky. De nuestra colección de 500 recetas, hemos desbloqueado las primeras 100 con video y paso a paso: https://koky.food/recetas`,
+    `¡Hola ${handle}! Te compartimos el recetario de Koky Food. Una colección de 500 preparaciones con tofu donde ya tienes acceso libre a las primeras 100 en video: https://koky.food/recetas`
+  ];
+  return messages[Math.floor(Math.random() * messages.length)];
+}
+
+function getRandomRecipePublicReply(username) {
+  const handle = username ? `@${username.replace(/^@/, "")}` : "amigo";
+  const messages = [
+    `¡Listo ${handle}! Te acabamos de enviar por mensaje directo (DM) el acceso a las primeras 100 recetas liberadas.`,
+    `¡Enviado ${handle}! Ya tienes en tus mensajes directos el link de la colección de 500 recetas.`,
+    `¡Hola ${handle}! Revisa tu buzón de mensajes (DM), te compartimos el enlace oficial del recetario.`,
+    `¡Listo ${handle}! Te dejamos el acceso directo al recetario en tus mensajes privados.`
+  ];
+  return messages[Math.floor(Math.random() * messages.length)];
+}
+
 module.exports = {
   async getOrCreateUser(
     identifier,
@@ -2452,8 +2474,8 @@ module.exports = {
 
                 console.log(`[Instagram Comentario] Detectado comentario de @${commenterUsername || commenterId} (ID: ${commentId}): "${commentText}"`);
 
-                const privateReplyText = `¡Hola @${commenterUsername || "amigo"}! Aquí tienes acceso al recetario oficial de Koky Food con más de 100 recetas en video de tofu artesanal: https://koky.food/recetas`;
-                const publicReplyText = `¡Hola @${commenterUsername || "amigo"}! Te acabamos de enviar el enlace al recetario por mensaje directo.`;
+                const privateReplyText = getRandomRecipePrivateReply(commenterUsername);
+                const publicReplyText = getRandomRecipePublicReply(commenterUsername);
 
                 // Enviar DM privado (Comment-to-DM)
                 try {
@@ -2521,7 +2543,7 @@ module.exports = {
                 processedCommentIds.add(commentId);
                 const commenterName = changes.value.from?.name || "amigo";
                 const commentText = changes.value.message || "";
-                const replyMsg = `¡Hola ${commenterName}! Aquí tienes acceso al recetario oficial de Koky Food con más de 100 recetas en video de tofu artesanal: https://koky.food/recetas`;
+                const replyMsg = getRandomRecipePrivateReply(commenterName);
 
                 try {
                   await strapi.service("api::whatsapp.whatsapp").replyCommentPrivate(commentId, replyMsg);
@@ -2717,7 +2739,7 @@ module.exports = {
               console.log(`[Instagram DM] Cliente ${from} solicita recetas. Enviando enlace oficial de recetario.`);
 
               const displayName = metaHandle ? metaHandle.replace('@', '') : metaName;
-              const recipeMsg = `¡Hola @${displayName}! Aquí tienes acceso directo al recetario oficial de Koky Food con más de 100 recetas en video de tofu artesanal: https://koky.food/recetas`;
+              const recipeMsg = getRandomRecipePrivateReply(displayName);
 
               await strapi.service("api::whatsapp.whatsapp").sendDirectMessage(from, recipeMsg);
 
