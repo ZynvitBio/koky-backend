@@ -58,7 +58,7 @@ module.exports = {
     const emailUser = usuario.email || '';
 
     // 1. Si el correo es virtual de Koky, el prefijo contiene el ID/Teléfono exacto (método más confiable)
-    if (emailUser.includes('@wa.koky') || emailUser.includes('@instagram.koky') || emailUser.includes('@facebook.koky')) {
+    if (emailUser.includes('@koky.food') || emailUser.includes('@wa.koky') || emailUser.includes('@instagram.koky') || emailUser.includes('@facebook.koky')) {
       idExterno = emailUser.split('@')[0];
     }
 
@@ -69,13 +69,17 @@ module.exports = {
 
     try {
       // 3. Determinamos el canal de destino (WhatsApp o Redes Sociales)
-      if (emailUser.includes('wa.koky') || usuario.whatsapp_id) {
-        // Para WhatsApp: Limpiamos a solo números
-        const idLimpio = idExterno.replace(/\D/g, '');
-        if (idLimpio) {
+      if (emailUser.includes('@koky.food') || emailUser.includes('wa.koky') || usuario.whatsapp_id) {
+        // Para WhatsApp: Si es un número estándar, limpiamos formato (+, espacios, guiones). Si es BSUID alfanumérico, lo conservamos.
+        let idDestino = idExterno.trim();
+        if (/^\+?[\d\s\-()]+$/.test(idDestino)) {
+          idDestino = idDestino.replace(/\D/g, '');
+        }
+
+        if (idDestino && idDestino !== 'undefined') {
           // Enviar mensaje de texto si existe
           if (mensajeTexto) {
-            await strapi.service('api::whatsapp.whatsapp').sendText(idLimpio, mensajeTexto);
+            await strapi.service('api::whatsapp.whatsapp').sendText(idDestino, mensajeTexto);
           }
           // Enviar adjuntos si existen
           if (adjuntos && adjuntos.length > 0) {
@@ -83,11 +87,11 @@ module.exports = {
               const fileUrl = file.url.startsWith('http') 
                 ? file.url 
                 : `https://koky-backend-production.up.railway.app${file.url}`;
-              await strapi.service('api::whatsapp.whatsapp').sendMedia(idLimpio, fileUrl, file.mime, file.name);
+              await strapi.service('api::whatsapp.whatsapp').sendMedia(idDestino, fileUrl, file.mime, file.name);
             }
           }
         } else {
-          console.warn('⚠️ Intentando enviar WhatsApp pero el ID de destino quedó vacío.');
+          console.warn('⚠️ Intentando enviar WhatsApp pero el ID de destino quedó vacío o es inválido.');
         }
         
       } else if (emailUser.includes('instagram.koky') || emailUser.includes('facebook.koky') || usuario.social_id) {

@@ -600,6 +600,10 @@ module.exports = {
     avatarUrl = null,
     handle = null,
   ) {
+    if (!identifier || identifier === "undefined" || identifier === "null" || !String(identifier).trim()) {
+      throw new Error(`[getOrCreateUser] Identificador de usuario inválido: ${identifier}`);
+    }
+
     let domain = "koky.food";
 
     if (platform === "instagram") domain = "instagram.koky";
@@ -983,7 +987,12 @@ module.exports = {
 
             const phone_number_id = entry.metadata.phone_number_id;
 
-            const from = message.from;
+            const from = message.from || message.user_id || contact?.wa_id || contact?.user_id;
+
+            if (!from || from === "undefined") {
+              console.warn("⚠️ [WhatsApp Webhook] Mensaje recibido sin remitente identificable:", JSON.stringify(message));
+              return;
+            }
 
             const waName = contact?.profile?.name || "Cliente Koky";
 
