@@ -751,6 +751,7 @@
                     <li><a href="#recetas" onclick="applyFilterTag('Hoja')" class="hover:text-koky-green transition-colors">Tofu Hoja</a></li>
                     <li><a href="#recetas" onclick="applyFilterTag('Frito')" class="hover:text-koky-green transition-colors">Tofu Frito</a></li>
                     <li><a href="#recetas" onclick="applyFilterTag('Seco Ahumado')" class="hover:text-koky-green transition-colors">Tofu Seco Ahumado</a></li>
+                    <li><a href="#recetas" onclick="applyFilterTag('Rollo Ahumado')" class="hover:text-koky-green transition-colors">Tofu Rollo Ahumado</a></li>
                     <li><a href="#recetas" onclick="applyFilterTag('Nata de Soya')" class="hover:text-koky-green transition-colors">Nata de Soya (Yuba)</a></li>
                 </ul>
             </div>
@@ -3620,13 +3621,10 @@
             const clearHeroBtn = document.getElementById('clearHeroSearchBtn');
             const clearSectionBtn = document.getElementById('clearSectionSearchBtn');
 
-            if (source === 'hero' && sectionInput) {
-                sectionInput.value = val;
-            } else if (source === 'section' && heroInput) {
-                heroInput.value = val;
-            }
+            if (heroInput) heroInput.value = val !== undefined && val !== null ? val : '';
+            if (sectionInput) sectionInput.value = val !== undefined && val !== null ? val : '';
 
-            const hasVal = Boolean(val && val.trim() !== '');
+            const hasVal = Boolean(val && String(val).trim() !== '');
             if (clearHeroBtn) clearHeroBtn.classList.toggle('hidden', !hasVal);
             if (clearSectionBtn) clearSectionBtn.classList.toggle('hidden', !hasVal);
 
@@ -3758,7 +3756,11 @@
         }
 
         function applyFilterTag(tag) {
-            syncSearch(tag, 'hero');
+            setCategory('all');
+            setDiet('all');
+            resetTimeFilter();
+            syncSearch(tag);
+            filterRecipes();
             scrollToRecetas();
         }
 
