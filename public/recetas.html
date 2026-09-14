@@ -3756,11 +3756,49 @@
         }
 
         function applyFilterTag(tag) {
-            setCategory('all');
-            setDiet('all');
+            // 1. Restablecer filtros de categoria y dieta
+            currentCategory = 'all';
+            currentDiet = 'all';
+            document.querySelectorAll('.category-tab').forEach(btn => {
+                btn.classList.remove('bg-koky-green', 'text-white', 'shadow-sm');
+                btn.classList.add('bg-slate-100', 'text-slate-600');
+            });
+            const activeCatBtn = document.getElementById('tab-all');
+            if (activeCatBtn) {
+                activeCatBtn.classList.remove('bg-slate-100', 'text-slate-600');
+                activeCatBtn.classList.add('bg-koky-green', 'text-white', 'shadow-sm');
+            }
+
+            document.querySelectorAll('.diet-pill').forEach(btn => {
+                btn.classList.remove('bg-koky-dark', 'text-white', 'shadow-sm');
+                btn.classList.add('bg-slate-100', 'text-slate-600');
+            });
+            const activeDietBtn = document.querySelector('.diet-pill[data-diet="all"]');
+            if (activeDietBtn) {
+                activeDietBtn.classList.remove('bg-slate-100', 'text-slate-600');
+                activeDietBtn.classList.add('bg-koky-dark', 'text-white', 'shadow-sm');
+            }
+
             resetTimeFilter();
-            syncSearch(tag);
+
+            // 2. Escribir el termino en ambos inputs y forzar actualizacion visual
+            const heroInput = document.getElementById('searchInput');
+            const sectionInput = document.getElementById('sectionSearchInput');
+            const clearHeroBtn = document.getElementById('clearHeroSearchBtn');
+            const clearSectionBtn = document.getElementById('clearSectionSearchBtn');
+
+            if (heroInput) heroInput.value = tag || '';
+            if (sectionInput) sectionInput.value = tag || '';
+
+            const hasVal = Boolean(tag && String(tag).trim() !== '');
+            if (clearHeroBtn) clearHeroBtn.classList.toggle('hidden', !hasVal);
+            if (clearSectionBtn) clearSectionBtn.classList.toggle('hidden', !hasVal);
+
+            // 3. Ejecutar el filtrado inmediatamente sin esperar debounce
+            clearTimeout(searchDebounceTimer);
             filterRecipes();
+
+            // 4. Desplazar a la seccion de recetas
             scrollToRecetas();
         }
 
