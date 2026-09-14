@@ -430,6 +430,74 @@ function getColombianHolidays(year) {
   return holidays;
 }
 
+function calculateNextDeliveryDate(baseDate = new Date()) {
+  const bogotaDateStr = baseDate.toLocaleString("en-US", {
+    timeZone: "America/Bogota",
+  });
+  const bogotaDate = new Date(bogotaDateStr);
+
+  const dayOfWeek = bogotaDate.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+  const hour = bogotaDate.getHours();
+
+  const isWeekend = (d) => d.getDay() === 0 || d.getDay() === 6;
+
+  const isHoliday = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    const dateStr = `${y}-${m}-${day}`;
+    const holidays = getColombianHolidays(y);
+    return holidays.has(dateStr);
+  };
+
+  let targetDate = new Date(bogotaDate);
+
+  // Determinar si cae en ventana de fin de semana
+  const isWeekendWindow =
+    (dayOfWeek === 4 && hour >= 20) || // Jueves después de las 8 PM
+    dayOfWeek === 5 || // Viernes todo el día
+    dayOfWeek === 6 || // Sábado todo el día
+    (dayOfWeek === 0 && hour < 20); // Domingo antes de las 8 PM
+
+  if (isWeekendWindow) {
+    // Pedidos en ventana de fin de semana se entregan el lunes inicialmente
+    const daysToAdd =
+      dayOfWeek === 4 ? 4 : dayOfWeek === 5 ? 3 : dayOfWeek === 6 ? 2 : 1;
+    targetDate.setDate(bogotaDate.getDate() + daysToAdd);
+  } else if (dayOfWeek === 0 && hour >= 20) {
+    // Domingo después de las 8:00 PM se entrega el martes inicialmente
+    targetDate.setDate(bogotaDate.getDate() + 2);
+  } else {
+    // Caso estándar de lunes a jueves
+    if (hour < 20) {
+      targetDate.setDate(bogotaDate.getDate() + 1); // Entrega mañana
+    } else {
+      targetDate.setDate(bogotaDate.getDate() + 2); // Entrega pasado mañana
+    }
+  }
+
+  // Bucle para saltar fines de semana y festivos
+  while (isWeekend(targetDate) || isHoliday(targetDate)) {
+    targetDate.setDate(targetDate.getDate() + 1);
+  }
+
+  const daysNames = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+  const monthsNames = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+  const dayName = daysNames[targetDate.getDay()];
+  const dayNum = targetDate.getDate();
+  const monthName = monthsNames[targetDate.getMonth()];
+  const yyyy = targetDate.getFullYear();
+  const mm = String(targetDate.getMonth() + 1).padStart(2, "0");
+  const dd = String(targetDate.getDate()).padStart(2, "0");
+
+  return {
+    isoDate: `${yyyy}-${mm}-${dd}`,
+    formatted: `${dayName} ${dayNum} de ${monthName}`,
+    dayName: dayName
+  };
+}
+
 function isWithinSupportHours() {
   const now = new Date();
   
@@ -2251,6 +2319,7 @@ module.exports = {
 
                 const { rulesStr, faqsStr } = await getDynamicPromptsData();
                 const orderContext = await getOrderContextForUser(from, user);
+                const deliveryInfo = calculateNextDeliveryDate();
 
                 const systemPrompt = KiraPrompts.PROMPT_WA(
                   waName,
@@ -2262,7 +2331,8 @@ module.exports = {
                   infoPreventa,
                   rulesStr,
                   faqsStr,
-                  orderContext
+                  orderContext,
+                  deliveryInfo
                 );
 
                 const result = await model.generateContent(systemPrompt);
@@ -3004,6 +3074,7 @@ module.exports = {
 
               const { rulesStr, faqsStr } = await getDynamicPromptsData();
               const orderContextMeta = await getOrderContextForUser(from, user);
+              const deliveryInfoMeta = calculateNextDeliveryDate();
 
               const systemPrompt = KiraPrompts.PROMPT_META(
                 user.username,
@@ -3015,7 +3086,8 @@ module.exports = {
                 infoPreventaMeta,
                 rulesStr,
                 faqsStr,
-                orderContextMeta
+                orderContextMeta,
+                deliveryInfoMeta
               );
 
               const result = await model.generateContent(systemPrompt);
