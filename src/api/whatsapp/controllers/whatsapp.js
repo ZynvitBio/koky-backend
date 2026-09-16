@@ -1542,7 +1542,12 @@ module.exports = {
                 };
 
                 // Detección inteligente de apartamento/casa en el texto de dirección escrito
-                const cleanAddress = address.toLowerCase();
+                let displayAddress = address;
+                if (notes && !displayAddress.toLowerCase().includes(notes.toLowerCase())) {
+                  displayAddress = `${address} (${notes})`;
+                }
+
+                const cleanAddress = `${address} ${notes}`.toLowerCase();
                 const hasApartmentInfo = /\b(apt|apto|apartamento|dep|depto|casa\s*\d+|casa\s*[a-z]|torre|bloque|interior|int|conjunto|edificio|edif)\b/i.test(cleanAddress);
 
                 if (hasApartmentInfo) {
@@ -1550,16 +1555,16 @@ module.exports = {
                   await strapi.entityService.update("plugin::users-permissions.user", user.id, {
                     data: { kira_score: user.kira_score }
                   });
-                  await this.sendHousingConfirmation(phone_number_id, from, address, true);
+                  await this.sendHousingConfirmation(phone_number_id, from, displayAddress, true);
                 } else {
                   user.kira_score.checkout_state = "AWAITING_HOUSING_TYPE";
                   await strapi.entityService.update("plugin::users-permissions.user", user.id, {
                     data: { kira_score: user.kira_score }
                   });
-                  await this.sendHousingConfirmation(phone_number_id, from, address, false);
+                  await this.sendHousingConfirmation(phone_number_id, from, displayAddress, false);
                 }
 
-                systemInteractiveResponse = `Dirección recibida: ${address}. Esperando confirmación del cliente en chat.`;
+                systemInteractiveResponse = `Dirección recibida: ${displayAddress}. Esperando confirmación del cliente en chat.`;
                 isSystemInteractive = true;
               } catch (e) {
                 console.error("❌ Error en nfm_reply:", e.message);
@@ -1577,24 +1582,29 @@ module.exports = {
                 const checkoutState = user.kira_score.checkout_state;
 
                 if (checkoutState === "AWAITING_LOCALITY") {
-                  let selectedLocality = null;
-                  const numInput = msgText.trim();
-                  
-                  // 1. Validar si es una opción por número
-                  if (LOCALIDADES_BOGOTA[numInput]) {
-                    selectedLocality = LOCALIDADES_BOGOTA[numInput];
-                  } else {
-                    // 2. Intentar buscar coincidencia aproximada por texto
-                    const cleanText = msgText.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-                    for (const key in LOCALIDADES_BOGOTA) {
-                      const locName = LOCALIDADES_BOGOTA[key].name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-                      if (cleanText.includes(locName) || locName.includes(cleanText)) {
-                        selectedLocality = LOCALIDADES_BOGOTA[key];
-                        break;
-                      }
-                    }
-                  }
+                  const localityMap = {
+                    "1": { name: "Usaquén", lat: 4.7000, lon: -74.0300, price: 9300 },
+                    "2": { name: "Suba", lat: 4.7400, lon: -74.0800, price: 9300 },
+                    "3": { name: "Chapinero", lat: 4.6500, lon: -74.0600, price: 9300 },
+                    "4": { name: "Teusaquillo", lat: 4.6400, lon: -74.0850, price: 9300 },
+                    "5": { name: "Barrios Unidos", lat: 4.6700, lon: -74.0750, price: 9300 },
+                    "6": { name: "Engativá", lat: 4.7000, lon: -74.1100, price: 9300 },
+                    "7": { name: "Fontibón", lat: 4.6750, lon: -74.1400, price: 9300 },
+                    "8": { name: "Kennedy", lat: 4.6250, lon: -74.1500, price: 9300 },
+                    "9": { name: "Puente Aranda", lat: 4.6150, lon: -74.1100, price: 9300 },
+                    "10": { name: "Santa Fe", lat: 4.6000, lon: -74.0700, price: 9300 },
+                    "11": { name: "La Candelaria", lat: 4.5950, lon: -74.0730, price: 9300 },
+                    "12": { name: "Los Mártires", lat: 4.6050, lon: -74.0900, price: 9300 },
+                    "13": { name: "Antonio Nariño", lat: 4.5850, lon: -74.1000, price: 9300 },
+                    "14": { name: "Tunjuelito", lat: 4.5700, lon: -74.1350, price: 9300 },
+                    "15": { name: "Bosa", lat: 4.6100, lon: -74.1900, price: 9300 },
+                    "16": { name: "Rafael Uribe Uribe", lat: 4.5650, lon: -74.1150, price: 9300 },
+                    "17": { name: "San Cristóbal", lat: 4.5500, lon: -74.0850, price: 9300 },
+                    "18": { name: "Ciudad Bolívar", lat: 4.5200, lon: -74.1600, price: 9300 },
+                    "19": { name: "Usme", lat: 4.4500, lon: -74.1200, price: 9300 }
+                  };
 
+                  const selectedLocality = localityMap[msgText];
                   if (!selectedLocality) {
                     const errorMsg = `❌ No logramos reconocer la localidad que ingresaste. Por favor, escribe únicamente el NÚMERO (1 al 19) de tu localidad del listado anterior.`;
                     await this.sendWhatsAppMessage(phone_number_id, from, errorMsg);
@@ -1618,10 +1628,10 @@ module.exports = {
                   const formattedAddress = `${temp.shipping_address} (${selectedLocality.name})`;
                   const confirmMsg = `📍 Dirección registrada: *${formattedAddress}*\nTarifa fija de envío: *$${selectedLocality.price.toLocaleString()} COP*`;
                   
-                  const cleanAddress = temp.shipping_address.toLowerCase();
-                  const hasApartmentInfo = /\b(apt|apto|apartamento|dep|depto|casa\s*\d+|casa\s*[a-z])\b/i.test(cleanAddress);
+                  const cleanAddressLoc = temp.shipping_address.toLowerCase();
+                  const hasApartmentInfoLoc = /\b(apt|apto|apartamento|dep|depto|casa\s*\d+|casa\s*[a-z]|torre|bloque|interior|int|conjunto|edificio|edif)\b/i.test(cleanAddressLoc);
 
-                  if (hasApartmentInfo) {
+                  if (hasApartmentInfoLoc) {
                     user.kira_score.checkout_state = "AWAITING_SIMPLE_CONFIRMATION";
                     await strapi.entityService.update("plugin::users-permissions.user", user.id, {
                       data: { kira_score: user.kira_score }
