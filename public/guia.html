@@ -664,6 +664,7 @@
 
       <div class="presets-container">
         <span style="font-size: 0.85rem; color: var(--text-muted); width: 100%;">Presets rápidos:</span>
+        <button class="btn-preset" onclick="loadPreset('sonia')">Cargar Sonia Cubillos (#284)</button>
         <button class="btn-preset" onclick="loadPreset('helver')">Cargar Helver Anzola</button>
         <button class="btn-preset" onclick="loadPreset('antonio')">Cargar Antonio Barón</button>
         <button class="btn-preset" onclick="loadPreset('clean')">Limpiar Campos</button>
@@ -805,7 +806,16 @@
 
     // Load presets
     function loadPreset(presetName) {
-      if (presetName === 'helver') {
+      if (presetName === 'sonia') {
+        document.getElementById('input-origen-dir').value = "Calle 119a # 57-40";
+        document.getElementById('input-origen-phone').value = "3019447660";
+        document.getElementById('input-dest-name').value = "SONIA CUBILLOS (ORDEN #284)";
+        document.getElementById('input-dest-addr1').value = "CALLE 131A # 19-89";
+        document.getElementById('input-dest-addr2').value = "EDIFICIO CRISTAL, APTO 306 - RECIBE: JUAN FRANCISCO LOPEZ";
+        document.getElementById('input-dest-city').value = "BOGOTÁ, D.C.";
+        document.getElementById('input-dest-phone').value = "300 7979419";
+        document.getElementById('input-qr-link').value = "https://www.koky.food";
+      } else if (presetName === 'helver') {
         document.getElementById('input-origen-dir').value = "Calle 119a # 57-40";
         document.getElementById('input-origen-phone').value = "3019447660";
         document.getElementById('input-dest-name').value = "HELVER ANZOLA";

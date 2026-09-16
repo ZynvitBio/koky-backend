@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guía de Envío - KOKY-284 - Sonia Cubillos</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  
+  <!-- Google Fonts: Outfit for headers & Inter for UI -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- QR Code Library (Qrious) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+
+  <style>
+    /* Reset & Page Settings */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f1f5f9;
+      color: #1e293b;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    /* Screen UI elements */
+    .no-print-header {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 15px 30px;
+      width: 100%;
+      max-width: 800px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    }
+
+    .header-info h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .header-info p {
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+
+    .btn-print {
+      background: #2ecc71;
+      color: #0f172a;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 10px rgba(46, 204, 113, 0.3);
+    }
+
+    .btn-print:hover {
+      background: #27ae60;
+      transform: translateY(-2px);
+    }
+
+    /* Printable Page Container */
+    .page-container {
+      background: #ffffff;
+      width: 215.9mm; /* US Letter width */
+      height: 279.4mm; /* US Letter height */
+      padding: 12mm 15mm;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      border-radius: 8px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Guide Labels Section (Occupying the top half) */
+    .guides-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      height: 135mm; /* Half of page height (~139.7mm) minus margins */
+      border-bottom: 2px dashed #cbd5e1;
+      padding-bottom: 10px;
+      position: relative;
+    }
+
+    /* Label Card styling */
+    .label-card {
+      width: 100%;
+      height: 60mm;
+      border: 2px solid #0f172a;
+      border-radius: 6px;
+      display: grid;
+      grid-template-columns: 48mm 1fr 42mm;
+      overflow: hidden;
+      background: #ffffff;
+      position: relative;
+    }
+
+    /* Cut marker line indicators */
+    .cut-line-indicator {
+      position: absolute;
+      bottom: -6px;
+      left: -15mm;
+      width: 215.9mm;
+      border-top: 1px dashed #94a3b8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .cut-line-indicator span {
+      background: #ffffff;
+      padding: 0 10px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #64748b;
+      letter-spacing: 1px;
+    }
+
+    /* Column left: Logo & Origin */
+    .col-left {
+      border-right: 1.5px dashed #0f172a;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: #f8fafc;
+    }
+
+    .logo-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .logo-container img {
+      width: 85px;
+      height: auto;
+      margin-bottom: 2px;
+    }
+
+    .logo-subtitle {
+      font-size: 0.55rem;
+      color: #64748b;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .origin-details {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 6px;
+    }
+
+    .origin-title {
+      font-size: 0.6rem;
+      font-weight: 800;
+      color: #1e3a8a;
+      letter-spacing: 0.5px;
+    }
+
+    .origin-text {
+      font-size: 0.6rem;
+      line-height: 1.2;
+      color: #344155;
+    }
+
+    /* Column middle: Main Delivery Details & Order items */
+    .col-middle {
+      padding: 10px 14px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 6px;
+    }
+
+    .delivery-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 1.5px solid #0f172a;
+      padding-bottom: 4px;
+    }
+
+    .delivery-badge {
+      background: #0f172a;
+      color: #ffffff;
+      font-size: 0.7rem;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .order-id-badge {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .delivery-content {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .client-info {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .client-name {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 900;
+      color: #000000;
+      text-transform: uppercase;
+      line-height: 1.1;
+    }
+
+    .client-address {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1.2;
+    }
+
+    .client-notes {
+      font-size: 0.75rem;
+      color: #334155;
+      background: #f1f5f9;
+      padding: 4px 6px;
+      border-radius: 4px;
+      border-left: 3px solid #1e3a8a;
+      margin: 2px 0;
+      line-height: 1.25;
+      font-weight: 600;
+    }
+
+    .client-phone {
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: #000000;
+      margin-top: 2px;
+    }
+
+    /* Column right: QR Code & Web */
+    .col-right {
+      border-left: 1.5px dashed #0f172a;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      text-align: center;
+      background: #f8fafc;
+    }
+
+    .qr-box {
+      background: #ffffff;
+      padding: 3px;
+      border-radius: 4px;
+      border: 1px solid #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .qr-box canvas {
+      width: 32mm !important;
+      height: 32mm !important;
+    }
+
+    .scan-tip {
+      font-size: 0.55rem;
+      color: #64748b;
+      line-height: 1.1;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .web-link {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 800;
+      color: #1e3a8a;
+      letter-spacing: 0.5px;
+    }
+
+    /* Bottom Half of the Sheet (Blank space) */
+    .page-bottom-half {
+      flex: 1;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 5mm;
+    }
+
+    .bottom-half-text {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      text-align: center;
+      border-top: 1px dotted #cbd5e1;
+      width: 80%;
+      padding-top: 4mm;
+    }
+
+    /* PRINT MEDIA OVERRIDES */
+    @media print {
+      body {
+        background-color: transparent !important;
+        padding: 0 !important;
+      }
+
+      .no-print-header {
+        display: none !important;
+      }
+
+      .page-container {
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        padding: 10mm 15mm !important;
+        margin: 0 !important;
+      }
+
+      @page {
+        size: letter portrait;
+        margin: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Screen Action Bar -->
+  <div class="no-print-header">
+    <div class="header-info">
+      <h1>Impresión de Guía: Orden KOKY-284</h1>
+      <p>Destinatario: Sonia Cubillos | Recibe: Juan Francisco Lopez</p>
+    </div>
+    <button class="btn-print" onclick="window.print()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 6 2 18 2 18 9"></polyline>
+        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+        <rect x="6" y="14" width="12" height="8"></rect>
+      </svg>
+      Imprimir Guía (Ctrl + P)
+    </button>
+  </div>
+
+  <!-- Physical Letter Page Wrapper -->
+  <div class="page-container">
+    
+    <!-- Top Half: Two identical shipping labels (1 Original + 1 Copia) -->
+    <div class="guides-section">
+      
+      <!-- Label Copy 1 -->
+      <div class="label-card">
+        <!-- Left Column: Logo & Origin -->
+        <div class="col-left">
+          <div class="logo-container">
+            <img src="logoBlue20.png" alt="Koky Logo">
+            <span class="logo-subtitle">Comida Saludable</span>
+          </div>
+          <div class="origin-details">
+            <span class="origin-title">REMITENTE (ORIGEN):</span>
+            <span class="origin-text">JONATHAN BARRIOS BRITO</span>
+            <span class="origin-text">Calle 119a 57-40</span>
+            <span class="origin-text" style="font-weight: 700;">Bogotá &bull; Tel: 3019447660</span>
+          </div>
+        </div>
+
+        <!-- Middle Column: Destination -->
+        <div class="col-middle">
+          <div class="delivery-header">
+            <span class="delivery-badge">ENTREGAR A (DESTINATARIO)</span>
+            <span class="order-id-badge">KOKY-284</span>
+          </div>
+          <div class="delivery-content">
+            <div class="client-info">
+              <span class="client-name">Sonia Cubillos</span>
+              <span class="client-address">Calle 131A # 19-89</span>
+              <span class="client-address" style="font-size: 0.75rem; color: #475569;">Usaquén, Bogotá, D.C.</span>
+              <div class="client-notes">
+                Edificio Cristal, apto 306 &bull; Recibe: Juan Francisco Lopez (Hijo de Sonia Cubillos)
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: QR & Info -->
+        <div class="col-right">
+          <div class="qr-box">
+            <canvas class="qr-canvas"></canvas>
+          </div>
+          <div class="scan-tip">
+            Escanear para<br>soporte / orden
+          </div>
+          <span class="web-link">KOKY.FOOD</span>
+        </div>
+      </div>
+
+      <!-- Cut separating line for convenience -->
+      <div class="cut-line-indicator" style="top: 66mm;">
+        <span>CORTAR AQUÍ</span>
+      </div>
+
+      <!-- Label Copy 2 -->
+      <div class="label-card" style="margin-top: 10px;">
+        <!-- Left Column: Logo & Origin -->
+        <div class="col-left">
+          <div class="logo-container">
+            <img src="logoBlue20.png" alt="Koky Logo">
+            <span class="logo-subtitle">Comida Saludable</span>
+          </div>
+          <div class="origin-details">
+            <span class="origin-title">REMITENTE (ORIGEN):</span>
+            <span class="origin-text">JONATHAN BARRIOS BRITO</span>
+            <span class="origin-text">Calle 119a 57-40</span>
+            <span class="origin-text" style="font-weight: 700;">Bogotá &bull; Tel: 3019447660</span>
+          </div>
+        </div>
+
+        <!-- Middle Column: Destination -->
+        <div class="col-middle">
+          <div class="delivery-header">
+            <span class="delivery-badge">ENTREGAR A (DESTINATARIO)</span>
+            <span class="order-id-badge">KOKY-284 (COPIA)</span>
+          </div>
+          <div class="delivery-content">
+            <div class="client-info">
+              <span class="client-name">Sonia Cubillos</span>
+              <span class="client-address">Calle 131A # 19-89</span>
+              <span class="client-address" style="font-size: 0.75rem; color: #475569;">Usaquén, Bogotá, D.C.</span>
+              <div class="client-notes">
+                Edificio Cristal, apto 306 &bull; Recibe: Juan Francisco Lopez (Hijo de Sonia Cubillos)
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: QR & Info -->
+        <div class="col-right">
+          <div class="qr-box">
+            <canvas class="qr-canvas"></canvas>
+          </div>
+          <div class="scan-tip">
+            Escanear para<br>soporte / orden
+          </div>
+          <span class="web-link">KOKY.FOOD</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom Half of the Sheet -->
+    <div class="page-bottom-half">
+      <div class="bottom-half-text">
+        <p>Espacio inferior de la hoja en blanco para anotaciones físicas.</p>
+        <p style="font-size: 0.75rem; margin-top: 5px; color: #cbd5e1;">&copy; 2026 Koky Kitchen &bull; Sistema de Operaciones</p>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Initialize QR Code generator for both canvases
+    window.onload = function() {
+      const canvases = document.querySelectorAll('.qr-canvas');
+      const orderUrl = "https://www.koky.food";
+      
+      canvases.forEach(canvas => {
+        new QRious({
+          element: canvas,
+          value: orderUrl,
+          size: 150,
+          background: '#ffffff',
+          foreground: '#0f172a',
+          level: 'M'
+        });
+      });
+    };
+  </script>
+</body>
+</html>
