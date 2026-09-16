@@ -1462,10 +1462,9 @@ module.exports = {
                   throw new Error("No hay un carrito activo para este usuario.");
                 }
 
-                // 1. Geocodificar la dirección usando Google Maps
+                // 1. Geocodificar la dirección usando Google Maps exclusivamente para obtener lat/lng
                 let lat = 4.6976;
                 let lng = -74.0617;
-                let formattedAddress = address;
                 let isAddressReal = true;
 
                 try {
@@ -1473,12 +1472,11 @@ module.exports = {
                   if (geocoded.success) {
                     lat = geocoded.lat;
                     lng = geocoded.lng;
-                    formattedAddress = geocoded.formattedAddress;
                   } else {
                     isAddressReal = false;
                   }
                 } catch (geocodeErr) {
-                  console.error("❌ Error de red/sistema en geocodeAddress:", geocodeErr.message);
+                  console.error("Error de red/sistema en geocodeAddress:", geocodeErr.message);
                 }
 
                 if (!isAddressReal) {
@@ -1524,15 +1522,15 @@ module.exports = {
                     `19. *Usme*`;
                   
                   await this.sendWhatsAppMessage(phone_number_id, from, localityMsg);
-                  systemInteractiveResponse = `📍 Dirección no geocodificada. Preguntando localidad al usuario en chat.`;
+                  systemInteractiveResponse = `Dirección no geocodificada. Preguntando localidad al usuario en chat.`;
                   isSystemInteractive = true;
                   return;
                 }
 
-                // Guardar los datos en el checkout temporal
+                // Guardar los datos en el checkout temporal conservando la dirección exacta del cliente
                 user.kira_score.temp_checkout = {
                   customer_name: name,
-                  shipping_address: formattedAddress,
+                  shipping_address: address,
                   latitude: Number(lat),
                   longitude: Number(lng),
                   shipping_notes: notes,
@@ -1545,23 +1543,23 @@ module.exports = {
 
                 // Detección inteligente de apartamento/casa en el texto de dirección escrito
                 const cleanAddress = address.toLowerCase();
-                const hasApartmentInfo = /\b(apt|apto|apartamento|dep|depto|casa\s*\d+|casa\s*[a-z])\b/i.test(cleanAddress);
+                const hasApartmentInfo = /\b(apt|apto|apartamento|dep|depto|casa\s*\d+|casa\s*[a-z]|torre|bloque|interior|int|conjunto|edificio|edif)\b/i.test(cleanAddress);
 
                 if (hasApartmentInfo) {
                   user.kira_score.checkout_state = "AWAITING_SIMPLE_CONFIRMATION";
                   await strapi.entityService.update("plugin::users-permissions.user", user.id, {
                     data: { kira_score: user.kira_score }
                   });
-                  await this.sendHousingConfirmation(phone_number_id, from, formattedAddress, true);
+                  await this.sendHousingConfirmation(phone_number_id, from, address, true);
                 } else {
                   user.kira_score.checkout_state = "AWAITING_HOUSING_TYPE";
                   await strapi.entityService.update("plugin::users-permissions.user", user.id, {
                     data: { kira_score: user.kira_score }
                   });
-                  await this.sendHousingConfirmation(phone_number_id, from, formattedAddress, false);
+                  await this.sendHousingConfirmation(phone_number_id, from, address, false);
                 }
 
-                systemInteractiveResponse = `📍 Dirección geocodificada: ${formattedAddress}. Esperando confirmación del cliente en chat.`;
+                systemInteractiveResponse = `Dirección recibida: ${address}. Esperando confirmación del cliente en chat.`;
                 isSystemInteractive = true;
               } catch (e) {
                 console.error("❌ Error en nfm_reply:", e.message);
@@ -1833,7 +1831,6 @@ module.exports = {
 
                     let lat = 4.6976;
                     let lng = -74.0617;
-                    let formattedAddress = rawText;
                     let isAddressReal = true;
 
                     try {
@@ -1841,25 +1838,24 @@ module.exports = {
                       if (geocoded.success) {
                         lat = geocoded.lat;
                         lng = geocoded.lng;
-                        formattedAddress = geocoded.formattedAddress;
                       } else {
                         isAddressReal = false;
                       }
                     } catch (geocodeErr) {
-                      console.error("❌ Error de red/sistema en geocodeAddress (texto):", geocodeErr.message);
+                      console.error("Error de red/sistema en geocodeAddress (texto):", geocodeErr.message);
                     }
 
                     if (!isAddressReal) {
-                      const errorMsg = `❌ No logramos ubicar la dirección *"${rawText}"*. Por favor, asegúrate de escribir tu dirección completa con calle y número o confírmala en el botón de abajo.`;
+                      const errorMsg = `No logramos ubicar la dirección *"${rawText}"*. Por favor, asegúrate de escribir tu dirección completa con calle y número o confírmala en el botón de abajo.`;
                       await this.sendWhatsAppMessage(phone_number_id, from, errorMsg);
                       await this.sendDeliveryFlow(phone_number_id, from, activeCart.listText, activeCart.subtotal);
                       return;
                     }
 
-                    // Guardar los datos en el checkout temporal
+                    // Guardar los datos en el checkout temporal conservando la dirección exacta del cliente
                     user.kira_score.temp_checkout = {
                       customer_name: waName,
-                      shipping_address: formattedAddress,
+                      shipping_address: rawText,
                       latitude: Number(lat),
                       longitude: Number(lng),
                       shipping_notes: "",
@@ -1871,23 +1867,23 @@ module.exports = {
                     };
 
                     const cleanAddress = rawText.toLowerCase();
-                    const hasApartmentInfo = /\b(apt|apto|apartamento|dep|depto|casa\s*\d+|casa\s*[a-z])\b/i.test(cleanAddress);
+                    const hasApartmentInfo = /\b(apt|apto|apartamento|dep|depto|casa\s*\d+|casa\s*[a-z]|torre|bloque|interior|int|conjunto|edificio|edif)\b/i.test(cleanAddress);
 
                     if (hasApartmentInfo) {
                       user.kira_score.checkout_state = "AWAITING_SIMPLE_CONFIRMATION";
                       await strapi.entityService.update("plugin::users-permissions.user", user.id, {
                         data: { kira_score: user.kira_score }
                       });
-                      await this.sendHousingConfirmation(phone_number_id, from, formattedAddress, true);
+                      await this.sendHousingConfirmation(phone_number_id, from, rawText, true);
                     } else {
                       user.kira_score.checkout_state = "AWAITING_HOUSING_TYPE";
                       await strapi.entityService.update("plugin::users-permissions.user", user.id, {
                         data: { kira_score: user.kira_score }
                       });
-                      await this.sendHousingConfirmation(phone_number_id, from, formattedAddress, false);
+                      await this.sendHousingConfirmation(phone_number_id, from, rawText, false);
                     }
 
-                    systemInteractiveResponse = `📍 Dirección geocodificada (texto): ${formattedAddress}. Esperando confirmación del cliente en chat.`;
+                    systemInteractiveResponse = `Dirección recibida (texto): ${rawText}. Esperando confirmación del cliente en chat.`;
                     isSystemInteractive = true;
                   }
                 } else if (checkoutState === "AWAITING_SIMPLE_CONFIRMATION") {
@@ -2099,6 +2095,11 @@ module.exports = {
                   }
 
                   const apartmentDetails = rawText.trim();
+                  let finalAddress = temp.shipping_address;
+                  if (apartmentDetails && !finalAddress.toLowerCase().includes(apartmentDetails.toLowerCase())) {
+                    finalAddress = `${temp.shipping_address} - Apto/Torre: ${apartmentDetails}`;
+                  }
+
                   let finalNotes = temp.shipping_notes 
                     ? `${temp.shipping_notes} | Apto/Torre: ${apartmentDetails}`
                     : `Apto/Torre: ${apartmentDetails}`;
@@ -2120,7 +2121,7 @@ module.exports = {
                         deliveryCost = cabifyResult.deliveries[0].estimation.price.amount;
                       }
                     } catch (cabifyErr) {
-                      console.error("❌ Error consultando Cabify:", cabifyErr.message);
+                      console.error("Error consultando Cabify:", cabifyErr.message);
                     }
                   }
 
@@ -2136,7 +2137,7 @@ module.exports = {
                       source: "whatsapp",
                       items: temp.active_cart.items,
                       payment_method: "CARD",
-                      shipping_address: temp.shipping_address,
+                      shipping_address: finalAddress,
                       shipping_latitude: Number(temp.latitude),
                       shipping_longitude: Number(temp.longitude),
                       shipping_notes: finalNotes,
@@ -2164,7 +2165,7 @@ module.exports = {
                       temp.active_cart.listText,
                       deliveryCost,
                       totalAmount,
-                      temp.shipping_address,
+                      finalAddress,
                       finalNotes,
                       checkoutUrl
                     );

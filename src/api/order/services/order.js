@@ -53,10 +53,14 @@ module.exports = createCoreService('api::order.order', ({ strapi }) => ({
       // --- CLIENTE ---
       doc.moveTo(50, 180).lineTo(545, 180).strokeColor('#e0e0e0').stroke();
       doc.font('Helvetica-Bold').fontSize(10).fillColor('#333333').text('FACTURADO A:', 50, 195);
+      let fullDeliveryAddress = order.shipping_address || 'N/A';
+      if (order.shipping_notes && !fullDeliveryAddress.toLowerCase().includes(order.shipping_notes.toLowerCase())) {
+        fullDeliveryAddress += ` (${order.shipping_notes})`;
+      }
       doc.font('Helvetica').fillColor('#555555')
          .text(`Nombre: ${order.customer_name || 'Cliente Koky'}`, 50, 207)
          .text(`Teléfono (WhatsApp): ${order.whatsapp_id || 'N/A'}`, 50, 219)
-         .text(`Dirección Entrega: ${order.shipping_address || 'N/A'}`, 50, 231);
+         .text(`Dirección Entrega: ${fullDeliveryAddress}`, 50, 231, { width: 480 });
 
       // --- TABLA DE DETALLES ---
       doc.moveTo(50, 255).lineTo(545, 255).strokeColor('#2e7d32').lineWidth(1.5).stroke();
