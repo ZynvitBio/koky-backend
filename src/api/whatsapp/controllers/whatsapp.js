@@ -765,7 +765,10 @@ module.exports = {
   async buildCartFromNames(items) {
     try {
       const products = await strapi.entityService.findMany("api::product.product", {
-        filters: { active: true },
+        filters: { 
+          active: true,
+          stock: { $gt: 0 }
+        },
         populate: { image: true }
       });
 

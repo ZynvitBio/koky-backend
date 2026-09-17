@@ -4,9 +4,12 @@
 module.exports = {
   async getProductsContext() {
     try {
-      // Consultamos Strapi buscando productos activos
+      // Consultamos Strapi buscando productos activos y con stock disponible
       const products = await strapi.entityService.findMany('api::product.product', {
-        filters: { active: true },
+        filters: { 
+          active: true,
+          stock: { $gt: 0 }
+        },
         fields: [
           'name', 
           'price', 
