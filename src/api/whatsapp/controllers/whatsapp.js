@@ -735,17 +735,24 @@ module.exports = {
   },
 
   async sendWhatsAppMessage(phone_number_id, to, text) {
-    const cleanTo = String(to).trim().replace(/^[a-zA-Z]{2}\./, '').replace(/\D/g, '');
+    const target = String(to).trim();
+    const isBSUID = /^[a-zA-Z]{2}\./.test(target);
+    const payload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      text: { body: text },
+    };
+    if (isBSUID) {
+      payload.recipient = target;
+    } else {
+      payload.to = target.replace(/\D/g, '');
+    }
+
     try {
       await axios({
         method: "POST",
         url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-        data: {
-          messaging_product: "whatsapp",
-          recipient_type: "individual",
-          to: cleanTo,
-          text: { body: text },
-        },
+        data: payload,
         headers: {
           Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
         },
@@ -814,16 +821,13 @@ module.exports = {
       console.warn("⚠️ WHATSAPP_FLOW_ID no está configurada en las variables de entorno.");
       return;
     }
-    try {
-      await axios({
-        method: "POST",
-        url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-        data: {
-          messaging_product: "whatsapp",
-          recipient_type: "individual",
-          to: to,
-          type: "interactive",
-          interactive: {
+    const target = String(to).trim();
+    const isBSUID = /^[a-zA-Z]{2}\./.test(target);
+    const flowPayload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      type: "interactive",
+      interactive: {
             type: "flow",
             header: {
               type: "text",
@@ -854,7 +858,19 @@ module.exports = {
               }
             }
           }
-        },
+        };
+
+    if (isBSUID) {
+      flowPayload.recipient = target;
+    } else {
+      flowPayload.to = target.replace(/\D/g, '');
+    }
+
+    try {
+      await axios({
+        method: "POST",
+        url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+        data: flowPayload,
         headers: {
           Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
           "Content-Type": "application/json"
@@ -911,25 +927,34 @@ module.exports = {
       ? `📍 Confirmemos tu dirección:\n👉 **${address}**\n\n¿Esta dirección y detalles de apartamento son correctos?`
       : `📍 Ubicamos tu dirección:\n👉 **${address}**\n\n¿Vives en una casa o en un apartamento?`;
 
+    const target = String(to).trim();
+    const isBSUID = /^[a-zA-Z]{2}\./.test(target);
+    const btnPayload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      type: "interactive",
+      interactive: {
+        type: "button",
+        body: {
+          text: bodyText
+        },
+        action: {
+          buttons: buttons
+        }
+      }
+    };
+
+    if (isBSUID) {
+      btnPayload.recipient = target;
+    } else {
+      btnPayload.to = target.replace(/\D/g, '');
+    }
+
     try {
       await axios({
         method: "POST",
         url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-        data: {
-          messaging_product: "whatsapp",
-          recipient_type: "individual",
-          to: to,
-          type: "interactive",
-          interactive: {
-            type: "button",
-            body: {
-              text: bodyText
-            },
-            action: {
-              buttons: buttons
-            }
-          }
-        },
+        data: btnPayload,
         headers: {
           Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
           "Content-Type": "application/json"
@@ -955,24 +980,21 @@ module.exports = {
     }
     messageBody += `\n💳 Completa tu pago seguro con Wompi (Nequi, Daviplata, PSE, Tarjeta) haciendo clic en el botón de abajo.`;
 
-    try {
-      await axios({
-        method: "POST",
-        url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-        data: {
-          messaging_product: "whatsapp",
-          recipient_type: "individual",
-          to: to,
-          type: "interactive",
-          interactive: {
-            type: "cta_url",
-            header: {
-              type: "text",
-              text: "Pago Seguro 💳"
-            },
-            body: {
-              text: messageBody
-            },
+    const target = String(to).trim();
+    const isBSUID = /^[a-zA-Z]{2}\./.test(target);
+    const ctaPayload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      type: "interactive",
+      interactive: {
+        type: "cta_url",
+        header: {
+          type: "text",
+          text: "Pago Seguro 💳"
+        },
+        body: {
+          text: messageBody
+        },
             footer: {
               text: "Koky Food"
             },
@@ -984,7 +1006,19 @@ module.exports = {
               }
             }
           }
-        },
+        };
+
+    if (isBSUID) {
+      ctaPayload.recipient = target;
+    } else {
+      ctaPayload.to = target.replace(/\D/g, '');
+    }
+
+    try {
+      await axios({
+        method: "POST",
+        url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+        data: ctaPayload,
         headers: {
           Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
           "Content-Type": "application/json"
@@ -1354,46 +1388,55 @@ module.exports = {
 
                   setImmediate(async () => {
                     try {
-                      await axios({
-                        method: "POST",
-                        url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-                        data: {
-                          messaging_product: "whatsapp",
-                          recipient_type: "individual",
-                          to: from,
-                          type: "interactive",
-                          interactive: {
-                            type: "flow",
-                            header: {
-                              type: "text",
-                              text: "Confirmar Pedido"
-                            },
-                            body: {
-                              text: `Detalles de tu compra:\n${listText}\nTotal: $${total.toLocaleString('es-CO')} COP`
-                            },
-                            footer: {
-                              text: "Koky Food"
-                            },
-                            action: {
-                              name: "flow",
-                              parameters: {
-                                flow_message_version: "3",
-                                flow_token: `cart_${Date.now()}`,
-                                flow_id: flowId,
-                                flow_cta: "Confirmar Entrega",
-                                flow_action: "navigate",
-                                mode: process.env.WHATSAPP_FLOW_MODE || "published",
-                                flow_action_payload: {
-                                  screen: "DELIVERY_SCREEN",
-                                  data: {
-                                  cart_total_text: `Subtotal de comida: $${total.toLocaleString('es-CO')} COP`,
-                                  items_summary: `Detalles de tus productos:\n${listText}`
-                                  }
+                      const targetFrom = String(from).trim();
+                      const isBSUID = /^[a-zA-Z]{2}\./.test(targetFrom);
+                      const flowPayload = {
+                        messaging_product: "whatsapp",
+                        recipient_type: "individual",
+                        type: "interactive",
+                        interactive: {
+                          type: "flow",
+                          header: {
+                            type: "text",
+                            text: "Confirmar Pedido"
+                          },
+                          body: {
+                            text: `Detalles de tu compra:\n${listText}\nTotal: $${total.toLocaleString('es-CO')} COP`
+                          },
+                          footer: {
+                            text: "Koky Food"
+                          },
+                          action: {
+                            name: "flow",
+                            parameters: {
+                              flow_message_version: "3",
+                              flow_token: `cart_${Date.now()}`,
+                              flow_id: flowId,
+                              flow_cta: "Confirmar Entrega",
+                              flow_action: "navigate",
+                              mode: process.env.WHATSAPP_FLOW_MODE || "published",
+                              flow_action_payload: {
+                                screen: "DELIVERY_SCREEN",
+                                data: {
+                                cart_total_text: `Subtotal de comida: $${total.toLocaleString('es-CO')} COP`,
+                                items_summary: `Detalles de tus productos:\n${listText}`
                                 }
                               }
                             }
                           }
-                        },
+                        }
+                      };
+
+                      if (isBSUID) {
+                        flowPayload.recipient = targetFrom;
+                      } else {
+                        flowPayload.to = targetFrom.replace(/\D/g, '');
+                      }
+
+                      await axios({
+                        method: "POST",
+                        url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+                        data: flowPayload,
                         headers: {
                           Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
                           "Content-Type": "application/json"
@@ -1684,46 +1727,55 @@ module.exports = {
                       try {
                         await this.sendWhatsAppMessage(phone_number_id, from, systemInteractiveResponse);
                         
-                        await axios({
-                          method: "POST",
-                          url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-                          data: {
-                            messaging_product: "whatsapp",
-                            recipient_type: "individual",
-                            to: from,
-                            type: "interactive",
-                            interactive: {
-                              type: "flow",
-                              header: {
-                                type: "text",
-                                text: "Confirmar Pedido"
-                              },
-                              body: {
-                                text: `Detalles de tu compra:\n${activeCart.listText}\nTotal: $${activeCart.subtotal.toLocaleString('es-CO')} COP`
-                              },
-                              footer: {
-                                text: "Koky Food"
-                              },
-                              action: {
-                                name: "flow",
-                                parameters: {
-                                  flow_message_version: "3",
-                                  flow_token: `cart_${Date.now()}`,
-                                  flow_id: flowId,
-                                  flow_cta: "Confirmar Entrega",
-                                  flow_action: "navigate",
-                                  mode: process.env.WHATSAPP_FLOW_MODE || "published",
-                                  flow_action_payload: {
-                                    screen: "DELIVERY_SCREEN",
-                                    data: {
-                                      cart_total_text: `Subtotal de comida: $${activeCart.subtotal.toLocaleString('es-CO')} COP`,
-                                      items_summary: `Detalles de tus productos:\n${activeCart.listText}`
-                                    }
+                        const targetFrom = String(from).trim();
+                        const isBSUID = /^[a-zA-Z]{2}\./.test(targetFrom);
+                        const flowPayload = {
+                          messaging_product: "whatsapp",
+                          recipient_type: "individual",
+                          type: "interactive",
+                          interactive: {
+                            type: "flow",
+                            header: {
+                              type: "text",
+                              text: "Confirmar Pedido"
+                            },
+                            body: {
+                              text: `Detalles de tu compra:\n${activeCart.listText}\nTotal: $${activeCart.subtotal.toLocaleString('es-CO')} COP`
+                            },
+                            footer: {
+                              text: "Koky Food"
+                            },
+                            action: {
+                              name: "flow",
+                              parameters: {
+                                flow_message_version: "3",
+                                flow_token: `cart_${Date.now()}`,
+                                flow_id: flowId,
+                                flow_cta: "Confirmar Entrega",
+                                flow_action: "navigate",
+                                mode: process.env.WHATSAPP_FLOW_MODE || "published",
+                                flow_action_payload: {
+                                  screen: "DELIVERY_SCREEN",
+                                  data: {
+                                    cart_total_text: `Subtotal de comida: $${activeCart.subtotal.toLocaleString('es-CO')} COP`,
+                                    items_summary: `Detalles de tus productos:\n${activeCart.listText}`
                                   }
                                 }
                               }
                             }
-                          },
+                          }
+                        };
+
+                        if (isBSUID) {
+                          flowPayload.recipient = targetFrom;
+                        } else {
+                          flowPayload.to = targetFrom.replace(/\D/g, '');
+                        }
+
+                        await axios({
+                          method: "POST",
+                          url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
+                          data: flowPayload,
                           headers: {
                             Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
                             "Content-Type": "application/json"
@@ -1798,35 +1850,44 @@ module.exports = {
 
                       setImmediate(async () => {
                         try {
+                          const targetFrom = String(from).trim();
+                          const isBSUID = /^[a-zA-Z]{2}\./.test(targetFrom);
+                          const ctaPayload = {
+                            messaging_product: "whatsapp",
+                            recipient_type: "individual",
+                            type: "interactive",
+                            interactive: {
+                              type: "cta_url",
+                              header: {
+                                type: "text",
+                                text: "Pago Seguro 💳"
+                              },
+                              body: {
+                                text: messageBody
+                              },
+                              footer: {
+                                text: "Koky Food"
+                              },
+                              action: {
+                                name: "cta_url",
+                                parameters: {
+                                  display_text: "Pagar con Wompi",
+                                  url: checkoutUrl
+                                }
+                              }
+                            }
+                          };
+
+                          if (isBSUID) {
+                            ctaPayload.recipient = targetFrom;
+                          } else {
+                            ctaPayload.to = targetFrom.replace(/\D/g, '');
+                          }
+
                           await axios({
                             method: "POST",
                             url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-                            data: {
-                              messaging_product: "whatsapp",
-                              recipient_type: "individual",
-                              to: from,
-                              type: "interactive",
-                              interactive: {
-                                type: "cta_url",
-                                header: {
-                                  type: "text",
-                                  text: "Pago Seguro 💳"
-                                },
-                                body: {
-                                  text: messageBody
-                                },
-                                footer: {
-                                  text: "Koky Food"
-                                },
-                                action: {
-                                  name: "cta_url",
-                                  parameters: {
-                                    display_text: "Pagar con Wompi",
-                                    url: checkoutUrl
-                                  }
-                                }
-                              }
-                            },
+                            data: ctaPayload,
                             headers: {
                               Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
                               "Content-Type": "application/json"
@@ -2488,18 +2549,26 @@ module.exports = {
                     },
                   });
                 } else {
+                  const targetFrom = String(from).trim();
+                  const isBSUID = /^[a-zA-Z]{2}\./.test(targetFrom);
+                  const replyPayload = {
+                    messaging_product: "whatsapp",
+                    recipient_type: "individual",
+                    text: { body: messageToSave },
+                  };
+
+                  if (isBSUID) {
+                    replyPayload.recipient = targetFrom;
+                  } else {
+                    replyPayload.to = targetFrom.replace(/\D/g, '');
+                  }
+
                   await axios({
                     method: "POST",
 
                     url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
 
-                    data: {
-                      messaging_product: "whatsapp",
-
-                      to: from,
-
-                      text: { body: messageToSave },
-                    },
+                    data: replyPayload,
 
                     headers: {
                       Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,

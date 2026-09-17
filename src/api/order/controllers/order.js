@@ -198,17 +198,27 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
               const { productionNight, deliveryDay } = getDeliverySchedule(new Date());
 
               strapi.log.info(`[Wompi Webhook] Enviando confirmación de pago por WhatsApp a ${finalOrder.whatsapp_id}`);
+              const targetOrderWA = String(finalOrder.whatsapp_id).trim();
+              const isBSUIDOrder = /^[a-zA-Z]{2}\./.test(targetOrderWA);
+
+              const textPayload = {
+                messaging_product: "whatsapp",
+                type: "text",
+                text: {
+                  body: `¡Pago confirmado! 💳\n\nTu pago con Wompi ha sido aprobado con éxito. Tu pedido (Orden #${finalOrder.id}) entrará a nuestra cocina ${productionNight} para prepararse con ingredientes frescos, y te lo entregaremos ${deliveryDay}. Te avisaremos por este medio en cuanto tu pedido esté en camino con el repartidor. 🛵\n\n¡Muchas gracias por tu compra! 🥦`,
+                },
+              };
+
+              if (isBSUIDOrder) {
+                textPayload.recipient = targetOrderWA;
+              } else {
+                textPayload.to = targetOrderWA.replace(/\D/g, '');
+              }
+
               await axios({
                 method: "POST",
                 url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-                data: {
-                  messaging_product: "whatsapp",
-                  to: finalOrder.whatsapp_id,
-                  type: "text",
-                  text: {
-                    body: `¡Pago confirmado! 💳\n\nTu pago con Wompi ha sido aprobado con éxito. Tu pedido (Orden #${finalOrder.id}) entrará a nuestra cocina ${productionNight} para prepararse con ingredientes frescos, y te lo entregaremos ${deliveryDay}. Te avisaremos por este medio en cuanto tu pedido esté en camino con el repartidor. 🛵\n\n¡Muchas gracias por tu compra! 🥦`,
-                  },
-                },
+                data: textPayload,
                 headers: {
                   Authorization: `Bearer ${whatsapp_token}`,
                   "Content-Type": "application/json",
@@ -221,12 +231,17 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
                 
                 const docPayload = {
                   messaging_product: "whatsapp",
-                  to: finalOrder.whatsapp_id,
                   type: "document",
                   document: {
                     filename: `Factura_Koky_${finalOrder.id}.pdf`
                   }
                 };
+
+                if (isBSUIDOrder) {
+                  docPayload.recipient = targetOrderWA;
+                } else {
+                  docPayload.to = targetOrderWA.replace(/\D/g, '');
+                }
 
                 if (mediaId) {
                   docPayload.document.id = mediaId;

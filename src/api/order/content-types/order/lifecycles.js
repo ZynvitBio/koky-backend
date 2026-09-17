@@ -457,19 +457,28 @@ async function sendWhatsAppTemplate(phone_number_id, token, to, templateName, bo
       });
     }
 
+    const target = String(to).trim();
+    const isBSUID = /^[a-zA-Z]{2}\./.test(target);
+    const templatePayload = {
+      messaging_product: "whatsapp",
+      type: "template",
+      template: {
+        name: templateName,
+        language: { code: "es_CO" },
+        components: components
+      }
+    };
+
+    if (isBSUID) {
+      templatePayload.recipient = target;
+    } else {
+      templatePayload.to = target.replace(/\D/g, '');
+    }
+
     await axios({
       method: "POST",
       url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
-      data: {
-        messaging_product: "whatsapp",
-        to: to,
-        type: "template",
-        template: {
-          name: templateName,
-          language: { code: "es_CO" },
-          components: components
-        }
-      },
+      data: templatePayload,
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json"

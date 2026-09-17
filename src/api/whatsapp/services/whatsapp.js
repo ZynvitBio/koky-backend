@@ -20,24 +20,32 @@ async function getPageAccessToken() {
 }
 
 module.exports = ({ strapi }) => ({
-  // 1. ENVIO WHATSAPP (Intacto y Seguro)
+  // 1. ENVIO WHATSAPP (Soporte Dual: Teléfonos Estándar y BSUID Privados)
   async sendText(to, message) {
     const accessToken = process.env.WHATSAPP_TOKEN;
     const phoneNumberId = "1037050959491352"; 
     const url = `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`;
-    const cleanTo = String(to).trim().replace(/^[a-zA-Z]{2}\./, '').replace(/\D/g, '');
+    const target = String(to).trim();
+    const isBSUID = /^[a-zA-Z]{2}\./.test(target);
+
+    const payload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      type: "text",
+      text: { preview_url: false, body: message }
+    };
+
+    if (isBSUID) {
+      payload.recipient = target;
+    } else {
+      payload.to = target.replace(/\D/g, '');
+    }
 
     try {
       const response = await axios({
         method: "POST",
         url: url,
-        data: {
-          messaging_product: "whatsapp",
-          recipient_type: "individual",
-          to: cleanTo,
-          type: "text",
-          text: { preview_url: false, body: message }
-        },
+        data: payload,
         headers: { 
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
@@ -54,7 +62,8 @@ module.exports = ({ strapi }) => ({
     const accessToken = process.env.WHATSAPP_TOKEN;
     const phoneNumberId = "1037050959491352"; 
     const url = `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`;
-    const cleanTo = String(to).trim().replace(/^[a-zA-Z]{2}\./, '').replace(/\D/g, '');
+    const target = String(to).trim();
+    const isBSUID = /^[a-zA-Z]{2}\./.test(target);
 
     // Clasificar tipo de archivo
     const isImage = mimeType && mimeType.startsWith('image/');
@@ -64,17 +73,24 @@ module.exports = ({ strapi }) => ({
       ? { link: mediaUrl }
       : { link: mediaUrl, filename: filename || 'documento' };
 
+    const payload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      type: type,
+      [type]: mediaPayload
+    };
+
+    if (isBSUID) {
+      payload.recipient = target;
+    } else {
+      payload.to = target.replace(/\D/g, '');
+    }
+
     try {
       const response = await axios({
         method: "POST",
         url: url,
-        data: {
-          messaging_product: "whatsapp",
-          recipient_type: "individual",
-          to: cleanTo,
-          type: type,
-          [type]: mediaPayload
-        },
+        data: payload,
         headers: { 
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
