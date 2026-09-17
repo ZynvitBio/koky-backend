@@ -41,6 +41,16 @@ module.exports = ({ strapi }) => ({
       payload.to = target.replace(/\D/g, '');
     }
 
+    console.log(
+      "📤 [META SEND]",
+      JSON.stringify({
+        phoneNumberId,
+        target,
+        isBSUID,
+        payload
+      }, null, 2)
+    );
+
     try {
       const response = await axios({
         method: "POST",
@@ -51,6 +61,12 @@ module.exports = ({ strapi }) => ({
           'Content-Type': 'application/json'
         },
       });
+
+      console.log(
+        "📤 [META SEND RESPONSE]",
+        JSON.stringify(response.data, null, 2)
+      );
+
       return response.data;
     } catch (error) {
       console.error("[Servicio WA] Error:", error.response ? error.response.data : error.message);
