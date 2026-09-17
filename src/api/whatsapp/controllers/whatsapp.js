@@ -3313,8 +3313,8 @@ Devuelve ÚNICAMENTE el mensaje mejorado final. No incluyas explicaciones, no in
 
       return { improvedText };
     } catch (error) {
-      console.error("❌ Error al mejorar el mensaje con Gemini:", error);
-      return ctx.internalServerError("Error al procesar el mensaje con Gemini");
+      console.warn("⚠️ Aviso al mejorar mensaje con Gemini (usando texto original):", error.message);
+      return { improvedText: ctx.request.body?.text || "" };
     }
   },
 };
