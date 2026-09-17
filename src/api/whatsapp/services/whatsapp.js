@@ -25,6 +25,7 @@ module.exports = ({ strapi }) => ({
     const accessToken = process.env.WHATSAPP_TOKEN;
     const phoneNumberId = "1037050959491352"; 
     const url = `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`;
+    const cleanTo = String(to).trim().replace(/^[a-zA-Z]{2}\./, '').replace(/\D/g, '');
 
     try {
       const response = await axios({
@@ -33,7 +34,7 @@ module.exports = ({ strapi }) => ({
         data: {
           messaging_product: "whatsapp",
           recipient_type: "individual",
-          to: to,
+          to: cleanTo,
           type: "text",
           text: { preview_url: false, body: message }
         },
@@ -53,6 +54,7 @@ module.exports = ({ strapi }) => ({
     const accessToken = process.env.WHATSAPP_TOKEN;
     const phoneNumberId = "1037050959491352"; 
     const url = `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`;
+    const cleanTo = String(to).trim().replace(/^[a-zA-Z]{2}\./, '').replace(/\D/g, '');
 
     // Clasificar tipo de archivo
     const isImage = mimeType && mimeType.startsWith('image/');
@@ -69,7 +71,7 @@ module.exports = ({ strapi }) => ({
         data: {
           messaging_product: "whatsapp",
           recipient_type: "individual",
-          to: to,
+          to: cleanTo,
           type: type,
           [type]: mediaPayload
         },

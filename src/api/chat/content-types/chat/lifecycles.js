@@ -70,11 +70,8 @@ module.exports = {
     try {
       // 3. Determinamos el canal de destino (WhatsApp o Redes Sociales)
       if (emailUser.includes('@koky.food') || emailUser.includes('wa.koky') || usuario.whatsapp_id) {
-        // Para WhatsApp: Si es un número estándar, limpiamos formato (+, espacios, guiones). Si es BSUID alfanumérico, lo conservamos.
-        let idDestino = idExterno.trim();
-        if (/^\+?[\d\s\-()]+$/.test(idDestino)) {
-          idDestino = idDestino.replace(/\D/g, '');
-        }
+        // Para WhatsApp: Limpiamos cualquier prefijo de país (CO., MX., US., etc.) y dejamos el ID numérico puro (BSUID o teléfono estándar)
+        let idDestino = String(idExterno).trim().replace(/^[a-zA-Z]{2}\./, '').replace(/\D/g, '');
 
         if (idDestino && idDestino !== 'undefined') {
           // Enviar mensaje de texto si existe

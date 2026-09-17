@@ -735,13 +735,15 @@ module.exports = {
   },
 
   async sendWhatsAppMessage(phone_number_id, to, text) {
+    const cleanTo = String(to).trim().replace(/^[a-zA-Z]{2}\./, '').replace(/\D/g, '');
     try {
       await axios({
         method: "POST",
         url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
         data: {
           messaging_product: "whatsapp",
-          to: to,
+          recipient_type: "individual",
+          to: cleanTo,
           text: { body: text },
         },
         headers: {
