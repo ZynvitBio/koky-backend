@@ -241,7 +241,7 @@ async function getOrderContextForUser(from, user) {
     const filters = [];
     if (from) filters.push({ whatsapp_id: from });
     if (user?.whatsapp_id) filters.push({ whatsapp_id: user.whatsapp_id });
-    if (user?.id) filters.push({ users_permissions_user: { id: user.id } });
+    if (user?.id) filters.push({ users_permissions_user: user.id });
 
     if (filters.length === 0) return "- No se encontraron órdenes asociadas.";
 
@@ -1102,9 +1102,9 @@ module.exports = {
               }
             }
 
-            const phone_number_id = entry.metadata.phone_number_id;
+            const phone_number_id = process.env.ID_PHONE_WS?.trim() || entry.metadata?.phone_number_id || "1037050959491352";
 
-            const from = message.from || message.user_id || contact?.wa_id || contact?.user_id;
+            const from = message.from || message.from_user_id || message.user_id || contact?.wa_id || contact?.user_id;
 
             if (!from || from === "undefined") {
               console.warn("⚠️ [WhatsApp Webhook] Mensaje recibido sin remitente identificable:", JSON.stringify(message));
