@@ -1034,6 +1034,19 @@ module.exports = {
         if (body.object === "whatsapp_business_account") {
           const entry = body.entry?.[0]?.changes?.[0]?.value;
 
+          // 1. REPORTE DE ESTADO DE ENTREGA REAL DE META (delivered, read, failed)
+          const statusObj = entry?.statuses?.[0];
+          if (statusObj) {
+            const recipient = statusObj.recipient_id || "Desconocido";
+            const statusName = (statusObj.status || "").toUpperCase();
+            console.log(`📡 [Meta Delivery Report] ID: ${statusObj.id} | Destinatario: ${recipient} | Estado Real: ${statusName}`);
+            
+            if (statusObj.errors && statusObj.errors.length > 0) {
+              const err = statusObj.errors[0];
+              console.error(`❌ [Meta Delivery FAILED] Destinatario: ${recipient} | Código: ${err.code} | Motivo: ${err.title} - ${err.message || ""}`);
+            }
+          }
+
           const message = entry?.messages?.[0];
 
           const contact = entry?.contacts?.[0];
