@@ -21,6 +21,74 @@ async function getPageAccessToken() {
 
 module.exports = ({ strapi }) => ({
   // 1. ENVIO WHATSAPP (Soporte Dual: Teléfonos Estándar y BSUID Privados)
+  async sendTemplate(to, templateName, bodyParameters = [], languageCode = "es_CO", buttonParameters = null) {
+    const accessToken = process.env.WHATSAPP_TOKEN;
+    const phoneNumberId = process.env.ID_PHONE_WS || "1037050959491352";
+    const url = `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`;
+    const target = String(to).trim();
+    const isBSUID = /^[a-zA-Z]{2}\./.test(target);
+
+    const components = [
+      {
+        type: "body",
+        parameters: bodyParameters.map(param => (typeof param === 'string' ? { type: "text", text: param } : param))
+      }
+    ];
+
+    if (buttonParameters && buttonParameters.length > 0) {
+      components.push({
+        type: "button",
+        sub_type: "quick_reply",
+        index: 0,
+        parameters: buttonParameters
+      });
+    }
+
+    const payload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      type: "template",
+      template: {
+        name: templateName,
+        language: { code: languageCode },
+        components: components
+      }
+    };
+
+    if (isBSUID) {
+      payload.recipient = target;
+    } else {
+      payload.to = target.replace(/\D/g, '');
+    }
+
+    console.log(
+      "📤 [META TEMPLATE SEND]",
+      JSON.stringify({ phoneNumberId, target, isBSUID, payload }, null, 2)
+    );
+
+    try {
+      const response = await axios({
+        method: "POST",
+        url: url,
+        data: payload,
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+      });
+
+      console.log(
+        "📤 [META TEMPLATE RESPONSE]",
+        JSON.stringify(response.data, null, 2)
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error("[Servicio WA Template] Error:", error.response ? error.response.data : error.message);
+      throw error;
+    }
+  },
+
   async sendText(to, message) {
     const accessToken = process.env.WHATSAPP_TOKEN;
     const phoneNumberId = "1037050959491352"; 

@@ -18,5 +18,11 @@ module.exports = {
       handler: 'whatsapp.improveMessage',
       config: { auth: false },
     },
+    {
+      method: 'POST',
+      path: '/whatsapp/send-template',
+      handler: 'whatsapp.sendTemplate',
+      config: { auth: false },
+    },
   ],
 };

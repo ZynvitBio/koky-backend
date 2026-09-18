@@ -1075,11 +1075,6 @@ module.exports = {
           const statuses = entry?.statuses || [];
 
           for (const statusObj of statuses) {
-            console.log(
-              "🔎 [META STATUS COMPLETO]\n" +
-              JSON.stringify(statusObj, null, 2)
-            );
-
             const recipient = statusObj.recipient_id || "Desconocido";
             const recipientUserId = statusObj.recipient_user_id || "Desconocido";
             const statusName = (statusObj.status || "").toUpperCase();
@@ -3338,4 +3333,104 @@ Devuelve ÚNICAMENTE el mensaje mejorado final. No incluyas explicaciones, no in
       return { improvedText: ctx.request.body?.text || "" };
     }
   },
+
+  async sendTemplate(ctx) {
+    try {
+      const { 
+        to, 
+        templateName = 'novedad_pedido_reembolso', 
+        languageCode = 'es_CO', 
+        parameters = [], 
+        orderId, 
+        userId,
+        customMessageText 
+      } = ctx.request.body;
+
+      if (!to) {
+        return ctx.badRequest('El destinatario (to) es obligatorio.');
+      }
+
+      // 1. Enviar la plantilla vía WhatsApp Meta Graph API
+      const result = await strapi.service('api::whatsapp.whatsapp').sendTemplate(
+        to, 
+        templateName, 
+        parameters, 
+        languageCode
+      );
+
+      // 2. Reconstruir texto representativo del mensaje para guardarlo en el chat
+      let messageRecordText = customMessageText;
+      if (!messageRecordText) {
+        if (templateName === 'novedad_pedido_reembolso') {
+          const [cliente = 'Cliente', asesor = 'Asesor', producto = 'un producto'] = parameters;
+          messageRecordText = `Estimado/a ${cliente}, le saluda ${asesor} de Koky.\n\nLamentamos informarle que nos ha surgido un inconveniente con ${producto} de su pedido. Por factores imprevistos en nuestros tiempos de producción, no nos es posible realizar la entrega en la fecha prevista, por lo que le ofrecemos nuestras más sinceras disculpas.\n\nPara no retrasarle más, procederemos con el reembolso del valor correspondiente. Por favor, ¿podría facilitarnos por este medio su número de cuenta, Nequi, Daviplata o el método de su preferencia para gestionarlo de inmediato?\n\nAgradecemos enormemente su comprensión y paciencia.`;
+        } else {
+          messageRecordText = `[Plantilla WhatsApp: ${templateName}] ${parameters.join(' | ')}`;
+        }
+      }
+
+      // 3. Buscar usuario si no viene explícito
+      let targetUserId = userId;
+      if (!targetUserId) {
+        const cleanPhone = String(to).replace(/\D/g, '');
+        const foundUsers = await strapi.entityService.findMany('plugin::users-permissions.user', {
+          filters: {
+            $or: [
+              { whatsapp_id: cleanPhone },
+              { whatsapp_id: to },
+              { email: { $containsi: cleanPhone } },
+              { username: cleanPhone }
+            ]
+          },
+          limit: 1
+        });
+        if (foundUsers && foundUsers.length > 0) {
+          targetUserId = foundUsers[0].id;
+        }
+      }
+
+      // 4. Guardar en api::chat.chat con sent_to_meta: true para evitar reenvío cíclico
+      let chatEntry = null;
+      if (targetUserId) {
+        chatEntry = await strapi.entityService.create('api::chat.chat', {
+          data: {
+            sender: 'Agent',
+            message: messageRecordText,
+            sent_to_meta: true,
+            timestamp: new Date(),
+            publishedAt: new Date(),
+            users_permissions_user: targetUserId
+          }
+        });
+
+        // 5. Emitir eventos WebSocket para actualizar la bandeja omnicanal
+        if (strapi.io) {
+          strapi.io.emit('new_message', {
+            userId: targetUserId,
+            message: messageRecordText,
+            sender: 'Agent',
+            createdAt: new Date()
+          });
+          strapi.io.emit('new_chat_message', {
+            sender: 'Agent',
+            message: messageRecordText,
+            timestamp: new Date(),
+            whatsapp_id: to
+          });
+        }
+      }
+
+      return ctx.send({
+        success: true,
+        metaResponse: result,
+        chatEntry
+      });
+    } catch (error) {
+      console.error('❌ Error en sendTemplate controller:', error.response?.data || error.message);
+      return ctx.badRequest(
+        error.response?.data?.error?.message || error.message || 'Error enviando plantilla de WhatsApp'
+      );
+    }
+  },
 };
+
