@@ -1659,29 +1659,7 @@ module.exports = {
                 const checkoutState = user.kira_score.checkout_state;
 
                 if (checkoutState === "AWAITING_LOCALITY") {
-                  const localityMap = {
-                    "1": { name: "Usaquén", lat: 4.7000, lon: -74.0300, price: 9300 },
-                    "2": { name: "Suba", lat: 4.7400, lon: -74.0800, price: 9300 },
-                    "3": { name: "Chapinero", lat: 4.6500, lon: -74.0600, price: 9300 },
-                    "4": { name: "Teusaquillo", lat: 4.6400, lon: -74.0850, price: 9300 },
-                    "5": { name: "Barrios Unidos", lat: 4.6700, lon: -74.0750, price: 9300 },
-                    "6": { name: "Engativá", lat: 4.7000, lon: -74.1100, price: 9300 },
-                    "7": { name: "Fontibón", lat: 4.6750, lon: -74.1400, price: 9300 },
-                    "8": { name: "Kennedy", lat: 4.6250, lon: -74.1500, price: 9300 },
-                    "9": { name: "Puente Aranda", lat: 4.6150, lon: -74.1100, price: 9300 },
-                    "10": { name: "Santa Fe", lat: 4.6000, lon: -74.0700, price: 9300 },
-                    "11": { name: "La Candelaria", lat: 4.5950, lon: -74.0730, price: 9300 },
-                    "12": { name: "Los Mártires", lat: 4.6050, lon: -74.0900, price: 9300 },
-                    "13": { name: "Antonio Nariño", lat: 4.5850, lon: -74.1000, price: 9300 },
-                    "14": { name: "Tunjuelito", lat: 4.5700, lon: -74.1350, price: 9300 },
-                    "15": { name: "Bosa", lat: 4.6100, lon: -74.1900, price: 9300 },
-                    "16": { name: "Rafael Uribe Uribe", lat: 4.5650, lon: -74.1150, price: 9300 },
-                    "17": { name: "San Cristóbal", lat: 4.5500, lon: -74.0850, price: 9300 },
-                    "18": { name: "Ciudad Bolívar", lat: 4.5200, lon: -74.1600, price: 9300 },
-                    "19": { name: "Usme", lat: 4.4500, lon: -74.1200, price: 9300 }
-                  };
-
-                  const selectedLocality = localityMap[msgText];
+                  const selectedLocality = LOCALIDADES_BOGOTA[msgText];
                   if (!selectedLocality) {
                     const errorMsg = `❌ No logramos reconocer la localidad que ingresaste. Por favor, escribe únicamente el NÚMERO (1 al 19) de tu localidad del listado anterior.`;
                     await this.sendWhatsAppMessage(phone_number_id, from, errorMsg);
@@ -1998,7 +1976,7 @@ module.exports = {
                       throw new Error("No se encontraron detalles temporales del checkout.");
                     }
 
-                    let deliveryCost = temp.manual_address ? (temp.delivery_cost || 9300) : 10000;
+                    let deliveryCost = temp.manual_address ? (temp.delivery_cost || 10000) : 10000;
                     if (!temp.manual_address) {
                       try {
                         const cabifyResult = await strapi
@@ -2093,7 +2071,7 @@ module.exports = {
                       throw new Error("No se encontraron detalles temporales del checkout.");
                     }
 
-                    let deliveryCost = temp.manual_address ? (temp.delivery_cost || 9300) : 10000;
+                    let deliveryCost = temp.manual_address ? (temp.delivery_cost || 10000) : 10000;
                     if (!temp.manual_address) {
                       try {
                         const cabifyResult = await strapi
@@ -2212,7 +2190,7 @@ module.exports = {
                     finalNotes = `[Dirección manual - Localidad: ${temp.locality_name || "Desconocida"}] ${finalNotes}`;
                   }
 
-                  let deliveryCost = temp.manual_address ? (temp.delivery_cost || 9300) : 10000;
+                  let deliveryCost = temp.manual_address ? (temp.delivery_cost || 10000) : 10000;
                   if (!temp.manual_address) {
                     try {
                       const cabifyResult = await strapi
