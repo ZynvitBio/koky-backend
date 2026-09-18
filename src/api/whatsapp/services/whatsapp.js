@@ -44,49 +44,64 @@ module.exports = ({ strapi }) => ({
       });
     }
 
-    const payload = {
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      type: "template",
-      template: {
-        name: templateName,
-        language: { code: languageCode },
-        components: components
+    const candidateLanguages = [languageCode, 'es', 'es_LA', 'es_ES'].filter((val, idx, self) => self.indexOf(val) === idx);
+    let lastError = null;
+
+    for (const lang of candidateLanguages) {
+      const payload = {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        type: "template",
+        template: {
+          name: templateName,
+          language: { code: lang },
+          components: components
+        }
+      };
+
+      if (isBSUID) {
+        payload.recipient = target;
+      } else {
+        payload.to = target.replace(/\D/g, '');
       }
-    };
-
-    if (isBSUID) {
-      payload.recipient = target;
-    } else {
-      payload.to = target.replace(/\D/g, '');
-    }
-
-    console.log(
-      "📤 [META TEMPLATE SEND]",
-      JSON.stringify({ phoneNumberId, target, isBSUID, payload }, null, 2)
-    );
-
-    try {
-      const response = await axios({
-        method: "POST",
-        url: url,
-        data: payload,
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-      });
 
       console.log(
-        "📤 [META TEMPLATE RESPONSE]",
-        JSON.stringify(response.data, null, 2)
+        `📤 [META TEMPLATE SEND] (intentando idioma ${lang})`,
+        JSON.stringify({ phoneNumberId, target, isBSUID, payload }, null, 2)
       );
 
-      return response.data;
-    } catch (error) {
-      console.error("[Servicio WA Template] Error:", error.response ? error.response.data : error.message);
-      throw error;
+      try {
+        const response = await axios({
+          method: "POST",
+          url: url,
+          data: payload,
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+        });
+
+        console.log(
+          `📤 [META TEMPLATE RESPONSE] Éxito con idioma ${lang}:`,
+          JSON.stringify(response.data, null, 2)
+        );
+
+        return response.data;
+      } catch (error) {
+        lastError = error;
+        const errData = error.response ? error.response.data : null;
+        console.error(`[Servicio WA Template] Error con idioma ${lang}:`, errData || error.message);
+        
+        // Si el error no es de traducción/idioma (#132001), no seguimos reintentando otros idiomas
+        const isTranslationErr = errData?.error?.code === 132001 || 
+                                (errData?.error?.message && errData.error.message.includes('translation'));
+        if (!isTranslationErr) {
+          throw error;
+        }
+      }
     }
+
+    throw lastError;
   },
 
   async sendText(to, message) {
