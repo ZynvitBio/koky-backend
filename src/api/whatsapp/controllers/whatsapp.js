@@ -3338,7 +3338,7 @@ Devuelve ÚNICAMENTE el mensaje mejorado final. No incluyas explicaciones, no in
     try {
       const { 
         to, 
-        templateName = 'novedad_pedido_reembolso', 
+        templateName = 'novedad_pedido_devolucion', 
         languageCode = 'es_CO', 
         parameters = [], 
         orderId, 
@@ -3361,9 +3361,9 @@ Devuelve ÚNICAMENTE el mensaje mejorado final. No incluyas explicaciones, no in
       // 2. Reconstruir texto representativo del mensaje para guardarlo en el chat
       let messageRecordText = customMessageText;
       if (!messageRecordText) {
-        if (templateName === 'novedad_pedido_reembolso') {
+        if (templateName === 'novedad_pedido_devolucion' || templateName === 'novedad_pedido_reembolso') {
           const [cliente = 'Cliente', asesor = 'Asesor', producto = 'un producto'] = parameters;
-          messageRecordText = `Estimado/a ${cliente}, le saluda ${asesor} de Koky.\n\nLamentamos informarle que nos ha surgido un inconveniente con ${producto} de su pedido. Por factores imprevistos en nuestros tiempos de producción, no nos es posible realizar la entrega en la fecha prevista, por lo que le ofrecemos nuestras más sinceras disculpas.\n\nPara no retrasarle más, procederemos con el reembolso del valor correspondiente. Por favor, ¿podría facilitarnos por este medio su número de cuenta, Nequi, Daviplata o el método de su preferencia para gestionarlo de inmediato?\n\nAgradecemos enormemente su comprensión y paciencia.`;
+          messageRecordText = `Estimado/a ${cliente}, le saluda ${asesor} de Koky.\n\nLamentamos informarle que nos ha surgido un inconveniente con ${producto} de su pedido. Por factores imprevistos en nuestros tiempos de producción, no nos es posible realizar la entrega en la fecha prevista, por lo que le ofrecemos nuestras más sinceras disculpas.\n\nPara no retrasarle más, procederemos con el reembolso del valor correspondiente. Por favor, ¿podría indicarnos por este medio cuál método de reembolso le resulta más conveniente para coordinarlo de inmediato?\n\nAgradecemos enormemente su comprensión y paciencia.`;
         } else {
           messageRecordText = `[Plantilla WhatsApp: ${templateName}] ${parameters.join(' | ')}`;
         }
