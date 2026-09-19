@@ -797,6 +797,7 @@ export interface ApiOrderOrder extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     customer_name: Schema.Attribute.String;
     delivery_date: Schema.Attribute.Date;
+    delivery_window: Schema.Attribute.String;
     invoice_pdf: Schema.Attribute.Media<'files'>;
     items: Schema.Attribute.JSON;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
