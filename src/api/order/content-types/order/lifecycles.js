@@ -102,8 +102,11 @@ module.exports = {
       const { result, params, state } = event;
       const { data } = params;
 
-      // Detectamos si el campo cabify_parcel_id está siendo actualizado y el stock no se ha descontado aún
-      if (data && data.cabify_parcel_id && result && result.cabify_parcel_id && !result.stock_deducted) {
+      // Detectamos si el pago fue aprobado (o si se asigna cabify_parcel_id) y el stock no se ha descontado aún
+      const isApproved = (data && data.payment_status === "APPROVED") || (result && result.payment_status === "APPROVED");
+      const hasCabify = (data && data.cabify_parcel_id) || (result && result.cabify_parcel_id);
+
+      if ((isApproved || hasCabify) && !result.stock_deducted) {
         try {
           strapi.log.info(`[Lifecycle Order] Descontando stock para la orden ID: ${result.id}`);
           await deductOrderStock(result);
@@ -337,9 +340,12 @@ async function deductOrderStock(order) {
         if (item.availableToday === true) {
           // Descontar de Tofu Express (Disponible Hoy)
           const newImmediateStock = Math.max(0, (product.immediateDeliveryStock || 0) - qty);
-          updateData = { immediateDeliveryStock: newImmediateStock };
+          updateData = { 
+            immediateDeliveryStock: newImmediateStock,
+            availableToday: newImmediateStock > 0
+          };
           strapi.log.info(
-            `[Stock] Producto ${product.name} (Express) stock anterior: ${product.immediateDeliveryStock}, nuevo: ${newImmediateStock}`
+            `[Stock] Producto ${product.name} (Express) stock anterior: ${product.immediateDeliveryStock}, nuevo: ${newImmediateStock}, availableToday: ${newImmediateStock > 0}`
           );
         } else {
           // Descontar de stock regular
