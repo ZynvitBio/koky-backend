@@ -651,13 +651,7 @@ function getRandomRecipePrivateReply(username) {
 
 function getRandomRecipePublicReply(username) {
   const handle = username ? `@${username.replace(/^@/, "")}` : "amigo";
-  const messages = [
-    `¡Listo ${handle}! Te acabamos de enviar por mensaje directo (DM) el acceso a las primeras 100 recetas liberadas.`,
-    `¡Enviado ${handle}! Ya tienes en tus mensajes directos el link de la colección de 500 recetas.`,
-    `¡Hola ${handle}! Revisa tu buzón de mensajes (DM), te compartimos el enlace oficial del recetario.`,
-    `¡Listo ${handle}! Te dejamos el acceso directo al recetario en tus mensajes privados.`
-  ];
-  return messages[Math.floor(Math.random() * messages.length)];
+  return `¡Listo ${handle}! Te hemos enviado un DM con el acceso al recetario.`;
 }
 
 module.exports = {
