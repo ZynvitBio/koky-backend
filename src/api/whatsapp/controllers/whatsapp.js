@@ -2645,6 +2645,41 @@ module.exports = {
 
                 console.log(`[Instagram Comentario] Detectado comentario de @${commenterUsername || commenterId} (ID: ${commentId}): "${commentText}"`);
 
+                // Registro siempre en base de datos para trazabilidad en KokyAdmin
+                let user = null;
+                try {
+                  user = await this.getOrCreateUser(
+                    commenterId || commenterUsername || commentId,
+                    commenterUsername ? `@${commenterUsername}` : "Seguidor Instagram",
+                    "instagram",
+                    null,
+                    commenterUsername ? `@${commenterUsername}` : null
+                  );
+
+                  await strapi.entityService.create("api::chat.chat", {
+                    data: {
+                      sender: commenterId || commenterUsername || "Cliente",
+                      message: `[Comentario en Instagram]: "${commentText}"`,
+                      timestamp: new Date(),
+                      publishedAt: new Date(),
+                      users_permissions_user: user.id
+                    }
+                  });
+
+                  if (strapi["io"]) {
+                    strapi["io"].emit("new_message", { userId: user.id });
+                  }
+                } catch (dbErr) {
+                  console.error("[Instagram Comentario] Error registrando comentario en chat:", dbErr.message);
+                }
+
+                // Filtrar: Solo responder con recetario si el comentario es una solicitud de recetas o contiene palabras clave
+                if (!isRecipeRequest(commentText)) {
+                  console.log(`[Instagram Comentario] Comentario "${commentText}" no coincide con solicitud de recetas. Omitiendo envio automatico de recetario.`);
+                  return;
+                }
+
+                console.log(`[Instagram Comentario] Solicitud de receta confirmada ("${commentText}"). Enviando DM y respuesta publica.`);
                 const privateReplyText = getRandomRecipePrivateReply(commenterUsername);
                 const publicReplyText = getRandomRecipePublicReply(commenterUsername);
 
@@ -2656,7 +2691,7 @@ module.exports = {
                   console.error("[Instagram Comentario] Error enviando DM privado:", dmErr.response?.data || dmErr.message);
                 }
 
-                // Enviar respuesta publica en el hilo del comentario (si los permisos lo permiten)
+                // Enviar respuesta publica en el hilo del comentario
                 try {
                   await strapi.service("api::whatsapp.whatsapp").replyCommentPublic(commentId, publicReplyText);
                   console.log(`[Instagram Comentario] Respuesta publica enviada a comentario ID: ${commentId}`);
@@ -2664,43 +2699,25 @@ module.exports = {
                   console.log("[Instagram Comentario] Respuesta publica omitida:", pubErr.response?.data?.error?.message || pubErr.message);
                 }
 
-                // Registro en base de datos para trazabilidad
-                try {
-                  const user = await this.getOrCreateUser(
-                    commenterId || commenterUsername || commentId,
-                    commenterUsername ? `@${commenterUsername}` : "Seguidor Instagram",
-                    "instagram",
-                    null,
-                    commenterUsername ? `@${commenterUsername}` : null
-                  );
+                // Registrar la respuesta de Kira en el chat
+                if (user) {
+                  try {
+                    await strapi.entityService.create("api::chat.chat", {
+                      data: {
+                        sender: "Kira",
+                        message: privateReplyText,
+                        timestamp: new Date(),
+                        publishedAt: new Date(),
+                        users_permissions_user: user.id
+                      }
+                    });
 
-                  // 1. Registrar el comentario entrante del usuario
-                  await strapi.entityService.create("api::chat.chat", {
-                    data: {
-                      sender: commenterId || commenterUsername || "Cliente",
-                      message: `[Comentario en Instagram]: "${commentText}"`,
-                      timestamp: new Date(),
-                      publishedAt: new Date(),
-                      users_permissions_user: user.id
+                    if (strapi["io"]) {
+                      strapi["io"].emit("new_message", { userId: user.id });
                     }
-                  });
-
-                  // 2. Registrar la respuesta de Kira con el recetario
-                  await strapi.entityService.create("api::chat.chat", {
-                    data: {
-                      sender: "Kira",
-                      message: privateReplyText,
-                      timestamp: new Date(),
-                      publishedAt: new Date(),
-                      users_permissions_user: user.id
-                    }
-                  });
-
-                  if (strapi["io"]) {
-                    strapi["io"].emit("new_message", { userId: user.id });
+                  } catch (e) {
+                    // ignore
                   }
-                } catch (dbErr) {
-                  console.error("[Instagram Comentario] Error registrando en chat:", dbErr.message);
                 }
 
                 return;
