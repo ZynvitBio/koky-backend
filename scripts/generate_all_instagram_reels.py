@@ -6,36 +6,121 @@ import subprocess
 import argparse
 import imageio_ffmpeg
 
-def process_reel(recipe_path, outro_path, outro_audio_path, output_path, ffmpeg_exe):
-    # Overlay CTA text over the outro video without any background box
-    font_path = r"C\:/Windows/Fonts/impact.ttf"
-    cta_filter = (
-        f"drawtext=fontfile='{font_path}':text='¿QUIERES EL RECETARIO COMPLETO?':fontcolor=white:fontsize=52:borderw=3:bordercolor=black:x=(w-text_w)/2:y=h-500,"
-        f"drawtext=fontfile='{font_path}':text='Comenta RECETA y te enviamos el link':fontcolor=0x4ADE80:fontsize=54:borderw=3:bordercolor=black:x=(w-text_w)/2:y=h-420"
+from PIL import Image, ImageDraw, ImageFont
+
+def ensure_cta_overlay(output_path):
+    if os.path.exists(output_path):
+        return output_path
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    img = Image.new('RGBA', (1080, 1920), (0, 0, 0, 0))
+
+    font_path = r"C:\Windows\Fonts\impact.ttf"
+    font_top = ImageFont.truetype(font_path, 52)
+    font_bot = ImageFont.truetype(font_path, 54)
+
+    # 1. Line 1: ¿QUIERES EL RECETARIO COMPLETO? (03262C -> 097484)
+    text1 = '¿QUIERES EL RECETARIO COMPLETO?'
+    color1_top = (3, 38, 44)       # #03262C
+    color1_bot = (9, 116, 132)     # #097484
+
+    # 2. Line 2: Comenta RECETA y te enviamos el link (117604 -> 5BB817)
+    text2 = 'Comenta RECETA y te enviamos el link'
+    color2_top = (17, 118, 4)      # #117604
+    color2_bot = (91, 184, 23)     # #5BB817
+
+    def render_gradient_text(text, font, c_top, c_bot, stroke_w=3, stroke_c=(255, 255, 255, 245)):
+        dummy = Image.new('RGBA', (1200, 300), (0, 0, 0, 0))
+        d = ImageDraw.Draw(dummy)
+        bbox = d.textbbox((0, 0), text, font=font, stroke_width=stroke_w)
+        w = bbox[2] - bbox[0] + 30
+        h = bbox[3] - bbox[1] + 30
+
+        mask = Image.new('L', (w, h), 0)
+        d_mask = ImageDraw.Draw(mask)
+        d_mask.text((15 - bbox[0], 15 - bbox[1]), text, font=font, fill=255)
+
+        grad = Image.new('RGBA', (w, h))
+        for y in range(h):
+            fac = y / max(h - 1, 1)
+            r = int(c_top[0] + (c_bot[0] - c_top[0]) * fac)
+            g = int(c_top[1] + (c_bot[1] - c_top[1]) * fac)
+            b = int(c_top[2] + (c_bot[2] - c_top[2]) * fac)
+            for x in range(w):
+                grad.putpixel((x, y), (r, g, b, 255))
+
+        res = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+        d_res = ImageDraw.Draw(res)
+        d_res.text((15 - bbox[0], 15 - bbox[1]), text, font=font, stroke_width=stroke_w, stroke_fill=stroke_c)
+
+        glyph = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+        glyph.paste(grad, (0, 0), mask)
+        res.alpha_composite(glyph)
+        return res
+
+    t1_img = render_gradient_text(text1, font_top, color1_top, color1_bot, stroke_w=3, stroke_c=(255, 255, 255, 245))
+    t2_img = render_gradient_text(text2, font_bot, color2_top, color2_bot, stroke_w=3, stroke_c=(255, 255, 255, 245))
+
+    x1 = (1080 - t1_img.width) // 2
+    y1 = 1920 - 520
+
+    x2 = (1080 - t2_img.width) // 2
+    y2 = 1920 - 435
+
+    img.alpha_composite(t1_img, (x1, y1))
+    img.alpha_composite(t2_img, (x2, y2))
+    img.save(output_path, 'PNG')
+    return output_path
+
+def process_reel(recipe_path, outro_path, outro_audio_path, logo_path, cta_overlay_path, output_path, ffmpeg_exe):
+    has_logo = logo_path and os.path.exists(logo_path)
+    has_audio = outro_audio_path and os.path.exists(outro_audio_path)
+
+    # Input 0: recipe video
+    # Input 1: outro video
+    input_files = [recipe_path, outro_path]
+    filter_parts = []
+
+    # Process recipe video [0:v] (with logo if present)
+    if has_logo:
+        logo_idx = len(input_files)
+        input_files.append(logo_path)
+        filter_parts.append(
+            f"[0:v]fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,setdar=9/16[v0base];"
+            f"[{logo_idx}:v]scale=220:-1[logoscale];"
+            f"[v0base][logoscale]overlay=W-w-50:60[v0];"
+        )
+    else:
+        filter_parts.append("[0:v]fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,setdar=9/16[v0];")
+
+    filter_parts.append("[0:a]aformat=sample_rates=48000:channel_layouts=stereo[a0];")
+
+    # Process outro video [1:v] (with CTA gradient overlay)
+    cta_idx = len(input_files)
+    input_files.append(cta_overlay_path)
+    filter_parts.append(
+        f"[1:v]fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,setdar=9/16[v1base];"
+        f"[v1base][{cta_idx}:v]overlay=0:0[v1];"
     )
 
-    if outro_audio_path and os.path.exists(outro_audio_path):
-        filter_complex = (
-            "[0:v]fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,setdar=9/16[v0];"
-            "[0:a]aformat=sample_rates=48000:channel_layouts=stereo[a0];"
-            f"[1:v]fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,setdar=9/16,{cta_filter}[v1];"
-            "[2:a]aformat=sample_rates=48000:channel_layouts=stereo[a1];"
-            "[v0][a0][v1][a1]concat=n=2:v=1:a=1[outv][outa]"
-        )
-        inputs = ['-i', recipe_path, '-i', outro_path, '-i', outro_audio_path]
+    # Process audio
+    if has_audio:
+        audio_idx = len(input_files)
+        input_files.append(outro_audio_path)
+        filter_parts.append(f"[{audio_idx}:a]aformat=sample_rates=48000:channel_layouts=stereo[a1];")
     else:
-        filter_complex = (
-            "[0:v]fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,setdar=9/16[v0];"
-            "[0:a]aformat=sample_rates=48000:channel_layouts=stereo[a0];"
-            f"[1:v]fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,setdar=9/16,{cta_filter}[v1];"
-            "[1:a]aformat=sample_rates=48000:channel_layouts=stereo[a1];"
-            "[v0][a0][v1][a1]concat=n=2:v=1:a=1[outv][outa]"
-        )
-        inputs = ['-i', recipe_path, '-i', outro_path]
+        filter_parts.append("[1:a]aformat=sample_rates=48000:channel_layouts=stereo[a1];")
+
+    filter_parts.append("[v0][a0][v1][a1]concat=n=2:v=1:a=1[outv][outa]")
+    filter_complex = "".join(filter_parts)
+
+    cmd_inputs = []
+    for f in input_files:
+        cmd_inputs.extend(['-i', f])
 
     cmd = [
         ffmpeg_exe, '-y',
-        *inputs,
+        *cmd_inputs,
         '-filter_complex', filter_complex,
         '-map', '[outv]',
         '-map', '[outa]',
@@ -65,6 +150,8 @@ def main():
     public_reels_dir = os.path.join(base_dir, "koky-backend", "public", "uploads", "reels")
     outro_path = os.path.join(input_dir, "videoRecetas.mp4")
     outro_audio_path = os.path.join(output_dir, "audio1.2.mp3")
+    logo_path = os.path.join(base_dir, "koky", "src", "assets", "img", "logoBlue20.png")
+    cta_overlay_path = os.path.join(public_reels_dir, "cta_gradient_overlay.png")
 
     if not os.path.exists(outro_path):
         print(f"Error: No se encontro el video de cierre en {outro_path}")
@@ -72,6 +159,7 @@ def main():
 
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(public_reels_dir, exist_ok=True)
+    ensure_cta_overlay(cta_overlay_path)
     ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
 
     # List all mp4 files excluding outro
@@ -93,6 +181,8 @@ def main():
     print(f"Directorio de Salida:  {output_dir}")
     print(f"Video de Cierre:       {outro_path}")
     print(f"Audio de Cierre:       {outro_audio_path}")
+    print(f"Logo Superior:         {logo_path} (Existe: {os.path.exists(logo_path)})")
+    print(f"Overlay CTA:           {cta_overlay_path}")
     print("=" * 60)
 
     success_count = 0
@@ -111,7 +201,7 @@ def main():
 
         print(f"[{idx}/{total}] Procesando: {filename} ...", end="", flush=True)
         t0 = time.time()
-        ok, err = process_reel(r_path, outro_path, outro_audio_path, out_path, ffmpeg_exe)
+        ok, err = process_reel(r_path, outro_path, outro_audio_path, logo_path, cta_overlay_path, out_path, ffmpeg_exe)
         elapsed = time.time() - t0
 
         if ok:
