@@ -9,6 +9,31 @@ const { execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+const axios = require('axios');
+
+async function getInstagramBusinessId(token) {
+  try {
+    const res = await axios.get(`https://graph.facebook.com/v21.0/me/accounts?fields=id,name,instagram_business_account&access_token=${token}`);
+    if (res.data?.data?.[0]?.instagram_business_account?.id) {
+      return res.data.data[0].instagram_business_account.id;
+    }
+  } catch (e) {
+    try {
+      const pageRes = await axios.get(`https://graph.facebook.com/v21.0/me?fields=id,name,instagram_business_account&access_token=${token}`);
+      if (pageRes.data?.instagram_business_account?.id) {
+        return pageRes.data.instagram_business_account.id;
+      }
+    } catch (e2) {
+      // ignore
+    }
+  }
+  return '17841476077618408'; // ID oficial de la cuenta de Instagram de Koky Food
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 module.exports = createCoreController('api::instagram-post.instagram-post', ({ strapi }) => ({
   async renderReel(ctx) {
     try {
@@ -70,14 +95,116 @@ module.exports = createCoreController('api::instagram-post.instagram-post', ({ s
 
   async publishToInstagram(ctx) {
     try {
-      const { caption, reelUrl, scheduledDate } = ctx.request.body || {};
+      const { caption, hashtags, videoUrl, scheduledDate, recipeId } = ctx.request.body || {};
+
+      if (!videoUrl) {
+        return ctx.badRequest('Se requiere la URL del video (videoUrl) para publicar el Reel.');
+      }
+
+      const fullCaption = `${caption || ''}\n\n${hashtags || ''}`.trim();
+      const token = process.env.MESSENGER_PAGE_TOKEN;
+
+      if (!token) {
+        return ctx.badRequest('No se encontró el token de acceso de Instagram (MESSENGER_PAGE_TOKEN).');
+      }
+
+      const igUserId = await getInstagramBusinessId(token);
+      strapi.log.info(`[Instagram Publisher] Iniciando publicación de Reel hacia IG Business ID: ${igUserId}`);
+
+      // 1. Crear contenedor de Reel en Meta Graph API
+      const containerPayload = {
+        media_type: 'REELS',
+        video_url: videoUrl,
+        caption: fullCaption,
+        share_to_feed: true,
+        access_token: token
+      };
+
+      const containerRes = await axios.post(
+        `https://graph.facebook.com/v21.0/${igUserId}/media`,
+        containerPayload
+      );
+
+      const creationId = containerRes.data?.id;
+      if (!creationId) {
+        throw new Error('Meta no devolvió un ID de contenedor válido para el Reel.');
+      }
+
+      strapi.log.info(`[Instagram Publisher] Contenedor creado en Meta (ID: ${creationId}). Esperando procesamiento...`);
+
+      // 2. Esperar a que Meta procese el video
+      let status = 'IN_PROGRESS';
+      let attempts = 0;
+      const maxAttempts = 15;
+
+      while (status === 'IN_PROGRESS' && attempts < maxAttempts) {
+        await sleep(3000);
+        attempts++;
+
+        try {
+          const statusRes = await axios.get(
+            `https://graph.facebook.com/v21.0/${creationId}?fields=status_code,status&access_token=${token}`
+          );
+          status = statusRes.data?.status_code || statusRes.data?.status;
+          strapi.log.info(`[Instagram Publisher] Estado del contenedor (${attempts}/${maxAttempts}): ${status}`);
+        } catch (statusErr) {
+          strapi.log.warn('[Instagram Publisher] Advertencia consultando estado de contenedor:', statusErr.message);
+        }
+      }
+
+      if (status !== 'FINISHED' && status !== 'READY') {
+        if (status === 'ERROR') {
+          throw new Error('Meta reportó un error al procesar el archivo de video. Verifica que la URL del video sea accesible públicamente por HTTPS.');
+        } else if (status === 'EXPIRED') {
+          throw new Error('El contenedor del video expiró en Meta.');
+        } else {
+          strapi.log.warn(`[Instagram Publisher] El video sigue procesándose en Meta después de ${attempts * 3}s.`);
+        }
+      }
+
+      // 3. Publicar el contenedor en Instagram
+      strapi.log.info(`[Instagram Publisher] Publicando contenedor ${creationId}...`);
+      const publishRes = await axios.post(
+        `https://graph.facebook.com/v21.0/${igUserId}/media_publish`,
+        {
+          creation_id: creationId,
+          access_token: token
+        }
+      );
+
+      const igMediaId = publishRes.data?.id;
+      strapi.log.info(`[Instagram Publisher] ¡Reel publicado con éxito en Instagram! Media ID: ${igMediaId}`);
+
+      // 4. Guardar registro en Strapi
+      let postEntry = null;
+      try {
+        postEntry = await strapi.entityService.create('api::instagram-post.instagram-post', {
+          data: {
+            caption: fullCaption,
+            hashtags: hashtags || '',
+            post_status: 'published',
+            published_date: new Date(),
+            instagram_id: igMediaId || creationId,
+            publishedAt: new Date()
+          }
+        });
+      } catch (dbErr) {
+        strapi.log.warn('[Instagram Publisher] No se pudo guardar el registro en la base de datos:', dbErr.message);
+      }
+
       return ctx.send({
         success: true,
-        message: 'Reel programado / enviado a la cola correctamente.'
+        message: '¡Reel publicado exitosamente en tu perfil de Instagram @koky.food!',
+        igMediaId: igMediaId,
+        postId: postEntry?.id || null
       });
+
     } catch (err) {
-      strapi.log.error('publishToInstagram Error:', err);
-      return ctx.internalServerError(err.message || 'Error publicando a Instagram.');
+      const metaError = err.response?.data?.error;
+      strapi.log.error('[Instagram Publisher Error]:', metaError || err.message);
+      return ctx.badRequest(
+        metaError?.message || err.message || 'Error al conectar y publicar en Instagram.'
+      );
     }
   }
 }));
