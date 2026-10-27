@@ -22,6 +22,16 @@ module.exports = {
         policies: [],
         middlewares: [],
       },
+    },
+    {
+      method: 'GET',
+      path: '/instagram-posts/published-recipes',
+      handler: 'instagram-post.getPublishedRecipes',
+      config: {
+        auth: false,
+        policies: [],
+        middlewares: [],
+      },
     }
   ],
 };

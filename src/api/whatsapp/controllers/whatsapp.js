@@ -1071,17 +1071,22 @@ module.exports = {
           for (const statusObj of statuses) {
             const recipient = statusObj.recipient_id || "Desconocido";
             const recipientUserId = statusObj.recipient_user_id || "Desconocido";
-            const statusName = (statusObj.status || "").toUpperCase();
+            const rawStatus = (statusObj.status || "").toLowerCase(); // sent, delivered, read, failed
+            const statusName = rawStatus.toUpperCase();
+            const wamid = statusObj.id;
 
             console.log(
               `📡 [Meta Delivery Report] ` +
-              `ID: ${statusObj.id} | ` +
+              `ID: ${wamid} | ` +
               `Destinatario: ${recipient} | ` +
               `BSUID: ${recipientUserId} | ` +
               `Estado Real: ${statusName}`
             );
 
+            let failureReason = null;
             if (statusObj.errors && statusObj.errors.length > 0) {
+              const firstErr = statusObj.errors[0];
+              failureReason = `${firstErr.code}: ${firstErr.title} - ${firstErr.message || ""}`;
               for (const err of statusObj.errors) {
                 console.error(
                   `❌ [Meta Delivery FAILED] ` +
@@ -1091,6 +1096,49 @@ module.exports = {
                   `Motivo: ${err.title} - ${err.message || ""}`
                 );
               }
+            }
+
+            // Actualizar trazabilidad de entrega en base de datos y emitir socket
+            try {
+              if (wamid) {
+                const foundChats = await strapi.entityService.findMany('api::chat.chat', {
+                  filters: { wamid: wamid },
+                  populate: ['users_permissions_user'],
+                  limit: 1
+                });
+
+                if (foundChats && foundChats.length > 0) {
+                  const targetChat = foundChats[0];
+                  await strapi.entityService.update('api::chat.chat', targetChat.id, {
+                    data: {
+                      delivery_status: rawStatus,
+                      ...(failureReason ? { delivery_error: failureReason } : {})
+                    }
+                  });
+
+                  if (strapi.io) {
+                    strapi.io.emit('message_status_update', {
+                      wamid: wamid,
+                      chatId: targetChat.id,
+                      status: rawStatus,
+                      error: failureReason,
+                      recipient: recipient,
+                      userId: targetChat.users_permissions_user?.id
+                    });
+                  }
+                } else {
+                  if (strapi.io) {
+                    strapi.io.emit('message_status_update', {
+                      wamid: wamid,
+                      status: rawStatus,
+                      error: failureReason,
+                      recipient: recipient
+                    });
+                  }
+                }
+              }
+            } catch (statusUpdateErr) {
+              console.warn('⚠️ Error actualizando estado de entrega en DB:', statusUpdateErr.message);
             }
           }
 
@@ -3330,6 +3378,7 @@ Devuelve ÚNICAMENTE el mensaje mejorado final. No incluyas explicaciones, no in
         templateName = 'novedad_pedido_devolucion', 
         languageCode = 'es_CO', 
         parameters = [], 
+        buttonParameters = null,
         orderId, 
         userId,
         customMessageText 
@@ -3344,7 +3393,8 @@ Devuelve ÚNICAMENTE el mensaje mejorado final. No incluyas explicaciones, no in
         to, 
         templateName, 
         parameters, 
-        languageCode
+        languageCode,
+        buttonParameters
       );
 
       // 2. Reconstruir texto representativo del mensaje para guardarlo en el chat
@@ -3353,6 +3403,10 @@ Devuelve ÚNICAMENTE el mensaje mejorado final. No incluyas explicaciones, no in
         if (templateName === 'novedad_pedido_devolucion' || templateName === 'novedad_pedido_reembolso') {
           const [cliente = 'Cliente', asesor = 'Asesor', producto = 'un producto'] = parameters;
           messageRecordText = `Estimado/a ${cliente}, le saluda ${asesor} de Koky.\n\nLamentamos informarle que nos ha surgido un inconveniente con ${producto} de su pedido. Por factores imprevistos en nuestros tiempos de producción, no nos es posible realizar la entrega en la fecha prevista, por lo que le ofrecemos nuestras más sinceras disculpas.\n\nPara no retrasarle más, procederemos con el reembolso del valor correspondiente. Por favor, ¿podría indicarnos por este medio cuál método de reembolso le resulta más conveniente para coordinarlo de inmediato?\n\nAgradecemos enormemente su comprensión y paciencia.`;
+        } else if (templateName === 'recordatorio_carrito_8pm' || templateName === 'recordatorio_carrito_9pm') {
+          const [cliente = 'Cliente', productos = 'tu pedido', link = ''] = parameters;
+          const hora = templateName.includes('9pm') ? '9:00 PM' : '8:00 PM';
+          messageRecordText = `¡Hola, ${cliente}! ¿Cómo estás? Un abrazo de parte del equipo de Koky Food. 👋\n\nQueremos asegurarnos de que tengas tu comida saludable y fresca a tiempo para mañana. 🌱✨\n\nA las ${hora} pasamos a cocina tu pedido de ${productos} para elaborarlo fresco esta noche. Si deseas recibirlo mañana, puedes completar tu pago aquí antes de las ${hora}:\n👉 ${link}\n\n¡Con el mayor gusto lo sumamos a la tanda de hoy! 😊`;
         } else {
           messageRecordText = `[Plantilla WhatsApp: ${templateName}] ${parameters.join(' | ')}`;
         }
@@ -3380,12 +3434,16 @@ Devuelve ÚNICAMENTE el mensaje mejorado final. No incluyas explicaciones, no in
 
       // 4. Guardar en api::chat.chat con sent_to_meta: true para evitar reenvío cíclico
       let chatEntry = null;
+      const templateWamid = result?.messages?.[0]?.id || null;
+
       if (targetUserId) {
         chatEntry = await strapi.entityService.create('api::chat.chat', {
           data: {
             sender: 'Agent',
             message: messageRecordText,
             sent_to_meta: true,
+            wamid: templateWamid,
+            delivery_status: 'sent',
             timestamp: new Date(),
             publishedAt: new Date(),
             users_permissions_user: targetUserId
@@ -3395,12 +3453,18 @@ Devuelve ÚNICAMENTE el mensaje mejorado final. No incluyas explicaciones, no in
         // 5. Emitir eventos WebSocket para actualizar la bandeja omnicanal
         if (strapi.io) {
           strapi.io.emit('new_message', {
+            id: chatEntry.id,
+            wamid: templateWamid,
+            delivery_status: 'sent',
             userId: targetUserId,
             message: messageRecordText,
             sender: 'Agent',
             createdAt: new Date()
           });
           strapi.io.emit('new_chat_message', {
+            id: chatEntry.id,
+            wamid: templateWamid,
+            delivery_status: 'sent',
             sender: 'Agent',
             message: messageRecordText,
             timestamp: new Date(),

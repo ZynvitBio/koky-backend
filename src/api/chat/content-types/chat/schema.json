@@ -39,6 +39,23 @@
         "videos",
         "audios"
       ]
+    },
+    "wamid": {
+      "type": "string"
+    },
+    "delivery_status": {
+      "type": "enumeration",
+      "enum": [
+        "sending",
+        "sent",
+        "delivered",
+        "read",
+        "failed"
+      ],
+      "default": "sent"
+    },
+    "delivery_error": {
+      "type": "text"
     }
   }
 }

@@ -565,6 +565,11 @@ export interface ApiChatChat extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    delivery_error: Schema.Attribute.Text;
+    delivery_status: Schema.Attribute.Enumeration<
+      ['sending', 'sent', 'delivered', 'read', 'failed']
+    > &
+      Schema.Attribute.DefaultTo<'sent'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::chat.chat'> &
       Schema.Attribute.Private;
@@ -580,6 +585,7 @@ export interface ApiChatChat extends Struct.CollectionTypeSchema {
       'manyToOne',
       'plugin::users-permissions.user'
     >;
+    wamid: Schema.Attribute.String;
   };
 }
 
@@ -728,6 +734,7 @@ export interface ApiInstagramPostInstagramPost
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     hashtags: Schema.Attribute.String;
+    instagram_media_id: Schema.Attribute.String;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -741,7 +748,9 @@ export interface ApiInstagramPostInstagramPost
     post_status: Schema.Attribute.Enumeration<
       ['draft', 'scheduled', 'published']
     >;
+    published_date: Schema.Attribute.DateTime;
     publishedAt: Schema.Attribute.DateTime;
+    recipe_id: Schema.Attribute.Integer;
     scheduled_date: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &

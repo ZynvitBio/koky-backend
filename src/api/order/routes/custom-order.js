@@ -32,5 +32,15 @@ module.exports = {
         middlewares: [],
       },
     },
+    {
+      method: "GET",
+      path: "/orders/payment-link/:reference",
+      handler: "order.getPaymentLinkByReference",
+      config: {
+        auth: false,
+        policies: [],
+        middlewares: [],
+      },
+    },
   ],
 };

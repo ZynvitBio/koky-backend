@@ -36,11 +36,12 @@ module.exports = ({ strapi }) => ({
     ];
 
     if (buttonParameters && buttonParameters.length > 0) {
+      const isUrlButton = buttonParameters.some(p => typeof p === 'string' && (p.startsWith('http') || p.startsWith('?') || p.includes('=')));
       components.push({
         type: "button",
-        sub_type: "quick_reply",
+        sub_type: isUrlButton ? "url" : "quick_reply",
         index: 0,
-        parameters: buttonParameters
+        parameters: buttonParameters.map(p => (typeof p === 'string' ? { type: "text", text: p } : p))
       });
     }
 

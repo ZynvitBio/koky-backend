@@ -37,6 +37,15 @@
         "videos",
         "audios"
       ]
+    },
+    "recipe_id": {
+      "type": "integer"
+    },
+    "published_date": {
+      "type": "datetime"
+    },
+    "instagram_media_id": {
+      "type": "string"
     }
   }
 }

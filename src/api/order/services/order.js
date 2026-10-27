@@ -107,7 +107,7 @@ module.exports = createCoreService('api::order.order', ({ strapi }) => ({
       doc.text(`$${subtotal.toLocaleString('es-CO')}`, 465, y, { width: 80, align: 'right' });
 
       y += 15;
-      doc.text('COSTO ENVÍO (CABIFY):', 320, y, { width: 140, align: 'right' });
+      doc.text('COSTO ENVÍO:', 320, y, { width: 140, align: 'right' });
       doc.text(`$${deliveryCost.toLocaleString('es-CO')}`, 465, y, { width: 80, align: 'right' });
 
       y += 18;

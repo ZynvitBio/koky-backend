@@ -13,10 +13,12 @@ module.exports = {
       const usuario = chatConUsuario ? chatConUsuario['users_permissions_user'] : null;
       if (usuario && strapi.io) {
         strapi.io.emit('new_message', { 
+          id: result.id,
           userId: usuario.id,
           message: result.message,
           sender: result.sender,
-          createdAt: result.createdAt
+          createdAt: result.createdAt,
+          delivery_status: result.delivery_status || 'sending'
         });
       }
     } catch (socketErr) {
@@ -77,9 +79,10 @@ module.exports = {
         }
 
         if (idDestino && idDestino !== 'undefined') {
+          let metaResponse = null;
           // Enviar mensaje de texto si existe
           if (mensajeTexto) {
-            await strapi.service('api::whatsapp.whatsapp').sendText(idDestino, mensajeTexto);
+            metaResponse = await strapi.service('api::whatsapp.whatsapp').sendText(idDestino, mensajeTexto);
           }
           // Enviar adjuntos si existen
           if (adjuntos && adjuntos.length > 0) {
@@ -87,7 +90,26 @@ module.exports = {
               const fileUrl = file.url.startsWith('http') 
                 ? file.url 
                 : `https://koky-backend-production.up.railway.app${file.url}`;
-              await strapi.service('api::whatsapp.whatsapp').sendMedia(idDestino, fileUrl, file.mime, file.name);
+              metaResponse = await strapi.service('api::whatsapp.whatsapp').sendMedia(idDestino, fileUrl, file.mime, file.name);
+            }
+          }
+
+          const wamid = metaResponse?.messages?.[0]?.id;
+          if (wamid) {
+            try {
+              await strapi.entityService.update('api::chat.chat', result.id, {
+                data: { wamid: wamid, delivery_status: 'sent' }
+              });
+              if (strapi.io) {
+                strapi.io.emit('message_status_update', {
+                  chatId: result.id,
+                  wamid: wamid,
+                  status: 'sent',
+                  userId: usuario.id
+                });
+              }
+            } catch (wamidErr) {
+              console.warn('⚠️ No se pudo asociar wamid al chat:', wamidErr.message);
             }
           }
         } else {
@@ -102,7 +124,20 @@ module.exports = {
       }
     } catch (error) {
       console.error('❌ Error en el envío a Meta:', error.message);
-      // Si falla, el registro en Strapi ya existe, pero verás el error en los logs de Railway.
+      try {
+        const errorDesc = error.response?.data?.error?.message || error.message || 'Error desconocido';
+        await strapi.entityService.update('api::chat.chat', result.id, {
+          data: { delivery_status: 'failed', delivery_error: errorDesc }
+        });
+        if (strapi.io) {
+          strapi.io.emit('message_status_update', {
+            chatId: result.id,
+            status: 'failed',
+            error: errorDesc,
+            userId: usuario?.id
+          });
+        }
+      } catch (saveErr) {}
     }
   },
 };

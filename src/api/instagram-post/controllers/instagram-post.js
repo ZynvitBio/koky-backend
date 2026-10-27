@@ -34,6 +34,37 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function runReelRenderer({ recipeId, videoFileName }) {
+  return new Promise((resolve, reject) => {
+    const args = ['scripts/generate_all_instagram_reels.py', '--force'];
+    if (recipeId) {
+      args.push('--recipe-id', String(recipeId));
+    } else if (videoFileName) {
+      args.push('--file', videoFileName);
+    }
+
+    execFile('python', args, { cwd: process.cwd() }, (error, stdout, stderr) => {
+      if (error) {
+        return reject(new Error(stderr || error.message));
+      }
+
+      const match = stdout.match(/JSON_OUTPUT:\s*(\{.*\})/);
+      if (match) {
+        try {
+          const data = JSON.parse(match[1]);
+          if (data && data.fileName) {
+            return resolve(data);
+          }
+        } catch (e) {
+          // fallback
+        }
+      }
+
+      reject(new Error(`No se encontró el archivo de video base para la receta #${recipeId || videoFileName}.`));
+    });
+  });
+}
+
 module.exports = createCoreController('api::instagram-post.instagram-post', ({ strapi }) => ({
   async renderReel(ctx) {
     try {
@@ -43,35 +74,7 @@ module.exports = createCoreController('api::instagram-post.instagram-post', ({ s
         return ctx.badRequest('Se requiere recipeId o videoFileName');
       }
 
-      const args = ['scripts/generate_all_instagram_reels.py', '--force'];
-
-      if (recipeId) {
-        args.push('--recipe-id', String(recipeId));
-      } else if (videoFileName) {
-        args.push('--file', videoFileName);
-      }
-
-      const result = await new Promise((resolve, reject) => {
-        execFile('python', args, { cwd: process.cwd() }, (error, stdout, stderr) => {
-          if (error) {
-            strapi.log.error('Error renderizando Reel:', stderr || error.message);
-            return reject(new Error(stderr || error.message));
-          }
-
-          // Parse JSON_OUTPUT from stdout
-          const match = stdout.match(/JSON_OUTPUT:\s*(\{.*\})/);
-          if (match) {
-            try {
-              const data = JSON.parse(match[1]);
-              return resolve(data);
-            } catch (e) {
-              // fallback
-            }
-          }
-
-          resolve({ success: true, stdout });
-        });
-      });
+      const result = await runReelRenderer({ recipeId, videoFileName });
 
       const host = ctx.request.header.host || 'localhost:1337';
       const protocol = ctx.request.header['x-forwarded-proto'] || (ctx.request.secure ? 'https' : 'http');
@@ -97,8 +100,8 @@ module.exports = createCoreController('api::instagram-post.instagram-post', ({ s
     try {
       const { caption, hashtags, videoUrl, scheduledDate, recipeId } = ctx.request.body || {};
 
-      if (!videoUrl) {
-        return ctx.badRequest('Se requiere la URL del video (videoUrl) para publicar el Reel.');
+      if (!videoUrl && !recipeId) {
+        return ctx.badRequest('Se requiere la URL del video (videoUrl) o recipeId para publicar el Reel.');
       }
 
       const fullCaption = `${caption || ''}\n\n${hashtags || ''}`.trim();
@@ -111,21 +114,88 @@ module.exports = createCoreController('api::instagram-post.instagram-post', ({ s
       const igUserId = await getInstagramBusinessId(token);
       strapi.log.info(`[Instagram Publisher] Iniciando publicación de Reel hacia IG Business ID: ${igUserId}`);
 
-      // 1. Crear contenedor de Reel en Meta Graph API
-      const containerPayload = {
-        media_type: 'REELS',
-        video_url: videoUrl,
-        caption: fullCaption,
-        share_to_feed: true,
-        access_token: token
-      };
+      // Verificar si el archivo de video existe localmente en el servidor
+      const relativePath = (videoUrl || '').replace(/^https?:\/\/[^\/]+/, '');
+      let localFilePath = path.join(process.cwd(), 'public', relativePath.startsWith('/') ? relativePath.slice(1) : relativePath);
+      let isLocalFile = fs.existsSync(localFilePath) && fs.statSync(localFilePath).isFile();
 
-      const containerRes = await axios.post(
-        `https://graph.facebook.com/v21.0/${igUserId}/media`,
-        containerPayload
-      );
+      // Si es una receta del catálogo y aún no tiene el Reel 9:16 ensamblado localmente (ej. tenía URL cruda o /undefined), renderizarlo automáticamente
+      if (!isLocalFile && recipeId) {
+        strapi.log.info(`[Instagram Publisher] El Reel 9:16 para la receta #${recipeId} no estaba ensamblado en disco. Renderizando automáticamente...`);
+        const rendered = await runReelRenderer({ recipeId });
+        localFilePath = path.join(process.cwd(), 'public', 'uploads', 'reels', rendered.fileName);
+        isLocalFile = fs.existsSync(localFilePath) && fs.statSync(localFilePath).isFile();
+      }
 
-      const creationId = containerRes.data?.id;
+      let creationId = null;
+
+      if (isLocalFile) {
+        // --- MÉTODO 1: Subida binaria directa a Meta (Resumable Upload) ---
+        // Permite subir el video directamente a Meta sin depender de URLs públicas externas
+        const stats = fs.statSync(localFilePath);
+        const fileSize = stats.size;
+        strapi.log.info(`[Instagram Publisher] Archivo local detectado (${localFilePath}, ${fileSize} bytes). Iniciando subida directa a Meta.`);
+
+        const startRes = await axios.post(
+          `https://graph.facebook.com/v21.0/${igUserId}/media`,
+          {
+            upload_type: 'resumable',
+            media_type: 'REELS',
+            caption: fullCaption,
+            share_to_feed: true,
+            access_token: token
+          }
+        );
+
+        creationId = startRes.data?.id;
+        const uploadUri = startRes.data?.uri;
+
+        if (!creationId || !uploadUri) {
+          throw new Error('Meta no devolvió los parámetros de subida directa (id / uri).');
+        }
+
+        strapi.log.info(`[Instagram Publisher] Subiendo binario del video a Meta (${uploadUri})...`);
+        const videoBuffer = fs.readFileSync(localFilePath);
+
+        await axios.post(uploadUri, videoBuffer, {
+          headers: {
+            'Authorization': `OAuth ${token}`,
+            'offset': '0',
+            'file_size': String(fileSize),
+            'Content-Type': 'application/octet-stream'
+          },
+          maxBodyLength: Infinity,
+          maxContentLength: Infinity
+        });
+
+        strapi.log.info(`[Instagram Publisher] Binario transferido exitosamente a Meta. ID de Contenedor: ${creationId}`);
+
+      } else {
+        // --- MÉTODO 2: Descarga por URL pública de Meta ---
+        let publicVideoUrl = videoUrl;
+        if (publicVideoUrl.includes('localhost') || publicVideoUrl.includes('127.0.0.1')) {
+          const publicBase = process.env.PUBLIC_URL || 'https://koky-backend-production.up.railway.app';
+          publicVideoUrl = publicVideoUrl.replace(/http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/, publicBase);
+        }
+
+        strapi.log.info(`[Instagram Publisher] Solicitando a Meta descargar video desde URL: ${publicVideoUrl}`);
+
+        const containerPayload = {
+          media_type: 'REELS',
+          video_url: publicVideoUrl,
+          caption: fullCaption,
+          share_to_feed: true,
+          access_token: token
+        };
+
+        const containerRes = await axios.post(
+          `https://graph.facebook.com/v21.0/${igUserId}/media`,
+          containerPayload
+        );
+
+        creationId = containerRes.data?.id;
+      }
+
       if (!creationId) {
         throw new Error('Meta no devolvió un ID de contenedor válido para el Reel.');
       }
@@ -178,14 +248,17 @@ module.exports = createCoreController('api::instagram-post.instagram-post', ({ s
       // 4. Guardar registro en Strapi
       let postEntry = null;
       try {
-        postEntry = await strapi.entityService.create('api::instagram-post.instagram-post', {
+        postEntry = await strapi.db.query('api::instagram-post.instagram-post').create({
           data: {
             caption: fullCaption,
             hashtags: hashtags || '',
             post_status: 'published',
             published_date: new Date(),
-            instagram_id: igMediaId || creationId,
-            publishedAt: new Date()
+            recipe_id: recipeId ? Number(recipeId) : null,
+            instagram_media_id: igMediaId || creationId,
+            publishedAt: new Date(),
+            createdAt: new Date(),
+            updatedAt: new Date()
           }
         });
       } catch (dbErr) {
@@ -196,7 +269,8 @@ module.exports = createCoreController('api::instagram-post.instagram-post', ({ s
         success: true,
         message: '¡Reel publicado exitosamente en tu perfil de Instagram @koky.food!',
         igMediaId: igMediaId,
-        postId: postEntry?.id || null
+        postId: postEntry?.id || null,
+        recipeId: recipeId ? Number(recipeId) : null
       });
 
     } catch (err) {
@@ -205,6 +279,39 @@ module.exports = createCoreController('api::instagram-post.instagram-post', ({ s
       return ctx.badRequest(
         metaError?.message || err.message || 'Error al conectar y publicar en Instagram.'
       );
+    }
+  },
+
+  async getPublishedRecipes(ctx) {
+    try {
+      let posts = [];
+      try {
+        posts = await strapi.db.query('api::instagram-post.instagram-post').findMany({
+          where: {
+            post_status: 'published'
+          },
+          orderBy: { createdAt: 'desc' },
+          limit: 500
+        });
+      } catch (err1) {
+        posts = await strapi.documents('api::instagram-post.instagram-post').findMany({
+          filters: {
+            post_status: 'published'
+          },
+          limit: 500
+        });
+      }
+
+      return ctx.send({
+        success: true,
+        data: posts || []
+      });
+    } catch (err) {
+      strapi.log.error('getPublishedRecipes Error:', err);
+      return ctx.send({
+        success: true,
+        data: []
+      });
     }
   }
 }));

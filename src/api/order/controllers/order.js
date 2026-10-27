@@ -2,7 +2,8 @@ const { createCoreController } = require("@strapi/strapi").factories;
 const crypto = require("crypto");
 const axios = require("axios");
 
-function getDeliverySchedule(date) {
+function getDeliverySchedule(dateInput) {
+  const dateObj = dateInput instanceof Date ? dateInput : new Date(dateInput || Date.now());
   // Configurar formateador para la zona horaria de Bogotá (UTC-5)
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Bogota",
@@ -15,7 +16,7 @@ function getDeliverySchedule(date) {
     hour12: false
   });
   
-  const parts = formatter.formatToParts(date);
+  const parts = formatter.formatToParts(dateObj);
   const getVal = (type) => parseInt(parts.find(p => p.type === type).value, 10);
   
   const year = getVal("year");
@@ -327,6 +328,50 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
       const computedHash = crypto.createHash("sha256").update(concatString).digest("hex");
 
       return ctx.send({ signature: computedHash });
+    } catch (err) {
+      return ctx.internalServerError(err.message);
+    }
+  },
+
+  async getPaymentLinkByReference(ctx) {
+    try {
+      const { reference } = ctx.params;
+      if (!reference) {
+        return ctx.badRequest("Referencia no recibida.");
+      }
+
+      const order = await strapi.db.query("api::order.order").findOne({
+        where: { wompi_reference: reference },
+        orderBy: { id: "desc" },
+      });
+
+      if (!order) {
+        return ctx.notFound("Orden no encontrada.");
+      }
+
+      const totalAmount = Number(order.total_amount) || 0;
+      const amountInCents = Math.round(totalAmount * 100);
+      const currency = "COP";
+      const publicKey = process.env.WOMPI_PUBLIC_KEY || "pub_prod_fiQqn8TiiKqVLDEsmrL5LD2LSiau8xmz";
+      const integrityKey = process.env.wompiIntegrityKey || process.env.WOMPI_INTEGRITY_KEY;
+
+      let signatureHex = "";
+      if (integrityKey) {
+        const concatString = `${reference}${amountInCents}${currency}${integrityKey}`;
+        signatureHex = crypto.createHash("sha256").update(concatString).digest("hex");
+      }
+
+      const redirectUrl = encodeURIComponent("https://wa.me/573019447660");
+      const paymentUrl = `https://checkout.wompi.co/p/?public-key=${publicKey}&currency=${currency}&amount-in-cents=${amountInCents}&reference=${reference}${signatureHex ? `&signature:integrity=${signatureHex}` : ""}&redirect-url=${redirectUrl}`;
+
+      return ctx.send({
+        success: true,
+        reference,
+        orderId: order.id,
+        total_amount: totalAmount,
+        payment_status: order.payment_status,
+        payment_url: paymentUrl
+      });
     } catch (err) {
       return ctx.internalServerError(err.message);
     }
