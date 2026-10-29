@@ -138,12 +138,20 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
           `[Wompi Webhook] Orden encontrada ID: ${order.id}. Estado de pago anterior: ${order.payment_status || "PENDING"} -> Nuevo: ${status}`
         );
 
-        // Actualizar el estado de pago en la orden
+        // Extraer email de la transacción de Wompi o de la orden
+        const customerEmail = transaction?.customer_email || order.customer_email;
+
+        // Actualizar el estado de pago y el correo en la orden si no lo tenía
+        const updateData = {
+          payment_status: status,
+        };
+        if (customerEmail && !order.customer_email) {
+          updateData.customer_email = customerEmail;
+        }
+
         await strapi.documents("api::order.order").update({
           documentId: order.documentId,
-          data: {
-            payment_status: status,
-          },
+          data: updateData,
         });
 
         // Re-publicar para sincronizar draft y published
@@ -172,30 +180,48 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
           strapi.log.info(`[Wompi Webhook] WebSocket emitido para orden ID: ${finalOrder.id}`);
         }
 
-        // Si el estado es APPROVED y la orden se originó en WhatsApp, enviar un WhatsApp automático de confirmación al cliente
-        if (status === "APPROVED" && finalOrder.source === "whatsapp" && finalOrder.whatsapp_id) {
+        // Si el estado es APPROVED, generar factura y despachar por Email y/o WhatsApp
+        if (status === "APPROVED") {
+          let pdfUrl = null;
+          let mediaId = null;
+          const phone_number_id = process.env.ID_PHONE_WS || "1037050959491352";
+          const whatsapp_token = process.env.WHATSAPP_TOKEN;
+
+          // 1. Generar factura PDF para TODA orden aprobada (Web o WhatsApp)
           try {
-            const phone_number_id = process.env.ID_PHONE_WS || "1037050959491352";
-            const whatsapp_token = process.env.WHATSAPP_TOKEN;
+            strapi.log.info(`[Wompi Webhook] Generando factura PDF para la orden #${finalOrder.id}...`);
+            const fullOrder = await strapi.entityService.findOne("api::order.order", finalOrder.id, {
+              populate: ["invoice_pdf"]
+            });
+            const pdfResult = await strapi.service("api::order.order").generateInvoicePDF(fullOrder, {
+              phone_number_id,
+              whatsapp_token
+            });
+            pdfUrl = pdfResult.url;
+            mediaId = pdfResult.mediaId;
+            strapi.log.info(`[Wompi Webhook] Factura PDF generada con éxito: ${pdfUrl} | Media ID: ${mediaId}`);
+          } catch (pdfErr) {
+            strapi.log.error(`[Wompi Webhook] Error al generar factura PDF: ${pdfErr.message}`);
+          }
 
-            if (whatsapp_token) {
-              strapi.log.info(`[Wompi Webhook] Generando factura PDF para la orden #${finalOrder.id}...`);
-              let pdfUrl = null;
-              let mediaId = null;
-              try {
-                // Volvemos a obtener el objeto orden completo para tener los datos más recientes
-                const fullOrder = await strapi.entityService.findOne("api::order.order", finalOrder.id);
-                const pdfResult = await strapi.service("api::order.order").generateInvoicePDF(fullOrder, {
-                  phone_number_id,
-                  whatsapp_token
-                });
-                pdfUrl = pdfResult.url;
-                mediaId = pdfResult.mediaId;
-                strapi.log.info(`[Wompi Webhook] Factura PDF generada con éxito: ${pdfUrl} | Media ID: ${mediaId}`);
-              } catch (pdfErr) {
-                strapi.log.error(`[Wompi Webhook] Error al generar factura PDF: ${pdfErr.message}`);
-              }
+          // 2. Enviar Factura por Email (Resend) si hay email disponible
+          const targetEmail = customerEmail || finalOrder.customer_email;
+          if (targetEmail) {
+            try {
+              strapi.log.info(`[Wompi Webhook] Enviando factura por email a ${targetEmail}...`);
+              const fullOrderForEmail = await strapi.entityService.findOne("api::order.order", finalOrder.id);
+              await strapi.service("api::order.order").sendInvoiceEmail(fullOrderForEmail, pdfUrl, {
+                recipientEmail: targetEmail
+              });
+              strapi.log.info(`[Wompi Webhook] Factura por email enviada exitosamente a ${targetEmail}`);
+            } catch (emailErr) {
+              strapi.log.error(`[Wompi Webhook] Error al enviar email de factura: ${emailErr.message}`);
+            }
+          }
 
+          // 3. Si la orden tiene WhatsApp registrado, enviar confirmación y PDF por WhatsApp
+          if (finalOrder.whatsapp_id && whatsapp_token) {
+            try {
               const { productionNight, deliveryDay } = getDeliverySchedule(new Date());
 
               strapi.log.info(`[Wompi Webhook] Enviando confirmación de pago por WhatsApp a ${finalOrder.whatsapp_id}`);
@@ -261,13 +287,11 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
                 });
                 strapi.log.info(`[Wompi Webhook] Factura PDF enviada por WhatsApp con éxito.`);
               }
-            } else {
-              strapi.log.warn("[Wompi Webhook] WHATSAPP_TOKEN no configurado. Se omite el envío del mensaje.");
+            } catch (wsErr) {
+              strapi.log.error(
+                `[Wompi Webhook] Error al enviar mensaje de WhatsApp: ${wsErr.response?.data ? JSON.stringify(wsErr.response.data) : wsErr.message}`
+              );
             }
-          } catch (wsErr) {
-            strapi.log.error(
-              `[Wompi Webhook] Error al enviar mensaje de WhatsApp: ${wsErr.response?.data ? JSON.stringify(wsErr.response.data) : wsErr.message}`
-            );
           }
         }
       }
@@ -373,6 +397,71 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
         payment_url: paymentUrl
       });
     } catch (err) {
+      return ctx.internalServerError(err.message);
+    }
+  },
+
+  async sendInvoiceEmailManually(ctx) {
+    try {
+      const { id } = ctx.params;
+      const { email } = ctx.request.body || {};
+
+      if (!id) {
+        return ctx.badRequest("Identificador de orden no proporcionado.");
+      }
+
+      // Buscar por ID numérico o documentId
+      let order = null;
+      if (/^\d+$/.test(id)) {
+        order = await strapi.entityService.findOne("api::order.order", parseInt(id, 10), {
+          populate: ["invoice_pdf"]
+        });
+      } else {
+        const found = await strapi.db.query("api::order.order").findOne({
+          where: { documentId: id },
+          populate: ["invoice_pdf"]
+        });
+        if (found) {
+          order = await strapi.entityService.findOne("api::order.order", found.id, {
+            populate: ["invoice_pdf"]
+          });
+        }
+      }
+
+      if (!order) {
+        return ctx.notFound("Orden no encontrada.");
+      }
+
+      const targetEmail = (email || order.customer_email || "").trim();
+      if (!targetEmail) {
+        return ctx.badRequest("Por favor ingresa un correo electrónico de destino válido.");
+      }
+
+      // Si se proporcionó un email nuevo y la orden no tenía o era diferente, actualizarlo en Strapi
+      if (email && email.trim() !== order.customer_email) {
+        await strapi.documents("api::order.order").update({
+          documentId: order.documentId,
+          data: { customer_email: email.trim() }
+        });
+        await strapi.documents("api::order.order").publish({
+          documentId: order.documentId
+        });
+        order.customer_email = email.trim();
+      }
+
+      // Enviar email usando el servicio de Resend
+      const result = await strapi.service("api::order.order").sendInvoiceEmail(order, order.invoice_pdf?.url || null, {
+        recipientEmail: targetEmail
+      });
+
+      return ctx.send({
+        success: true,
+        message: `Factura enviada exitosamente a ${targetEmail}`,
+        emailId: result.emailId,
+        recipient: targetEmail
+      });
+    } catch (err) {
+      strapi.log.error(`[sendInvoiceEmailManually] Error: ${err.message}`);
       return ctx.internalServerError(err.message);
     }
   },

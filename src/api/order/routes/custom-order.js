@@ -42,5 +42,15 @@ module.exports = {
         middlewares: [],
       },
     },
+    {
+      method: "POST",
+      path: "/orders/:id/send-invoice-email",
+      handler: "order.sendInvoiceEmailManually",
+      config: {
+        auth: false,
+        policies: [],
+        middlewares: [],
+      },
+    },
   ],
 };

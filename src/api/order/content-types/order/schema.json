@@ -96,6 +96,9 @@
       "allowedTypes": [
         "files"
       ]
+    },
+    "customer_email": {
+      "type": "email"
     }
   }
 }

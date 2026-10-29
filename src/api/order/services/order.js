@@ -208,5 +208,314 @@ module.exports = createCoreService('api::order.order', ({ strapi }) => ({
       url: pdfUrl,
       mediaId: mediaId
     };
+  },
+
+  async sendInvoiceEmail(order, pdfUrl = null, options = {}) {
+    try {
+      const recipientEmail = options.recipientEmail || order.customer_email;
+      if (!recipientEmail) {
+        throw new Error('No se encontró dirección de correo para enviar la factura.');
+      }
+
+      // Si no se proporcionó pdfUrl, verificar si la orden ya tiene factura o generarla
+      let finalPdfUrl = pdfUrl;
+      if (!finalPdfUrl) {
+        if (order.invoice_pdf && order.invoice_pdf.url) {
+          finalPdfUrl = order.invoice_pdf.url;
+        } else {
+          strapi.log.info(`[sendInvoiceEmail] La orden #${order.id} no tiene PDF generado. Generando ahora...`);
+          const generated = await this.generateInvoicePDF(order);
+          finalPdfUrl = generated.url;
+        }
+      }
+
+      const customerName = order.customer_name || 'Cliente Koky';
+      const items = order.items || [];
+      let subtotal = 0;
+      for (const item of items) {
+        subtotal += (Number(item.price) || 0) * (Number(item.quantity) || 1);
+      }
+      const totalAmount = Number(order.total_amount) || subtotal;
+      const shippingCost = Math.max(0, totalAmount - subtotal);
+
+      // Horario y entrega
+      const orderDate = order.createdAt ? new Date(order.createdAt) : new Date();
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Bogota',
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        hour12: false
+      });
+      const parts = formatter.formatToParts(orderDate);
+      const getVal = (type) => parseInt(parts.find(p => p.type === type).value, 10);
+      const year = getVal('year');
+      const month = getVal('month') - 1;
+      const day = getVal('day');
+      const hour = getVal('hour');
+      const colDate = new Date(year, month, day);
+      const dayOfWeek = colDate.getDay();
+
+      let productionNight = 'esta misma noche';
+      let deliveryDay = 'mañana mismo durante el día';
+
+      if (dayOfWeek >= 1 && dayOfWeek <= 3) {
+        const days = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+        if (hour < 20) {
+          productionNight = 'esta misma noche';
+          deliveryDay = `mañana mismo (${days[dayOfWeek + 1]})`;
+        } else {
+          const daysExt = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+          productionNight = 'mañana por la noche';
+          deliveryDay = `pasado mañana (${daysExt[dayOfWeek + 2]})`;
+        }
+      } else if (dayOfWeek === 4) {
+        if (hour < 20) {
+          productionNight = 'esta misma noche';
+          deliveryDay = 'mañana mismo (viernes)';
+        } else {
+          productionNight = 'el domingo por la noche';
+          deliveryDay = 'el próximo lunes';
+        }
+      } else if (dayOfWeek === 5 || dayOfWeek === 6) {
+        productionNight = 'el domingo por la noche';
+        deliveryDay = 'el próximo lunes';
+      } else if (dayOfWeek === 0) {
+        if (hour < 20) {
+          productionNight = 'esta misma noche';
+          deliveryDay = 'mañana mismo (lunes)';
+        } else {
+          productionNight = 'mañana por la noche';
+          deliveryDay = 'el próximo martes';
+        }
+      }
+
+      let shippingAddress = order.shipping_address || 'Dirección acordada para entrega';
+      if (order.shipping_notes && !shippingAddress.toLowerCase().includes(order.shipping_notes.toLowerCase())) {
+        shippingAddress += ` (${order.shipping_notes})`;
+      }
+
+      const productsRowsHtml = items.map(item => {
+        let imgUrl = item.image;
+        if (imgUrl && !imgUrl.startsWith('http')) {
+          imgUrl = `https://koky.food${imgUrl.startsWith('/') ? '' : '/'}${imgUrl}`;
+        }
+        if (!imgUrl) {
+          imgUrl = 'https://koky.food/assets/img/logo.png';
+        }
+        const itemTotal = (Number(item.price) || 0) * (Number(item.quantity) || 1);
+        const presentation = item.contentPerUnit ? `Presentación: ${item.contentPerUnit}${item.unitAbbreviation || ''}` : '';
+
+        return `
+          <tr>
+            <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td width="55" valign="middle" style="padding-right: 14px;">
+                    <img src="${imgUrl}" alt="${item.name}" width="52" height="52" style="display: block; border-radius: 8px; object-fit: cover; border: 1px solid #e2e8f0; background: #fafafa;">
+                  </td>
+                  <td valign="middle">
+                    <div style="font-size: 14px; font-weight: 700; color: #1e293b;">${item.name}</div>
+                    ${presentation ? `<div style="font-size: 12px; color: #64748b;">${presentation}</div>` : ''}
+                    <div style="font-size: 12px; color: #2e7d32; font-weight: 600;">Cantidad: ${item.quantity} x $${Number(item.price).toLocaleString('es-CO')}</div>
+                  </td>
+                  <td align="right" valign="middle" style="font-size: 14px; font-weight: 700; color: #1e293b; white-space: nowrap;">
+                    $${itemTotal.toLocaleString('es-CO')}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      const emailHtml = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Factura y Confirmación de Pedido - Koky Food</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #2d3748; line-height: 1.6;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f4f6f8; padding: 30px 10px;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 620px; background-color: #ffffff; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+        
+        <!-- Header Koky -->
+        <tr>
+          <td style="background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%); padding: 30px 24px; text-align: center;">
+            <h1 style="margin: 0 0 6px 0; color: #ffffff; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">Koky Food 🥦</h1>
+            <div style="color: #c8e6c9; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; font-weight: 600;">Comida Saludable para Todos</div>
+          </td>
+        </tr>
+
+        <!-- Banner Confirmación Aprobada -->
+        <tr>
+          <td style="background-color: #e8f5e9; padding: 14px 24px; border-bottom: 1px solid #c8e6c9; text-align: center;">
+            <span style="display: inline-block; background-color: #2e7d32; color: #ffffff; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 8px;">✓ Pago Aprobado</span>
+            <span style="color: #1b5e20; font-weight: 700; font-size: 14px;">Factura N° KOKY-${order.id}</span>
+          </td>
+        </tr>
+
+        <!-- Greeting Body -->
+        <tr>
+          <td style="padding: 32px 30px 20px 30px;">
+            <h2 style="margin: 0 0 12px 0; color: #1a202c; font-size: 20px; font-weight: 700;">¡Hola, ${customerName}! 🥗</h2>
+            <p style="margin: 0 0 18px 0; font-size: 15px; color: #4a5568; line-height: 1.6;">
+              Nos alegra mucho saludarte. Tu pago ha sido aprobado con éxito y tu pedido ya tiene un lugar reservado en nuestra cocina.
+            </p>
+
+            <!-- Delivery Schedule Card -->
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 26px;">
+              <tr>
+                <td style="padding: 16px 20px;">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                    <tr>
+                      <td width="28" valign="top" style="font-size: 18px; line-height: 22px;">👩‍🍳</td>
+                      <td style="padding-left: 10px; font-size: 14px; color: #334155; padding-bottom: 8px;">
+                        <strong>Preparación artesanal:</strong> Entra a cocina ${productionNight} con ingredientes frescos.
+                      </td>
+                    </tr>
+                    <tr>
+                      <td width="28" valign="top" style="font-size: 18px; line-height: 22px;">🛵</td>
+                      <td style="padding-left: 10px; font-size: 14px; color: #334155; padding-bottom: 8px;">
+                        <strong>Entrega estimada:</strong> ${deliveryDay}.
+                      </td>
+                    </tr>
+                    <tr>
+                      <td width="28" valign="top" style="font-size: 18px; line-height: 22px;">📍</td>
+                      <td style="padding-left: 10px; font-size: 14px; color: #334155;">
+                        <strong>Dirección de entrega:</strong> ${shippingAddress}
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Section Title -->
+            <h3 style="margin: 0 0 14px 0; font-size: 15px; font-weight: 700; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #2e7d32; padding-bottom: 6px; display: inline-block;">
+              Resumen de tu Pedido
+            </h3>
+
+            <!-- Products Table -->
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
+              ${productsRowsHtml}
+            </table>
+
+            <!-- Totals Breakdown -->
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 26px;">
+              <tr>
+                <td style="padding: 16px 20px;">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                    <tr>
+                      <td style="font-size: 14px; color: #64748b; padding-bottom: 6px;">Subtotal productos:</td>
+                      <td align="right" style="font-size: 14px; color: #1e293b; font-weight: 600; padding-bottom: 6px;">$${subtotal.toLocaleString('es-CO')} COP</td>
+                    </tr>
+                    <tr>
+                      <td style="font-size: 14px; color: #64748b; padding-bottom: 8px;">Costo de envío (Domicilio):</td>
+                      <td align="right" style="font-size: 14px; color: #1e293b; font-weight: 600; padding-bottom: 8px;">${shippingCost > 0 ? `$${shippingCost.toLocaleString('es-CO')} COP` : '<span style="color:#2e7d32;">Gratis</span>'}</td>
+                    </tr>
+                    <tr>
+                      <td colspan="2" style="border-top: 1px solid #e2e8f0; padding-top: 10px;"></td>
+                    </tr>
+                    <tr>
+                      <td style="font-size: 16px; color: #1e293b; font-weight: 700;">Total Pagado:</td>
+                      <td align="right" style="font-size: 18px; color: #2e7d32; font-weight: 800;">$${totalAmount.toLocaleString('es-CO')} COP</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            ${finalPdfUrl ? `
+            <!-- Call to Action Button -->
+            <div style="text-align: center; margin: 30px 0 24px 0;">
+              <a href="${finalPdfUrl}" target="_blank" style="display: inline-block; background-color: #2e7d32; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 15px; padding: 14px 28px; border-radius: 8px; box-shadow: 0 4px 12px rgba(46, 125, 50, 0.25);">
+                🖨️ Descargar Factura en PDF para Imprimir
+              </a>
+            </div>
+            ` : ''}
+
+            <!-- Note about Ink-saving white paper PDF -->
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; margin-bottom: 26px;">
+              <tr>
+                <td style="padding: 12px 16px; font-size: 13px; color: #92400e; line-height: 1.5;">
+                  📄 <strong>Tu factura adjunta:</strong> En este correo encontrarás adjunto el documento comercial en PDF (formato hoja blanca limpia, sin fondos oscuros para cuidar tu tinta si deseas imprimirlo).
+                </td>
+              </tr>
+            </table>
+
+            <!-- Dale Carnegie closing message -->
+            <p style="margin: 0 0 8px 0; font-size: 14px; color: #475569; line-height: 1.6;">
+              Para nosotros es un honor y una alegría servirte. Si tienes alguna indicación adicional sobre tu entrega o tus productos, responderemos con el mayor gusto.
+            </p>
+            <p style="margin: 0; font-size: 14px; color: #1e293b; font-weight: 600;">
+              Con aprecio,<br>
+              <span style="color: #2e7d32;">El equipo de Koky Food 🌱</span>
+            </p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background-color: #f1f5f9; padding: 22px 30px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; line-height: 1.6;">
+            <div><strong>Koky Food</strong> — Comida Saludable para Todos</div>
+            <div>Bogotá, Colombia • WhatsApp: <a href="https://wa.me/573019447660" style="color: #2e7d32; text-decoration: none;">+57 301 944 7660</a> • <a href="mailto:somos@koky.food" style="color: #2e7d32; text-decoration: none;">somos@koky.food</a></div>
+            <div style="margin-top: 8px; color: #94a3b8; font-size: 11px;">Este correo confirma tu transacción y fue generado automáticamente tras la aprobación de tu pago.</div>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>
+      `;
+
+      const resendApiKey = process.env.RESEND_API_KEY;
+      if (!resendApiKey) {
+        throw new Error('RESEND_API_KEY no está configurada en las variables de entorno del servidor.');
+      }
+      const emailPayload = {
+        from: 'Koky Food <somos@koky.food>',
+        to: [recipientEmail],
+        subject: options.subject || `🧾 Tu Factura y Confirmación de Pedido #KOKY-${order.id} - Koky Food`,
+        html: emailHtml,
+      };
+
+      if (finalPdfUrl) {
+        emailPayload.attachments = [
+          {
+            filename: `Factura_Koky_${order.id}.pdf`,
+            path: finalPdfUrl,
+          },
+        ];
+      }
+
+      const axiosInstance = axios.default || axios;
+      const resendResponse = await axiosInstance.post('https://api.resend.com/emails', emailPayload, {
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      strapi.log.info(`[sendInvoiceEmail] Correo enviado exitosamente a ${recipientEmail}. Resend ID: ${resendResponse.data?.id}`);
+      return {
+        success: true,
+        emailId: resendResponse.data?.id,
+        recipient: recipientEmail,
+      };
+    } catch (err) {
+      strapi.log.error(`[sendInvoiceEmail] Error enviando email: ${err.response ? JSON.stringify(err.response.data) : err.message}`);
+      throw err;
+    }
   }
 }));
