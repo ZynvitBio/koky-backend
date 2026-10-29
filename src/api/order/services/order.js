@@ -304,7 +304,7 @@ module.exports = createCoreService('api::order.order', ({ strapi }) => ({
           imgUrl = `https://koky.food${imgUrl.startsWith('/') ? '' : '/'}${imgUrl}`;
         }
         if (!imgUrl) {
-          imgUrl = 'https://koky.food/assets/img/logo.png';
+          imgUrl = 'https://koky.food/assets/img/logoBlue20.png';
         }
         const itemTotal = (Number(item.price) || 0) * (Number(item.quantity) || 1);
         const presentation = item.contentPerUnit ? `Presentación: ${item.contentPerUnit}${item.unitAbbreviation || ''}` : '';
@@ -346,19 +346,21 @@ module.exports = createCoreService('api::order.order', ({ strapi }) => ({
     <td align="center">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 620px; background-color: #ffffff; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
         
-        <!-- Header Koky -->
+        <!-- Header Koky con logoBlue20 -->
         <tr>
-          <td style="background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%); padding: 30px 24px; text-align: center;">
-            <h1 style="margin: 0 0 6px 0; color: #ffffff; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">Koky Food 🥦</h1>
-            <div style="color: #c8e6c9; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; font-weight: 600;">Comida Saludable para Todos</div>
+          <td style="background-color: #ffffff; padding: 26px 24px 18px 24px; text-align: center; border-bottom: 1px solid #f0fdf4;">
+            <a href="https://koky.food" target="_blank" style="text-decoration: none; display: inline-block;">
+              <img src="https://koky.food/assets/img/logoBlue20.png" alt="Koky Food" width="185" style="display: block; margin: 0 auto; max-width: 100%; height: auto; border: 0;" />
+            </a>
+            <div style="color: #2e7d32; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700; margin-top: 8px;">Comida Saludable para Todos</div>
           </td>
         </tr>
 
         <!-- Banner Confirmación Aprobada -->
         <tr>
-          <td style="background-color: #e8f5e9; padding: 14px 24px; border-bottom: 1px solid #c8e6c9; text-align: center;">
-            <span style="display: inline-block; background-color: #2e7d32; color: #ffffff; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 8px;">✓ Pago Aprobado</span>
-            <span style="color: #1b5e20; font-weight: 700; font-size: 14px;">Factura N° KOKY-${order.id}</span>
+          <td style="background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%); padding: 14px 24px; text-align: center;">
+            <span style="display: inline-block; background-color: #ffffff; color: #1b5e20; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 10px;">✓ Pago Aprobado</span>
+            <span style="color: #ffffff; font-weight: 700; font-size: 14px; letter-spacing: 0.3px;">Factura N° KOKY-${order.id}</span>
           </td>
         </tr>
 
