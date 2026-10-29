@@ -14,6 +14,19 @@ module.exports = {
         throw new Error("Coordenadas de destino no recibidas correctamente.");
       }
 
+      // Validar perímetro de cobertura de Bogotá y sabana autorizada
+      const lat = Number(destino.lat);
+      const lng = Number(destino.lng);
+      if (lat < 4.44 || lat > 4.88 || lng < -74.26 || lng > -74.00) {
+        ctx.status = 400;
+        ctx.body = {
+          success: false,
+          outOfCoverage: true,
+          error: "La ubicación se encuentra fuera de la zona de cobertura de entregas en Bogotá D.C."
+        };
+        return;
+      }
+
       // Preparamos el objeto usando el destino dinámico
       const parcelData = {
         pickup_location: { lat: 4.6976, lon: -74.0617 }, // Ubicación fija de Koky Kitchen
