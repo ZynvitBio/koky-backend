@@ -3373,7 +3373,7 @@ Devuelve ÚNICAMENTE el mensaje mejorado final. No incluyas explicaciones, no in
 
   async sendTemplate(ctx) {
     try {
-      const { 
+      let { 
         to, 
         templateName = 'novedad_pedido_devolucion', 
         languageCode = 'es_CO', 
@@ -3386,6 +3386,26 @@ Devuelve ÚNICAMENTE el mensaje mejorado final. No incluyas explicaciones, no in
 
       if (!to) {
         return ctx.badRequest('El destinatario (to) es obligatorio.');
+      }
+
+      // Auto-actualización transparente de plantillas legadas de Marketing a la nueva plantilla UTILITY aprobada
+      if (templateName === 'recordatorio_carrito_8pm' || templateName === 'recordatorio_carrito_9pm') {
+        strapi.log.info(`🔄 [WHATSAPP AUTO-UPGRADE] Transformando ${templateName} a plantilla UTILITY 'aviso_produccion_pedido'`);
+        templateName = 'aviso_produccion_pedido';
+        const clientName = parameters[0] || 'Cliente';
+        const productsSummary = parameters[1] || 'su solicitud';
+        const rawPaymentUrl = parameters[2] || '';
+        
+        let queryPart = rawPaymentUrl;
+        const qIdx = rawPaymentUrl.indexOf('?');
+        if (qIdx !== -1) {
+          queryPart = rawPaymentUrl.slice(qIdx);
+        }
+        
+        parameters = [clientName, productsSummary];
+        if (!buttonParameters || buttonParameters.length === 0) {
+          buttonParameters = [queryPart];
+        }
       }
 
       // 1. Enviar la plantilla vía WhatsApp Meta Graph API
