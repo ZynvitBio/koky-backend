@@ -32,6 +32,16 @@ module.exports = {
         policies: [],
         middlewares: [],
       },
+    },
+    {
+      method: 'POST',
+      path: '/instagram-posts/sync-instagram',
+      handler: 'instagram-post.syncInstagram',
+      config: {
+        auth: false,
+        policies: [],
+        middlewares: [],
+      },
     }
   ],
 };

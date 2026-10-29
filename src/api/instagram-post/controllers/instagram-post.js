@@ -65,6 +65,105 @@ function runReelRenderer({ recipeId, videoFileName }) {
   });
 }
 
+let lastSyncTime = 0;
+const SYNC_CACHE_MS = 2 * 60 * 1000; // 2 minutos de caché para evitar sobrecargar la Graph API
+
+function normalizeText(str) {
+  return (str || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+}
+
+async function syncInstagramPostsFromMeta(strapi, force = false) {
+  const now = Date.now();
+  if (!force && (now - lastSyncTime < SYNC_CACHE_MS)) {
+    return;
+  }
+
+  const token = process.env.MESSENGER_PAGE_TOKEN;
+  if (!token) {
+    return;
+  }
+
+  try {
+    const catalogPath = path.join(__dirname, '../../../data/recipes_catalog.json');
+    if (!fs.existsSync(catalogPath)) {
+      strapi.log.warn('[Instagram Sync] No se encontró recipes_catalog.json en:', catalogPath);
+      return;
+    }
+    const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
+
+    const igUserId = await getInstagramBusinessId(token);
+    const res = await axios.get(
+      `https://graph.facebook.com/v21.0/${igUserId}/media?fields=id,caption,media_type,timestamp,permalink&limit=100&access_token=${token}`,
+      { timeout: 12000 }
+    );
+    const mediaList = res.data?.data || [];
+
+    // Obtener posts existentes en Strapi
+    let existingPosts = [];
+    try {
+      existingPosts = await strapi.db.query('api::instagram-post.instagram-post').findMany({
+        select: ['id', 'recipe_id', 'instagram_media_id']
+      });
+    } catch (e) {
+      existingPosts = [];
+    }
+
+    const existingRecipeIds = new Set(
+      existingPosts.filter(p => p.recipe_id).map(p => Number(p.recipe_id))
+    );
+    const existingMediaIds = new Set(
+      existingPosts.filter(p => p.instagram_media_id).map(p => String(p.instagram_media_id))
+    );
+
+    for (const m of mediaList) {
+      if (!m.caption) continue;
+      const normCaption = normalizeText(m.caption);
+
+      for (const r of catalog) {
+        const normTitle = normalizeText(r.title);
+        const prefix = normTitle.slice(0, Math.min(20, normTitle.length));
+
+        if (normCaption.includes(normTitle) || (prefix.length >= 10 && normCaption.includes(prefix))) {
+          const recId = Number(r.id);
+          const mediaId = String(m.id);
+
+          if (!existingRecipeIds.has(recId) && !existingMediaIds.has(mediaId)) {
+            try {
+              await strapi.db.query('api::instagram-post.instagram-post').create({
+                data: {
+                  caption: m.caption,
+                  hashtags: '',
+                  post_status: 'published',
+                  published_date: new Date(m.timestamp),
+                  recipe_id: recId,
+                  instagram_media_id: mediaId,
+                  publishedAt: new Date(m.timestamp),
+                  createdAt: new Date(m.timestamp),
+                  updatedAt: new Date()
+                }
+              });
+              existingRecipeIds.add(recId);
+              existingMediaIds.add(mediaId);
+              strapi.log.info(`[Instagram Sync] Receta #${recId} (${r.title}) sincronizada con IG Media ID ${mediaId}`);
+            } catch (errCreate) {
+              strapi.log.warn(`[Instagram Sync] Error guardando receta #${recId}:`, errCreate.message);
+            }
+          }
+          break;
+        }
+      }
+    }
+
+    lastSyncTime = Date.now();
+  } catch (syncErr) {
+    strapi.log.warn('[Instagram Sync] Error al sincronizar con Meta:', syncErr.message);
+  }
+}
+
 module.exports = createCoreController('api::instagram-post.instagram-post', ({ strapi }) => ({
   async renderReel(ctx) {
     try {
@@ -284,13 +383,16 @@ module.exports = createCoreController('api::instagram-post.instagram-post', ({ s
 
   async getPublishedRecipes(ctx) {
     try {
+      // Auto-sincronizar con Instagram Meta Graph API en segundo plano o si no se ha sincronizado
+      await syncInstagramPostsFromMeta(strapi);
+
       let posts = [];
       try {
         posts = await strapi.db.query('api::instagram-post.instagram-post').findMany({
           where: {
             post_status: 'published'
           },
-          orderBy: { createdAt: 'desc' },
+          orderBy: { published_date: 'desc' },
           limit: 500
         });
       } catch (err1) {
@@ -312,6 +414,33 @@ module.exports = createCoreController('api::instagram-post.instagram-post', ({ s
         success: true,
         data: []
       });
+    }
+  },
+
+  async syncInstagram(ctx) {
+    try {
+      await syncInstagramPostsFromMeta(strapi, true);
+      let posts = [];
+      try {
+        posts = await strapi.db.query('api::instagram-post.instagram-post').findMany({
+          where: {
+            post_status: 'published'
+          },
+          orderBy: { published_date: 'desc' },
+          limit: 500
+        });
+      } catch (e) {
+        posts = [];
+      }
+
+      return ctx.send({
+        success: true,
+        message: 'Sincronización con Instagram completada exitosamente.',
+        data: posts || []
+      });
+    } catch (err) {
+      strapi.log.error('syncInstagram Error:', err);
+      return ctx.internalServerError(err.message || 'Error sincronizando con Instagram.');
     }
   }
 }));

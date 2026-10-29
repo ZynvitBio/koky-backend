@@ -1,0 +1,602 @@
+[
+  {
+    "id": 1,
+    "title": "Rollo Gourmet de Tofú Hoja con Champiñones al Vino Blanco",
+    "category": "tomo3",
+    "product": "Tofú Hoja Koky ($32.000 COP)"
+  },
+  {
+    "id": 2,
+    "title": "Tallarines de Tofú Hoja al Wok estilo Pad Thai",
+    "category": "tomo3",
+    "product": "Tofú Hoja Koky ($32.000 COP)"
+  },
+  {
+    "id": 3,
+    "title": "Canelones Rústicos de Tofú Hoja Gratinados con Espinaca",
+    "category": "tomo3",
+    "product": "Tofú Hoja Koky ($32.000 COP)"
+  },
+  {
+    "id": 4,
+    "title": "Rollitos Primavera Imperiales de Tofú Hoja al Airfryer",
+    "category": "tomo4",
+    "product": "Tofú Hoja Koky ($32.000 COP)"
+  },
+  {
+    "id": 5,
+    "title": "Saquitos o Dumplings de Tofú Hoja en Caldo Oriental",
+    "category": "tomo2",
+    "product": "Tofú Hoja Koky ($32.000 COP)"
+  },
+  {
+    "id": 6,
+    "title": "Tofu Frío Hiya-yakko Tradicional con Ajonjolí y Cebollín",
+    "category": "tomo1",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 7,
+    "title": "Mayonesa Casera Cremosa de Tofu y Limón",
+    "category": "tomo1",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 8,
+    "title": "Tofu Guacamole Proteico para Picadas",
+    "category": "tomo1",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 9,
+    "title": "Salsa Tártara Ligera de Tofu con Encurtidos",
+    "category": "tomo1",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 10,
+    "title": "Queso Crema Untable de Tofu con Finas Hierbas",
+    "category": "tomo1",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 11,
+    "title": "Crema Agria de Tofu (Estilo Suero Costeño Fit)",
+    "category": "tomo1",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 12,
+    "title": "Tofu Dulce Crujiente Caramelizado",
+    "category": "tomo3",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 13,
+    "title": "Sándwich de Tofu Dorado y Queso Fundido",
+    "category": "tomo4",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 14,
+    "title": "Hamburguesas Artesanales de Tofu y Champiñones",
+    "category": "tomo3",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 15,
+    "title": "Albóndigas Italianas de Tofu en Salsa Pomodoro",
+    "category": "tomo3",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 16,
+    "title": "Tofu Salteado al Wok con Brotes y Verduras",
+    "category": "tomo3",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 17,
+    "title": "Ensalada Fresca de Tofu Frito Agridulce",
+    "category": "tomo1",
+    "product": "Tofú Frito Koky ($32.000 COP)"
+  },
+  {
+    "id": 18,
+    "title": "Tofu Frito Glaseado sobre Arroz Caldoso",
+    "category": "tomo2",
+    "product": "Tofú Frito Koky ($32.000 COP)"
+  },
+  {
+    "id": 19,
+    "title": "Aderezo Tradicional de Miso y Ajonjolí Tostado con Tofú Frito",
+    "category": "tomo1",
+    "product": "Tofú Frito Koky ($32.000 COP)"
+  },
+  {
+    "id": 20,
+    "title": "Tofu Firme a la Parrilla con Salsa Cremosa de Miso y Ajo",
+    "category": "tomo3",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 21,
+    "title": "Rollitos Crujientes de Nata de Soya y Champiñones",
+    "category": "tomo3",
+    "product": "Nata de Soya (Yuba) Koky ($29.000 COP)"
+  },
+  {
+    "id": 22,
+    "title": "Tallarines de Nata de Soya al Wok con Vegetales",
+    "category": "tomo3",
+    "product": "Nata de Soya (Yuba) Koky ($29.000 COP)"
+  },
+  {
+    "id": 23,
+    "title": "Sopa Oriental de Nata de Soya y Jengibre",
+    "category": "tomo2",
+    "product": "Nata de Soya (Yuba) Koky ($29.000 COP)"
+  },
+  {
+    "id": 24,
+    "title": "Nata de Soya Salteada con Vainitas y Ajo",
+    "category": "tomo3",
+    "product": "Nata de Soya (Yuba) Koky ($29.000 COP)"
+  },
+  {
+    "id": 25,
+    "title": "Ensalada Fría de Nata de Soya con Pepino y Vinagreta",
+    "category": "tomo1",
+    "product": "Nata de Soya (Yuba) Koky ($29.000 COP)"
+  },
+  {
+    "id": 26,
+    "title": "Stroganoff Cremoso de Tofú Seco Ahumado y Champiñones",
+    "category": "tomo3",
+    "product": "Tofú Seco Ahumado Koky ($28.000 COP)"
+  },
+  {
+    "id": 27,
+    "title": "Cazuela Campesina de Tofú Ahumado con Maíz Tierno",
+    "category": "tomo2",
+    "product": "Tofú Seco Ahumado Koky ($28.000 COP)"
+  },
+  {
+    "id": 28,
+    "title": "Brochetas Parrilleras de Tofú Rollo Ahumado y Vegetales",
+    "category": "tomo3",
+    "product": "Tofú Rollo Ahumado Koky ($35.000 COP)"
+  },
+  {
+    "id": 29,
+    "title": "Canapés de Tofú Ahumado con Aguacate y Tomate Cherry",
+    "category": "tomo1",
+    "product": "Tofú Seco Ahumado Koky ($28.000 COP)"
+  },
+  {
+    "id": 30,
+    "title": "Tofu Ahumado Misozuke (Macerado Tradicional en Miso)",
+    "category": "tomo1",
+    "product": "Tofú Seco Ahumado Koky ($28.000 COP)"
+  },
+  {
+    "id": 31,
+    "title": "Perico Criollo de Tofu (Scramble Proteico Colombiano)",
+    "category": "tomo4",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 32,
+    "title": "Curry Cremoso de Tofu Firme con Manzana y Vegetales",
+    "category": "tomo3",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 33,
+    "title": "Nuggets Crocantes de Tofu Firme al Airfryer",
+    "category": "tomo4",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 34,
+    "title": "Okonomi-yaki: Tortitas Japonesas de Tofu y Col",
+    "category": "tomo4",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 35,
+    "title": "Yakisoba Casero: Fideos Salteados con Tofu Firme",
+    "category": "tomo4",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 36,
+    "title": "Mousse Fit de Chocolate Oscuro y Tofu Semi Duro",
+    "category": "tomo5",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 37,
+    "title": "Ensalada César Proteica con Croutons de Tofú Frito",
+    "category": "tomo1",
+    "product": "Tofú Frito Koky ($32.000 COP)"
+  },
+  {
+    "id": 38,
+    "title": "Dip Cremoso de Tofu Semi Duro y Espinacas Gratinado",
+    "category": "tomo1",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 39,
+    "title": "Ensalada Tibia de Coliflor y Tofu con Salsa de Sésamo",
+    "category": "tomo1",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 40,
+    "title": "Bowl Energético de Tofú Frito Glaseado y Edamames",
+    "category": "tomo4",
+    "product": "Tofú Frito Koky ($32.000 COP)"
+  },
+  {
+    "id": 41,
+    "title": "Sopa Tradicional Japonesa de Miso y Tofu Semi Duro (Misoshiru)",
+    "category": "tomo2",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 42,
+    "title": "Sopa Clara Suimono con Lazos de Tofú Hoja y Champiñones",
+    "category": "tomo2",
+    "product": "Tofú Hoja Koky ($32.000 COP)"
+  },
+  {
+    "id": 43,
+    "title": "Sopa Agripicante Tradicional con Bastones de Tofu Firme",
+    "category": "tomo2",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 44,
+    "title": "Ramen Casero en Caldo Aromático con Tofú Frito",
+    "category": "tomo2",
+    "product": "Tofú Frito Koky ($32.000 COP)"
+  },
+  {
+    "id": 45,
+    "title": "Crema Sedosa de Ahuyama Asada con Dados Crocantes de Tofu Ahumado",
+    "category": "tomo2",
+    "product": "Tofú Seco Ahumado Koky ($28.000 COP)"
+  },
+  {
+    "id": 46,
+    "title": "Mapo Tofu Sichuan Casero con Salsa Aterciopelada",
+    "category": "tomo3",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 47,
+    "title": "Tofu Firme Caramelizado al Teriyaki Casero con Ajonjolí",
+    "category": "tomo3",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 48,
+    "title": "Bolsitas de Tofú Frito Rellenas de Arroz y Verduras (Inari-style)",
+    "category": "tomo3",
+    "product": "Tofú Frito Koky ($32.000 COP)"
+  },
+  {
+    "id": 49,
+    "title": "Salteado Rústico de Tofú Seco Ahumado con Pimentón y Cebolla",
+    "category": "tomo3",
+    "product": "Tofú Seco Ahumado Koky ($28.000 COP)"
+  },
+  {
+    "id": 50,
+    "title": "Lasaña Rústica de Tofú Hoja con Pomodoro y Calabacín",
+    "category": "tomo3",
+    "product": "Tofú Hoja Koky ($32.000 COP)"
+  },
+  {
+    "id": 51,
+    "title": "Tostón Saludable de Tofu Firme Dorado a la Cúrcuma con Aguacate",
+    "category": "tomo4",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 52,
+    "title": "Bocados de Tofú Frito al Ajillo con Perejil Fresco",
+    "category": "tomo4",
+    "product": "Tofú Frito Koky ($32.000 COP)"
+  },
+  {
+    "id": 53,
+    "title": "Burrito Energético de Tofu Scramble con Frijol Negro y Maíz",
+    "category": "tomo4",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 54,
+    "title": "Carpaccio Tibio de Tofú Rollo Ahumado con Limón y Alcaparras",
+    "category": "tomo4",
+    "product": "Tofú Rollo Ahumado Koky ($35.000 COP)"
+  },
+  {
+    "id": 55,
+    "title": "Rollitos Matutinos de Tofú Hoja Rellenos de Espinaca al Sartén",
+    "category": "tomo4",
+    "product": "Tofú Hoja Koky ($32.000 COP)"
+  },
+  {
+    "id": 56,
+    "title": "Shira-ae Tradicional: Ensalada Japonesa de Tofu Semi Duro y Espinaca",
+    "category": "tomo1",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 57,
+    "title": "Paté Rústico de Tofú Seco Ahumado y Nueces Tostadas",
+    "category": "tomo1",
+    "product": "Tofú Seco Ahumado Koky ($28.000 COP)"
+  },
+  {
+    "id": 58,
+    "title": "Ensalada Waldorf Proteica con Cubos de Tofu Firme",
+    "category": "tomo1",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 59,
+    "title": "Pudín Fit Cremoso de Tofu Semi Duro, Café Espresso y Cacao Puro",
+    "category": "tomo5",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 60,
+    "title": "Copa de Crema Pastelera Fit de Tofu y Vainilla con Fresas Frescas",
+    "category": "tomo5",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 61,
+    "title": "Cheesecake Fit Horneado de Tofu Semi Duro con Frutos Rojos",
+    "category": "tomo5",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 62,
+    "title": "Pancakes Proteicos Esponjosos de Tofu Semi Duro y Avena",
+    "category": "tomo5",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 63,
+    "title": "Crema Helada Saludable de Tofu Semi Duro y Mango de Azúcar",
+    "category": "tomo5",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 64,
+    "title": "Galletas Crocantes de Ajonjolí Tostado y Tofu Firme",
+    "category": "tomo5",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 65,
+    "title": "Brownie Fudge Húmedo de Tofu Semi Duro y Chocolate Oscuro",
+    "category": "tomo5",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 66,
+    "title": "Arroz Frito al Wok con Dados Crocantes de Tofu Firme",
+    "category": "tomo4",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 67,
+    "title": "Tostadas Crujientes con Crema Rústica de Tofu al Curry",
+    "category": "tomo4",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 68,
+    "title": "Bowl Campesino de Tofú Ahumado con Maíz Tierno y Aguacate",
+    "category": "tomo4",
+    "product": "Tofú Seco Ahumado Koky ($28.000 COP)"
+  },
+  {
+    "id": 69,
+    "title": "Sándwich Club Proteico con Tofú Frito y Vegetales Frescos",
+    "category": "tomo4",
+    "product": "Tofú Frito Koky ($32.000 COP)"
+  },
+  {
+    "id": 70,
+    "title": "Quesadilla Dorada de Tofú Hoja con Espinaca y Champiñones",
+    "category": "tomo4",
+    "product": "Tofú Hoja Koky ($32.000 COP)"
+  },
+  {
+    "id": 71,
+    "title": "Olla Nabemono Japonesa con Tofu Firme y Hongos",
+    "category": "tomo2",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 72,
+    "title": "Caldo Criollo de Tofu Ahumado con Papas y Guascas",
+    "category": "tomo2",
+    "product": "Tofú Seco Ahumado Koky ($28.000 COP)"
+  },
+  {
+    "id": 73,
+    "title": "Caldo Claro Suave con Rollitos de Nata de Soya y Verduras",
+    "category": "tomo2",
+    "product": "Nata de Soya (Yuba) Koky ($29.000 COP)"
+  },
+  {
+    "id": 74,
+    "title": "Sopa de Tomates Asados con Croutons Dorados de Tofu Firme",
+    "category": "tomo2",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 75,
+    "title": "Sopa Kitsune Udon Tradicional con Tofú Frito Glaseado",
+    "category": "tomo2",
+    "product": "Tofú Frito Koky ($32.000 COP)"
+  },
+  {
+    "id": 76,
+    "title": "Brochetas Yakitori de Tofu Firme a la Plancha con Salsa Dulce",
+    "category": "tomo3",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 77,
+    "title": "Wok Rápido de Tofú Seco Ahumado con Brócoli y Ajo",
+    "category": "tomo3",
+    "product": "Tofú Seco Ahumado Koky ($28.000 COP)"
+  },
+  {
+    "id": 78,
+    "title": "Enchiladas Rústicas de Tofú Hoja Rellenas al Horno",
+    "category": "tomo3",
+    "product": "Tofú Hoja Koky ($32.000 COP)"
+  },
+  {
+    "id": 79,
+    "title": "Tofú Fritoridulce estilo Cantón con Piña y Pimentón",
+    "category": "tomo3",
+    "product": "Tofú Frito Koky ($32.000 COP)"
+  },
+  {
+    "id": 80,
+    "title": "Medallones de Tofú Rollo Ahumado a la Pimienta Negra con Puré Rústico",
+    "category": "tomo3",
+    "product": "Tofú Rollo Ahumado Koky ($35.000 COP)"
+  },
+  {
+    "id": 81,
+    "title": "Dip Cremoso de Tofu Semi Duro con Ajo Asado y Romero",
+    "category": "tomo1",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 82,
+    "title": "Mayonesa Verde de Tofu Semi Duro con Albahaca y Limón",
+    "category": "tomo1",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 83,
+    "title": "Ensalada Fresca de Pepino y Cubos de Tofú Frito con Vinagreta de Sésamo",
+    "category": "tomo1",
+    "product": "Tofú Frito Koky ($32.000 COP)"
+  },
+  {
+    "id": 84,
+    "title": "Paté Campesino de Tofú Rollo Ahumado con Aceitunas Negras",
+    "category": "tomo1",
+    "product": "Tofú Rollo Ahumado Koky ($35.000 COP)"
+  },
+  {
+    "id": 85,
+    "title": "Ensalada Tibia de Champiñones Salteados sobre Crema de Tofu Firme",
+    "category": "tomo1",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 86,
+    "title": "Sopa de Cebolla Gratinada con Tofú Hoja al Horno",
+    "category": "tomo2",
+    "product": "Tofú Hoja Koky ($32.000 COP)"
+  },
+  {
+    "id": 87,
+    "title": "Cazuela Caldosa de Lentejas con Tofú Seco Ahumado",
+    "category": "tomo2",
+    "product": "Tofú Seco Ahumado Koky ($28.000 COP)"
+  },
+  {
+    "id": 88,
+    "title": "Caldo Oriental de Nata de Soya con Espinaca y Semillas de Ajonjolí",
+    "category": "tomo2",
+    "product": "Nata de Soya (Yuba) Koky ($29.000 COP)"
+  },
+  {
+    "id": 89,
+    "title": "Sopa de Maíz Tierno y Cubos Dorados de Tofu Firme",
+    "category": "tomo2",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 90,
+    "title": "Sopa Tradicional Miso Blanco con Tofú Frito y Alga Nori",
+    "category": "tomo2",
+    "product": "Tofú Frito Koky ($32.000 COP)"
+  },
+  {
+    "id": 91,
+    "title": "Medallones de Tofu Firme en Pomodoro con Albahaca Fresca",
+    "category": "tomo3",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 92,
+    "title": "Canelones Rústicos de Nata de Soya Rellenos de Champiñones",
+    "category": "tomo3",
+    "product": "Nata de Soya (Yuba) Koky ($29.000 COP)"
+  },
+  {
+    "id": 93,
+    "title": "Salteado al Wok de Tofú Frito con Pimentón y Salsa de Ajonjolí",
+    "category": "tomo3",
+    "product": "Tofú Frito Koky ($32.000 COP)"
+  },
+  {
+    "id": 94,
+    "title": "Tofú Seco Ahumado a la Barbacoa Casera con Mazorca Asada",
+    "category": "tomo3",
+    "product": "Tofú Seco Ahumado Koky ($28.000 COP)"
+  },
+  {
+    "id": 95,
+    "title": "Rollos Crujientes de Tofú Hoja Rellenos de Verduras al Wok",
+    "category": "tomo3",
+    "product": "Tofú Hoja Koky ($32.000 COP)"
+  },
+  {
+    "id": 96,
+    "title": "Arepa Rellena de Perico de Tofu Firme Colombiano",
+    "category": "tomo4",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  },
+  {
+    "id": 97,
+    "title": "Tostadas Rústicas con Crema de Tofu Semi Duro y Tomates Cherry",
+    "category": "tomo4",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 98,
+    "title": "Bowl Rápido de Quínoa con Tofú Frito y Aguacate",
+    "category": "tomo4",
+    "product": "Tofú Frito Koky ($32.000 COP)"
+  },
+  {
+    "id": 99,
+    "title": "Mousse Fit de Maracuyá con Tofu Semi Duro",
+    "category": "tomo5",
+    "product": "Tofu Semi Duro Koky ($16.800 COP)"
+  },
+  {
+    "id": 100,
+    "title": "Trufas Proteicas de Tofu Firme, Cacao Puro y Nueces",
+    "category": "tomo5",
+    "product": "Tofu Firme Koky ($24.000 COP)"
+  }
+]
