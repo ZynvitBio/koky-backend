@@ -40,7 +40,7 @@ module.exports = ({ strapi }) => ({
       components.push({
         type: "button",
         sub_type: isUrlButton ? "url" : "quick_reply",
-        index: 0,
+        index: "0",
         parameters: buttonParameters.map(p => (typeof p === 'string' ? { type: "text", text: p } : p))
       });
     }
