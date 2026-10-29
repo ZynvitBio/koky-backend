@@ -1,69 +1,7 @@
 const { createCoreController } = require("@strapi/strapi").factories;
 const crypto = require("crypto");
 const axios = require("axios");
-
-function getDeliverySchedule(dateInput) {
-  const dateObj = dateInput instanceof Date ? dateInput : new Date(dateInput || Date.now());
-  // Configurar formateador para la zona horaria de Bogotá (UTC-5)
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Bogota",
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    hour: "numeric",
-    minute: "numeric",
-    second: "numeric",
-    hour12: false
-  });
-  
-  const parts = formatter.formatToParts(dateObj);
-  const getVal = (type) => parseInt(parts.find(p => p.type === type).value, 10);
-  
-  const year = getVal("year");
-  const month = getVal("month") - 1; // JS months are 0-11
-  const day = getVal("day");
-  const hour = getVal("hour");
-  
-  // Objeto Date en la zona horaria de Colombia
-  const colDate = new Date(year, month, day);
-  const dayOfWeek = colDate.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
-
-  let productionNight = "";
-  let deliveryDay = "";
-
-  if (dayOfWeek >= 1 && dayOfWeek <= 3) { // Lunes, Martes, Miércoles
-    if (hour < 20) { // Antes de las 8:00 PM
-      const days = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
-      productionNight = "esta misma noche";
-      deliveryDay = `mañana mismo (${days[dayOfWeek + 1]})`;
-    } else { // Después de las 8:00 PM
-      const days = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
-      productionNight = "mañana por la noche";
-      deliveryDay = `pasado mañana (${days[dayOfWeek + 2]})`;
-    }
-  } else if (dayOfWeek === 4) { // Jueves
-    if (hour < 20) { // Antes de las 8:00 PM
-      productionNight = "esta misma noche";
-      deliveryDay = "mañana mismo (viernes)";
-    } else { // Después de las 8:00 PM
-      productionNight = "el domingo por la noche";
-      deliveryDay = "el próximo lunes";
-    }
-  } else if (dayOfWeek === 5 || dayOfWeek === 6) { // Viernes o Sábado
-    productionNight = "el domingo por la noche";
-    deliveryDay = "el próximo lunes";
-  } else if (dayOfWeek === 0) { // Domingo
-    if (hour < 20) { // Antes de las 8:00 PM
-      productionNight = "esta misma noche";
-      deliveryDay = "mañana mismo (lunes)";
-    } else { // Después de las 8:00 PM
-      productionNight = "mañana por la noche";
-      deliveryDay = "el próximo martes";
-    }
-  }
-
-  return { productionNight, deliveryDay };
-}
+const { getDeliverySchedule } = require("../../../utils/delivery-helper");
 
 module.exports = createCoreController("api::order.order", ({ strapi }) => ({
   async wompiWebhook(ctx) {

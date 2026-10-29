@@ -5,6 +5,7 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
+const { getDeliverySchedule } = require('../../../utils/delivery-helper');
 
 module.exports = createCoreService('api::order.order', ({ strapi }) => ({
   async generateInvoicePDF(order, options = {}) {
@@ -238,60 +239,8 @@ module.exports = createCoreService('api::order.order', ({ strapi }) => ({
       const totalAmount = Number(order.total_amount) || subtotal;
       const shippingCost = Math.max(0, totalAmount - subtotal);
 
-      // Horario y entrega
-      const orderDate = order.createdAt ? new Date(order.createdAt) : new Date();
-      const formatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'America/Bogota',
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: 'numeric',
-        second: 'numeric',
-        hour12: false
-      });
-      const parts = formatter.formatToParts(orderDate);
-      const getVal = (type) => parseInt(parts.find(p => p.type === type).value, 10);
-      const year = getVal('year');
-      const month = getVal('month') - 1;
-      const day = getVal('day');
-      const hour = getVal('hour');
-      const colDate = new Date(year, month, day);
-      const dayOfWeek = colDate.getDay();
-
-      let productionNight = 'esta misma noche';
-      let deliveryDay = 'mañana mismo durante el día';
-
-      if (dayOfWeek >= 1 && dayOfWeek <= 3) {
-        const days = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-        if (hour < 20) {
-          productionNight = 'esta misma noche';
-          deliveryDay = `mañana mismo (${days[dayOfWeek + 1]})`;
-        } else {
-          const daysExt = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
-          productionNight = 'mañana por la noche';
-          deliveryDay = `pasado mañana (${daysExt[dayOfWeek + 2]})`;
-        }
-      } else if (dayOfWeek === 4) {
-        if (hour < 20) {
-          productionNight = 'esta misma noche';
-          deliveryDay = 'mañana mismo (viernes)';
-        } else {
-          productionNight = 'el domingo por la noche';
-          deliveryDay = 'el próximo lunes';
-        }
-      } else if (dayOfWeek === 5 || dayOfWeek === 6) {
-        productionNight = 'el domingo por la noche';
-        deliveryDay = 'el próximo lunes';
-      } else if (dayOfWeek === 0) {
-        if (hour < 20) {
-          productionNight = 'esta misma noche';
-          deliveryDay = 'mañana mismo (lunes)';
-        } else {
-          productionNight = 'mañana por la noche';
-          deliveryDay = 'el próximo martes';
-        }
-      }
+      // Horario y entrega conectados a festivos colombianos y Ley Emiliani
+      const { productionNight, deliveryDay } = getDeliverySchedule(order.createdAt || new Date());
 
       let shippingAddress = order.shipping_address || 'Dirección acordada para entrega';
       if (order.shipping_notes && !shippingAddress.toLowerCase().includes(order.shipping_notes.toLowerCase())) {
