@@ -17,7 +17,7 @@ module.exports = {
       // Validar perímetro de cobertura de Bogotá y sabana autorizada
       const lat = Number(destino.lat);
       const lng = Number(destino.lng);
-      if (lat < 4.44 || lat > 4.88 || lng < -74.26 || lng > -74.00) {
+      if (lat < 4.44 || lat > 4.95 || lng < -74.26 || lng > -73.98) {
         ctx.status = 400;
         ctx.body = {
           success: false,
