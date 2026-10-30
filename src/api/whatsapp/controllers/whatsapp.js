@@ -3389,7 +3389,7 @@ Devuelve ÚNICAMENTE el mensaje mejorado final. No incluyas explicaciones, no in
       }
 
       // Auto-actualización transparente de plantillas legadas de Marketing a la nueva plantilla UTILITY aprobada
-      if (templateName === 'recordatorio_carrito_8pm' || templateName === 'recordatorio_carrito_9pm') {
+      if (templateName === 'recordatorio_carrito_8pm' || templateName === 'recordatorio_carrito_9pm' || templateName === 'aviso_produccion_pedido') {
         strapi.log.info(`🔄 [WHATSAPP AUTO-UPGRADE] Transformando ${templateName} a plantilla UTILITY 'aviso_produccion_pedido'`);
         templateName = 'preparacion_pedido_fresco';
         const clientName = parameters[0] || 'Cliente';
