@@ -3391,7 +3391,7 @@ Devuelve ÚNICAMENTE el mensaje mejorado final. No incluyas explicaciones, no in
       // Auto-actualización transparente de plantillas legadas de Marketing a la nueva plantilla UTILITY aprobada
       if (templateName === 'recordatorio_carrito_8pm' || templateName === 'recordatorio_carrito_9pm') {
         strapi.log.info(`🔄 [WHATSAPP AUTO-UPGRADE] Transformando ${templateName} a plantilla UTILITY 'aviso_produccion_pedido'`);
-        templateName = 'aviso_produccion_pedido';
+        templateName = 'preparacion_pedido_fresco';
         const clientName = parameters[0] || 'Cliente';
         const productsSummary = parameters[1] || 'su solicitud';
         const rawPaymentUrl = parameters[2] || '';
@@ -3423,9 +3423,9 @@ Devuelve ÚNICAMENTE el mensaje mejorado final. No incluyas explicaciones, no in
         if (templateName === 'novedad_pedido_devolucion' || templateName === 'novedad_pedido_reembolso') {
           const [cliente = 'Cliente', asesor = 'Asesor', producto = 'un producto'] = parameters;
           messageRecordText = `Estimado/a ${cliente}, le saluda ${asesor} de Koky.\n\nLamentamos informarle que nos ha surgido un inconveniente con ${producto} de su pedido. Por factores imprevistos en nuestros tiempos de producción, no nos es posible realizar la entrega en la fecha prevista, por lo que le ofrecemos nuestras más sinceras disculpas.\n\nPara no retrasarle más, procederemos con el reembolso del valor correspondiente. Por favor, ¿podría indicarnos por este medio cuál método de reembolso le resulta más conveniente para coordinarlo de inmediato?\n\nAgradecemos enormemente su comprensión y paciencia.`;
-        } else if (templateName === 'aviso_produccion_pedido') {
-          const [cliente = 'Cliente', productos = 'su solicitud'] = parameters;
-          messageRecordText = `Hola ${cliente}, le saludamos con aprecio desde Koky Food respecto a su solicitud de ${productos}.\n\nComo elaboramos todo fresco durante la noche (prensado y ahumado artesanal), nuestro horario límite de ingreso a cocina para la entrega de mañana es a las 8:00 PM.\n\nPara asegurar la preparación de su pedido fresco de hoy, puede completar su pago seguro en el botón inferior antes de las 8:00 PM.\n\nPara nosotros es un verdadero honor servirle. Si tiene alguna indicación sobre su orden, con el mayor gusto le atendemos.`;
+        } else if (templateName === 'preparacion_pedido_fresco' || templateName === 'aviso_produccion_pedido') {
+          const [cliente = 'Cliente', productos = 'tu pedido'] = parameters;
+          messageRecordText = `¡Hola, ${cliente}! Recibe un abrazo de parte del equipo de Koky Food. 👋\n\nNos preocupamos por que mañana tengas en tu mesa tu pedido de ${productos} recién preparado. 🌱\n\nComo cocinamos todo fresco en la noche para tu entrega de mañana, entramos a cocina hoy a las 8:00 PM.\n\nPara alcanzar a preparar tu pedido en la tanda de hoy, puedes confirmar los detalles en el botón de abajo antes de las 8:00 PM.\n\nSi necesitas cambiar algo o prefieres para otro día, escríbenos con toda tranquilidad. ¡Estamos aquí para ayudarte! 😊`;
         } else if (templateName === 'recordatorio_carrito_8pm' || templateName === 'recordatorio_carrito_9pm') {
           const [cliente = 'Cliente', productos = 'tu pedido', link = ''] = parameters;
           const hora = templateName.includes('9pm') ? '9:00 PM' : '8:00 PM';
