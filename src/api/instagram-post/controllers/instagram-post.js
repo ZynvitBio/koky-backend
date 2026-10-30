@@ -173,7 +173,17 @@ module.exports = createCoreController('api::instagram-post.instagram-post', ({ s
         return ctx.badRequest('Se requiere recipeId o videoFileName');
       }
 
-      const result = await runReelRenderer({ recipeId, videoFileName });
+      let result = null;
+      try {
+        result = await runReelRenderer({ recipeId, videoFileName });
+      } catch (renderErr) {
+        strapi.log.warn('[renderReel] Entorno sin motor local Python/FFmpeg:', renderErr.message);
+        return ctx.send({
+          success: true,
+          reelUrl: null,
+          message: 'Video oficial de Cloudinary listo para publicar directamente a Instagram.'
+        });
+      }
 
       const host = ctx.request.header.host || 'localhost:1337';
       const protocol = ctx.request.header['x-forwarded-proto'] || (ctx.request.secure ? 'https' : 'http');
@@ -218,12 +228,19 @@ module.exports = createCoreController('api::instagram-post.instagram-post', ({ s
       let localFilePath = path.join(process.cwd(), 'public', relativePath.startsWith('/') ? relativePath.slice(1) : relativePath);
       let isLocalFile = fs.existsSync(localFilePath) && fs.statSync(localFilePath).isFile();
 
-      // Si es una receta del catálogo y aún no tiene el Reel 9:16 ensamblado localmente (ej. tenía URL cruda o /undefined), renderizarlo automáticamente
-      if (!isLocalFile && recipeId) {
-        strapi.log.info(`[Instagram Publisher] El Reel 9:16 para la receta #${recipeId} no estaba ensamblado en disco. Renderizando automáticamente...`);
-        const rendered = await runReelRenderer({ recipeId });
-        localFilePath = path.join(process.cwd(), 'public', 'uploads', 'reels', rendered.fileName);
-        isLocalFile = fs.existsSync(localFilePath) && fs.statSync(localFilePath).isFile();
+      // Si es una receta del catálogo y aún no tiene el Reel 9:16 ensamblado localmente:
+      // Intentar renderizar localmente SOLO si no tenemos ya una URL pública de video (Cloudinary, etc.)
+      const hasRemoteVideo = videoUrl && (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) && !videoUrl.includes('localhost') && !videoUrl.includes('127.0.0.1');
+
+      if (!isLocalFile && recipeId && !hasRemoteVideo) {
+        strapi.log.info(`[Instagram Publisher] El Reel 9:16 para la receta #${recipeId} no estaba ensamblado en disco ni tiene URL remota. Intentando renderizar...`);
+        try {
+          const rendered = await runReelRenderer({ recipeId });
+          localFilePath = path.join(process.cwd(), 'public', 'uploads', 'reels', rendered.fileName);
+          isLocalFile = fs.existsSync(localFilePath) && fs.statSync(localFilePath).isFile();
+        } catch (renderErr) {
+          strapi.log.warn(`[Instagram Publisher] Renderizado local no disponible (${renderErr.message}). Continuando con URL pública si existe.`);
+        }
       }
 
       let creationId = null;
