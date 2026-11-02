@@ -25,6 +25,28 @@ const model = genAI.getGenerativeModel(
   { apiVersion: "v1" },
 );
 
+const fallbackModel = genAI.getGenerativeModel(
+  {
+    model: "gemini-2.0-flash",
+  },
+  { apiVersion: "v1" },
+);
+
+async function generateContentWithRetry(prompt) {
+  try {
+    return await model.generateContent(prompt);
+  } catch (err) {
+    console.warn(`⚠️ [Gemini 2.5 Flash] Fallo inicial (${err.message}). Reintentando en 1.5s...`);
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      return await model.generateContent(prompt);
+    } catch (retryErr) {
+      console.warn(`⚠️ [Gemini 2.5 Flash] Segundo intento falló (${retryErr.message}). Usando respaldo gemini-2.0-flash...`);
+      return await fallbackModel.generateContent(prompt);
+    }
+  }
+}
+
 // Set en memoria para deduplicar mensajes de webhook de WhatsApp y evitar respuestas múltiples
 const processedMessageIds = new Set();
 
@@ -241,13 +263,13 @@ async function getOrderContextForUser(from, user) {
     const filters = [];
     if (from) filters.push({ whatsapp_id: from });
     if (user?.whatsapp_id) filters.push({ whatsapp_id: user.whatsapp_id });
-    if (user?.id) filters.push({ users_permissions_user: user.id });
+    if (user?.id) filters.push({ users_permissions_users: { id: user.id } });
 
     if (filters.length === 0) return "- No se encontraron órdenes asociadas.";
 
-    const lastOrders = await strapi.db.query("api::order.order").findMany({
-      where: { $or: filters },
-      orderBy: { id: "desc" },
+    const lastOrders = await strapi.entityService.findMany("api::order.order", {
+      filters: { $or: filters },
+      sort: { id: "desc" },
       limit: 1
     });
 
@@ -2461,7 +2483,7 @@ module.exports = {
                   deliveryInfo
                 );
 
-                const result = await model.generateContent(systemPrompt);
+                const result = await generateContentWithRetry(systemPrompt);
 
                 const aiResponse = result.response.text();
                 
@@ -3241,7 +3263,7 @@ module.exports = {
                 deliveryInfoMeta
               );
 
-              const result = await model.generateContent(systemPrompt);
+              const result = await generateContentWithRetry(systemPrompt);
 
               const aiResponse = result.response.text();
 
@@ -3361,7 +3383,7 @@ Borrador del asesor:
 
 Devuelve ÚNICAMENTE el mensaje mejorado final. No incluyas explicaciones, no incluyas introducciones como "Aquí tienes la corrección", no uses comillas alrededor de la respuesta final y no agregues notas adicionales.`;
 
-      const result = await model.generateContent(prompt);
+      const result = await generateContentWithRetry(prompt);
       const improvedText = result.response.text().trim();
 
       return { improvedText };
