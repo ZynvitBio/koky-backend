@@ -289,7 +289,7 @@ module.exports = createCoreController('api::instagram-post.instagram-post', ({ s
 
   async publishToInstagram(ctx) {
     try {
-      const { caption, hashtags, videoUrl, scheduledDate, recipeId } = ctx.request.body || {};
+      const { caption, hashtags, videoUrl, scheduledDate, recipeId, videoMode } = ctx.request.body || {};
 
       if (!videoUrl && !recipeId) {
         return ctx.badRequest('Se requiere la URL del video (videoUrl) o recipeId para publicar el Reel.');
@@ -303,20 +303,33 @@ module.exports = createCoreController('api::instagram-post.instagram-post', ({ s
       }
 
       const igUserId = await getInstagramBusinessId(token);
-      strapi.log.info(`[Instagram Publisher] Iniciando publicación de Reel hacia IG Business ID: ${igUserId}`);
+      strapi.log.info(`[Instagram Publisher] Iniciando publicación de Reel hacia IG Business ID: ${igUserId} (Modo: ${videoMode || 'auto'})`);
 
-      // Verificar si el archivo de video ya es un Reel 9:16 ensamblado localmente en el servidor
       const relativePath = (videoUrl || '').replace(/^https?:\/\/[^\/]+/, '');
-      let localFilePath = path.join(process.cwd(), 'public', relativePath.startsWith('/') ? relativePath.slice(1) : relativePath);
-      let isLocalFile = relativePath.includes('/uploads/reels/') && fs.existsSync(localFilePath) && fs.statSync(localFilePath).isFile();
+      const wantsOutroReel = videoMode === 'outro' || (!videoMode && relativePath.includes('/uploads/reels/'));
 
-      // Si es una receta del catálogo y aún no tiene el Reel 9:16 ensamblado en disco (ej. viene con URL cruda de Cloudinary),
-      // ensamblarlo siempre en formato 9:16 con logo, videoRecetas.mp4 de cierre, texto CTA y audio continuo:
-      if (!isLocalFile && recipeId) {
-        strapi.log.info(`[Instagram Publisher] Ensamblando Reel 9:16 (Receta #${recipeId} + Logo + Cierre Recetario + Audio)...`);
+      let localFilePath = path.join(process.cwd(), 'public', relativePath.startsWith('/') ? relativePath.slice(1) : relativePath);
+      let isLocalFile = wantsOutroReel && relativePath.includes('/uploads/reels/') && fs.existsSync(localFilePath) && fs.statSync(localFilePath).isFile();
+
+      // Si el usuario eligió el modo con cierre del recetario y voz ('outro') y aún no está ensamblado en disco, ensamblarlo ahora:
+      if (wantsOutroReel && !isLocalFile && recipeId) {
+        strapi.log.info(`[Instagram Publisher] Modo Cierre 9:16 seleccionado. Ensamblando Reel 9:16 (Receta #${recipeId} + Logo + Cierre Recetario + Audio)...`);
         const rendered = await runReelRenderer({ recipeId, videoUrl });
         localFilePath = path.join(process.cwd(), 'public', 'uploads', 'reels', rendered.fileName);
         isLocalFile = fs.existsSync(localFilePath) && fs.statSync(localFilePath).isFile();
+      }
+
+      // Si el usuario eligió el modo Video Original ('original'), asegurar que usemos la URL original limpia de Cloudinary:
+      let targetOriginalUrl = videoUrl;
+      if (!wantsOutroReel && recipeId && (!targetOriginalUrl || targetOriginalUrl.includes('/uploads/reels/'))) {
+        const catalogPath = path.join(__dirname, '../../../data/recipes_catalog.json');
+        if (fs.existsSync(catalogPath)) {
+          const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
+          const found = catalog.find(r => Number(r.id) === Number(recipeId));
+          if (found && found.video) {
+            targetOriginalUrl = found.video;
+          }
+        }
       }
 
       let creationId = null;
@@ -364,7 +377,7 @@ module.exports = createCoreController('api::instagram-post.instagram-post', ({ s
 
       } else {
         // --- MÉTODO 2: Descarga por URL pública de Meta ---
-        let publicVideoUrl = videoUrl;
+        let publicVideoUrl = targetOriginalUrl || videoUrl;
         if (publicVideoUrl.includes('localhost') || publicVideoUrl.includes('127.0.0.1')) {
           const publicBase = process.env.PUBLIC_URL || 'https://koky-backend-production.up.railway.app';
           publicVideoUrl = publicVideoUrl.replace(/http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/, publicBase);
