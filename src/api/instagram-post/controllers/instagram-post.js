@@ -34,35 +34,127 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function runReelRenderer({ recipeId, videoFileName }) {
-  return new Promise((resolve, reject) => {
-    const args = ['scripts/generate_all_instagram_reels.py', '--force'];
-    if (recipeId) {
-      args.push('--recipe-id', String(recipeId));
-    } else if (videoFileName) {
-      args.push('--file', videoFileName);
+function getFfmpegExecutable() {
+  try {
+    const ffmpegStatic = require('ffmpeg-static');
+    if (ffmpegStatic && fs.existsSync(ffmpegStatic)) {
+      return ffmpegStatic;
+    }
+  } catch (e) {
+    // ignore
+  }
+  return 'ffmpeg';
+}
+
+async function runReelRenderer({ recipeId, videoFileName, videoUrl }) {
+  const publicReelsDir = path.join(process.cwd(), 'public', 'uploads', 'reels');
+  const rawCacheDir = path.join(publicReelsDir, 'raw_cache');
+  const assetsDir = path.join(process.cwd(), 'public', 'reel-assets');
+
+  fs.mkdirSync(publicReelsDir, { recursive: true });
+  fs.mkdirSync(rawCacheDir, { recursive: true });
+
+  const outroPath = path.join(assetsDir, 'videoRecetas.mp4');
+  const outroAudioPath = path.join(assetsDir, 'audio1.2.mp3');
+  const logoPath = path.join(assetsDir, 'logoBlue20.png');
+  const ctaOverlayPath = path.join(assetsDir, 'cta_gradient_overlay.png');
+
+  if (!fs.existsSync(outroPath) || !fs.existsSync(logoPath) || !fs.existsSync(ctaOverlayPath) || !fs.existsSync(outroAudioPath)) {
+    throw new Error('Faltan archivos plantilla de Reel en public/reel-assets/');
+  }
+
+  // Buscar la receta en el catálogo para obtener su URL de Cloudinary
+  const catalogPath = path.join(__dirname, '../../../data/recipes_catalog.json');
+  let recipeEntry = null;
+  if (fs.existsSync(catalogPath) && recipeId) {
+    const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
+    recipeEntry = catalog.find(r => Number(r.id) === Number(recipeId));
+  }
+
+  const paddedId = recipeId ? String(recipeId).padStart(2, '0') : 'custom';
+  const outFileName = `recipe_${paddedId}_Reel.mp4`;
+  const outPath = path.join(publicReelsDir, outFileName);
+
+  // Si ya fue renderizado previamente en este servidor y pesa > 1MB, reutilizarlo o regenerarlo
+  let inputVideoPath = null;
+
+  // 1. Intentar buscar en carpeta local Koky_Videos_Finales (si existe en entorno local Windows)
+  const localRawDir = path.resolve(process.cwd(), '..', 'Koky_Videos_Finales');
+  if (fs.existsSync(localRawDir) && recipeId) {
+    const files = fs.readdirSync(localRawDir);
+    const matchFile = files.find(f => f.startsWith(`${paddedId}_`) && f.endsWith('.mp4'));
+    if (matchFile) {
+      inputVideoPath = path.join(localRawDir, matchFile);
+    }
+  }
+
+  // 2. Si estamos en Railway (producción) o no está en disco local, descargar el clip base desde Cloudinary
+  if (!inputVideoPath) {
+    const remoteSourceUrl = (recipeEntry && recipeEntry.video) || videoUrl;
+    if (!remoteSourceUrl || !remoteSourceUrl.startsWith('http')) {
+      throw new Error(`No se encontró URL de video origen para la receta #${recipeId || videoFileName}`);
     }
 
-    execFile('python', args, { cwd: process.cwd() }, (error, stdout, stderr) => {
+    const cachedRawPath = path.join(rawCacheDir, `raw_${paddedId}.mp4`);
+    if (!fs.existsSync(cachedRawPath) || fs.statSync(cachedRawPath).size < 10000) {
+      const response = await axios.get(remoteSourceUrl, {
+        responseType: 'arraybuffer',
+        timeout: 60000
+      });
+      fs.writeFileSync(cachedRawPath, Buffer.from(response.data));
+    }
+    inputVideoPath = cachedRawPath;
+  }
+
+  const ffmpegExe = getFfmpegExecutable();
+  const filterComplex = [
+    '[0:v]fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,setdar=9/16[v0base];',
+    '[2:v]scale=220:-1[logoscale];',
+    '[v0base][logoscale]overlay=W-w-50:60[v0];',
+    '[0:a]aformat=sample_rates=48000:channel_layouts=stereo[a0];',
+    '[1:v]fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,setdar=9/16[v1base];',
+    '[v1base][3:v]overlay=0:0[v1];',
+    '[4:a]aformat=sample_rates=48000:channel_layouts=stereo[a1];',
+    '[v0][a0][v1][a1]concat=n=2:v=1:a=1[outv][outa]'
+  ].join('');
+
+  const ffmpegArgs = [
+    '-y',
+    '-i', inputVideoPath,
+    '-i', outroPath,
+    '-i', logoPath,
+    '-i', ctaOverlayPath,
+    '-i', outroAudioPath,
+    '-filter_complex', filterComplex,
+    '-map', '[outv]',
+    '-map', '[outa]',
+    '-c:v', 'libx264',
+    '-preset', 'veryfast',
+    '-crf', '21',
+    '-c:a', 'aac',
+    '-b:a', '192k',
+    '-movflags', '+faststart',
+    outPath
+  ];
+
+  await new Promise((resolve, reject) => {
+    execFile(ffmpegExe, ffmpegArgs, { maxBuffer: 20 * 1024 * 1024 }, (error, stdout, stderr) => {
       if (error) {
-        return reject(new Error(stderr || error.message));
+        return reject(new Error(stderr ? stderr.slice(-500) : error.message));
       }
-
-      const match = stdout.match(/JSON_OUTPUT:\s*(\{.*\})/);
-      if (match) {
-        try {
-          const data = JSON.parse(match[1]);
-          if (data && data.fileName) {
-            return resolve(data);
-          }
-        } catch (e) {
-          // fallback
-        }
-      }
-
-      reject(new Error(`No se encontró el archivo de video base para la receta #${recipeId || videoFileName}.`));
+      resolve();
     });
   });
+
+  const stats = fs.statSync(outPath);
+  const sizeMb = Number((stats.size / (1024 * 1024)).toFixed(2));
+
+  return {
+    success: true,
+    fileName: outFileName,
+    sizeMb,
+    duration: 18.75
+  };
 }
 
 let lastSyncTime = 0;
@@ -167,23 +259,13 @@ async function syncInstagramPostsFromMeta(strapi, force = false) {
 module.exports = createCoreController('api::instagram-post.instagram-post', ({ strapi }) => ({
   async renderReel(ctx) {
     try {
-      const { recipeId, videoFileName } = ctx.request.body || {};
+      const { recipeId, videoFileName, videoUrl } = ctx.request.body || {};
 
       if (!recipeId && !videoFileName) {
         return ctx.badRequest('Se requiere recipeId o videoFileName');
       }
 
-      let result = null;
-      try {
-        result = await runReelRenderer({ recipeId, videoFileName });
-      } catch (renderErr) {
-        strapi.log.warn('[renderReel] Entorno sin motor local Python/FFmpeg:', renderErr.message);
-        return ctx.send({
-          success: true,
-          reelUrl: null,
-          message: 'Video oficial de Cloudinary listo para publicar directamente a Instagram.'
-        });
-      }
+      const result = await runReelRenderer({ recipeId, videoFileName, videoUrl });
 
       const host = ctx.request.header.host || 'localhost:1337';
       const protocol = ctx.request.header['x-forwarded-proto'] || (ctx.request.secure ? 'https' : 'http');
@@ -223,24 +305,18 @@ module.exports = createCoreController('api::instagram-post.instagram-post', ({ s
       const igUserId = await getInstagramBusinessId(token);
       strapi.log.info(`[Instagram Publisher] Iniciando publicación de Reel hacia IG Business ID: ${igUserId}`);
 
-      // Verificar si el archivo de video existe localmente en el servidor
+      // Verificar si el archivo de video ya es un Reel 9:16 ensamblado localmente en el servidor
       const relativePath = (videoUrl || '').replace(/^https?:\/\/[^\/]+/, '');
       let localFilePath = path.join(process.cwd(), 'public', relativePath.startsWith('/') ? relativePath.slice(1) : relativePath);
-      let isLocalFile = fs.existsSync(localFilePath) && fs.statSync(localFilePath).isFile();
+      let isLocalFile = relativePath.includes('/uploads/reels/') && fs.existsSync(localFilePath) && fs.statSync(localFilePath).isFile();
 
-      // Si es una receta del catálogo y aún no tiene el Reel 9:16 ensamblado localmente:
-      // Intentar renderizar localmente SOLO si no tenemos ya una URL pública de video (Cloudinary, etc.)
-      const hasRemoteVideo = videoUrl && (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) && !videoUrl.includes('localhost') && !videoUrl.includes('127.0.0.1');
-
-      if (!isLocalFile && recipeId && !hasRemoteVideo) {
-        strapi.log.info(`[Instagram Publisher] El Reel 9:16 para la receta #${recipeId} no estaba ensamblado en disco ni tiene URL remota. Intentando renderizar...`);
-        try {
-          const rendered = await runReelRenderer({ recipeId });
-          localFilePath = path.join(process.cwd(), 'public', 'uploads', 'reels', rendered.fileName);
-          isLocalFile = fs.existsSync(localFilePath) && fs.statSync(localFilePath).isFile();
-        } catch (renderErr) {
-          strapi.log.warn(`[Instagram Publisher] Renderizado local no disponible (${renderErr.message}). Continuando con URL pública si existe.`);
-        }
+      // Si es una receta del catálogo y aún no tiene el Reel 9:16 ensamblado en disco (ej. viene con URL cruda de Cloudinary),
+      // ensamblarlo siempre en formato 9:16 con logo, videoRecetas.mp4 de cierre, texto CTA y audio continuo:
+      if (!isLocalFile && recipeId) {
+        strapi.log.info(`[Instagram Publisher] Ensamblando Reel 9:16 (Receta #${recipeId} + Logo + Cierre Recetario + Audio)...`);
+        const rendered = await runReelRenderer({ recipeId, videoUrl });
+        localFilePath = path.join(process.cwd(), 'public', 'uploads', 'reels', rendered.fileName);
+        isLocalFile = fs.existsSync(localFilePath) && fs.statSync(localFilePath).isFile();
       }
 
       let creationId = null;
