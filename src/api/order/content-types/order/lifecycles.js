@@ -142,13 +142,13 @@ module.exports = {
             try {
               let messageText = "";
               if (newStatus === "PREPARING") {
-                strapi.log.info(`[Lifecycle Order] Estado cambió a PREPARING. Enviando plantilla pedido_en_cocina a ${to}...`);
-                await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_en_cocina", [
+                strapi.log.info(`[Lifecycle Order] Estado cambió a PREPARING. Enviando plantilla orden_en_cocina a ${to}...`);
+                await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "orden_en_cocina", [
                   { type: "text", text: customerName },
                   { type: "text", text: String(orderId) }
                 ]);
 
-                messageText = `👨‍🍳 ¡Tu pedido va rumbo a la cocina!\n\nHola ${customerName}, ¡esperamos que estés muy bien!\n\nQueremos confirmarte que hemos cerrado nuestra lista de pedidos de hoy y tu orden #${orderId} ya se encuentra en manos de nuestros artesanos en la cocina para ser preparada fresca esta noche. 🥣\n\nMañana por la mañana te avisaremos apenas salga de la cocina y se programe su despacho. ¡Gracias por apoyar lo artesanal!`;
+                messageText = `👨‍🍳 ¡Tu pedido va rumbo a la cocina!\n\nHola ${customerName}, ¡esperamos que estés muy bien! 👨‍🍳\n\nTe confirmamos que tu orden #${orderId} ya se encuentra en manos de nuestro equipo en cocina para ser preparada fresca esta noche. 🥣\n\nMañana hacia el mediodía te avisaremos cuando tu pedido recién elaborado salga de cocina y se programe su despacho hacia tu dirección. ¡Muchas gracias por tu confianza!`;
               } else if (newStatus === "READY") {
                 // Calcular saludo según la hora de Bogotá (UTC-5)
                 const formatter = new Intl.DateTimeFormat("en-US", {
@@ -445,7 +445,7 @@ function getColombianHolidays(year) {
   return holidays;
 }
 
-async function sendWhatsAppTemplate(phone_number_id, token, to, templateName, bodyParameters, buttonParameters = null) {
+async function sendWhatsAppTemplate(phone_number_id, token, to, templateName, bodyParameters, buttonParameters = null, headerMedia = null) {
   try {
     const components = [
       {
@@ -453,6 +453,18 @@ async function sendWhatsAppTemplate(phone_number_id, token, to, templateName, bo
         parameters: bodyParameters
       }
     ];
+
+    if (headerMedia) {
+      components.unshift({
+        type: "header",
+        parameters: [
+          {
+            type: "image",
+            image: { link: headerMedia }
+          }
+        ]
+      });
+    }
 
     if (buttonParameters) {
       components.push({

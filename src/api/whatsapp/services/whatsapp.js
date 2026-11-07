@@ -21,7 +21,7 @@ async function getPageAccessToken() {
 
 module.exports = ({ strapi }) => ({
   // 1. ENVIO WHATSAPP (Soporte Dual: Teléfonos Estándar y BSUID Privados)
-  async sendTemplate(to, templateName, bodyParameters = [], languageCode = "es_CO", buttonParameters = null) {
+  async sendTemplate(to, templateName, bodyParameters = [], languageCode = "es_CO", buttonParameters = null, headerMedia = null) {
     const accessToken = process.env.WHATSAPP_TOKEN;
     const phoneNumberId = process.env.ID_PHONE_WS || "1037050959491352";
     const url = `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`;
@@ -34,6 +34,18 @@ module.exports = ({ strapi }) => ({
         parameters: bodyParameters.map(param => (typeof param === 'string' ? { type: "text", text: param } : param))
       }
     ];
+
+    if (headerMedia) {
+      components.unshift({
+        type: "header",
+        parameters: [
+          {
+            type: "image",
+            image: { link: headerMedia }
+          }
+        ]
+      });
+    }
 
     if (buttonParameters && buttonParameters.length > 0) {
       const isUrlButton = buttonParameters.some(p => typeof p === 'string' && (p.startsWith('http') || p.startsWith('?') || p.includes('=')));
