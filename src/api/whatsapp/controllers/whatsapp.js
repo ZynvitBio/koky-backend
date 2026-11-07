@@ -3412,8 +3412,8 @@ Devuelve ÚNICAMENTE el mensaje mejorado final. No incluyas explicaciones, no in
       }
 
       // Si es la plantilla oficial de entrega con recetario y no viene headerMedia, asignar imagen oficial
-      if (templateName === 'pedido_entregado_recetas') {
-        headerMedia = headerMedia || 'https://res.cloudinary.com/jonathan-barrios/image/upload/v1789078700/banner_home2_0_a796d506a9.jpg';
+      if (templateName === 'entrega_pedido_recetas' || templateName === 'pedido_entregado_recetas') {
+        headerMedia = headerMedia || 'https://koky-backend-production.up.railway.app/pedido_llegado_banner.jpg';
       }
 
       // Auto-actualización transparente de plantillas legadas de Marketing a la nueva plantilla UTILITY aprobada
@@ -3455,9 +3455,9 @@ Devuelve ÚNICAMENTE el mensaje mejorado final. No incluyas explicaciones, no in
         } else if (templateName === 'preparacion_pedido_fresco' || templateName === 'aviso_produccion_pedido') {
           const [cliente = 'Cliente', productos = 'tu pedido'] = parameters;
           messageRecordText = `¡Hola, ${cliente}! Recibe un abrazo de parte del equipo de Koky Food. 👋\n\nNos preocupamos por que mañana tengas en tu mesa tu pedido de ${productos} recién preparado. 🌱\n\nComo cocinamos todo fresco en la noche para tu entrega de mañana, entramos a cocina hoy a las 8:00 PM.\n\nPara alcanzar a preparar tu pedido en la tanda de hoy, puedes confirmar los detalles en el botón de abajo antes de las 8:00 PM.\n\nSi necesitas cambiar algo o prefieres para otro día, escríbenos con toda tranquilidad. ¡Estamos aquí para ayudarte! 😊`;
-        } else if (templateName === 'pedido_entregado_recetas' || templateName === 'pedido_entregado_fresco') {
+        } else if (templateName === 'entrega_pedido_recetas' || templateName === 'pedido_entregado_recetas' || templateName === 'pedido_entregado_fresco') {
           const [cliente = 'Cliente', productos = 'tu pedido', detalle = 'en tu dirección'] = parameters;
-          messageRecordText = `¡Hola, ${cliente}! Esperamos que estés teniendo un excelente día. 🌿\n\nQueremos contarte con mucha alegría que tu pedido de ${productos} ya fue entregado.\n\n📍 Detalle de entrega: ${detalle}\n\nPreparamos cada producto con mucho cariño para que disfrutes de comida verdaderamente fresca y saludable en tu mesa. Como recomendación especial: recuerda refrigerarlo tan pronto lo recibas para conservar intacta su textura y frescura artesanal.\n\nMuchas gracias de corazón por confiar en Koky. Si tienes cualquier inquietud con tu entrega o necesitas ideas para prepararlo, aquí estamos siempre atentos para ti. ¡Que lo disfrutes mucho! 😊\n\n[🔘 Ver Recetario Koky (https://koky.food/recetas)]`;
+          messageRecordText = `¡Tu pedido Koky ya fue entregado, ${cliente}!\n\nDetalle: ${detalle}\nConsejo: Recuerda refrigerarlo al recibirlo para conservar toda su frescura artesanal.\n\nLlevamos a tu mesa: ${productos}.\n\nMuchas gracias de corazón por permitirnos cocinar para ti. En el botón de abajo te compartimos ideas deliciosas para prepararlo. ¡Que lo disfrutes mucho!\n\n[🔘 Recetario Koky (https://koky.food/recetas)]`;
         } else if (templateName === 'orden_en_cocina' || templateName === 'pedido_en_cocina') {
           const [cliente = 'Cliente', ordenId = ''] = parameters;
           messageRecordText = `👨‍🍳 ¡Tu pedido va rumbo a la cocina!\n\nHola ${cliente}, ¡esperamos que estés muy bien! 👨‍🍳\n\nTe confirmamos que tu orden #${ordenId} ya se encuentra en manos de nuestro equipo en cocina para ser preparada fresca esta noche. 🥣\n\nMañana hacia el mediodía te avisaremos cuando tu pedido recién elaborado salga de cocina y se programe su despacho hacia tu dirección. ¡Muchas gracias por tu confianza!`;
