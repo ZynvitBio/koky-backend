@@ -779,6 +779,22 @@ module.exports = {
     }
   },
 
+  async notifyAdmins(phone_number_id, from, text) {
+    const defaultAdmins = ["573007979419", "573017020038"];
+    const envAdmins = (process.env.ADMIN_PHONE || "")
+      .split(",")
+      .map((p) => p.replace(/\D/g, "").trim())
+      .filter(Boolean);
+    const adminPhones = [...new Set([...defaultAdmins, ...envAdmins])];
+    const cleanFrom = String(from || "").replace(/\D/g, "");
+
+    await Promise.allSettled(
+      adminPhones
+        .filter((adminPhone) => adminPhone && adminPhone !== cleanFrom)
+        .map((adminPhone) => this.sendWhatsAppMessage(phone_number_id, adminPhone, text))
+    );
+  },
+
   async buildCartFromNames(items) {
     try {
       const products = await strapi.entityService.findMany("api::product.product", {
@@ -1264,13 +1280,10 @@ module.exports = {
 
             // --- NOTIFICACIONES AL ADMINISTRADOR (Mensajes ordinarios) ---
             if (!shouldTakeoverHuman(rawText)) {
-              const adminPhone = process.env.ADMIN_PHONE || "573007979419";
-              if (adminPhone && from !== adminPhone) {
-                const header = isKiraActive ? "💬 *Mensaje para Kira*" : "👤 *Mensaje para Humano*";
-                const note = isKiraActive ? "" : "\n\n_Nota: Kira está desactivada en este chat._";
-                const infoMsg = `${header}\n\n*Cliente:* ${waName} (${from})\n*Mensaje:* "${rawText}"${note}`;
-                await this.sendWhatsAppMessage(phone_number_id, adminPhone, infoMsg);
-              }
+              const header = isKiraActive ? "💬 *Mensaje para Kira*" : "👤 *Mensaje para Humano*";
+              const note = isKiraActive ? "" : "\n\n_Nota: Kira está desactivada en este chat._";
+              const infoMsg = `${header}\n\n*Cliente:* ${waName} (${from})\n*Mensaje:* "${rawText}"${note}`;
+              await this.notifyAdmins(phone_number_id, from, infoMsg);
             }
 
             // --- CAPA 1: Interceptador de Handoff Humano por Código (WhatsApp) ---
@@ -1284,11 +1297,8 @@ module.exports = {
               );
 
               // NOTIFICACIÓN AL ADMINISTRADOR
-              const adminPhone = process.env.ADMIN_PHONE || "573007979419";
-              if (adminPhone && from !== adminPhone) {
-                const alertMsg = `🚨 *Solicitud de Atención Humana*\n\nEl cliente *${waName}* (${from}) solicita hablar con un humano.\n\n*Último mensaje:* "${rawText}"\n\n_Kira ha sido pausada en este chat. Por favor, asume la conversación._`;
-                await this.sendWhatsAppMessage(phone_number_id, adminPhone, alertMsg);
-              }
+              const alertMsg = `🚨 *Solicitud de Atención Humana*\n\nEl cliente *${waName}* (${from}) solicita hablar con un humano.\n\n*Último mensaje:* "${rawText}"\n\n_Kira ha sido pausada en este chat. Por favor, asume la conversación._`;
+              await this.notifyAdmins(phone_number_id, from, alertMsg);
 
               const chatMsg = await strapi.entityService.create("api::chat.chat", {
                 data: {
@@ -2499,11 +2509,8 @@ module.exports = {
                   );
 
                   // NOTIFICACIÓN AL ADMINISTRADOR
-                  const adminPhone = process.env.ADMIN_PHONE || "573007979419";
-                  if (adminPhone && from !== adminPhone) {
-                    const alertMsg = `🚨 *Solicitud de Atención Humana (IA)*\n\nKira determinó que el cliente *${waName}* (${from}) necesita ayuda humana.\n\n*Último mensaje:* "${rawText}"\n\n_Kira ha sido pausada en este chat. Por favor, asume la conversación._`;
-                    await this.sendWhatsAppMessage(phone_number_id, adminPhone, alertMsg);
-                  }
+                  const alertMsg = `🚨 *Solicitud de Atención Humana (IA)*\n\nKira determinó que el cliente *${waName}* (${from}) necesita ayuda humana.\n\n*Último mensaje:* "${rawText}"\n\n_Kira ha sido pausada en este chat. Por favor, asume la conversación._`;
+                  await this.notifyAdmins(phone_number_id, from, alertMsg);
 
                   const transferMessage = getTransferMessage();
                   await this.sendWhatsAppMessage(phone_number_id, from, transferMessage);
@@ -2913,13 +2920,10 @@ module.exports = {
               );
 
               // NOTIFICACIÓN AL ADMINISTRADOR POR WHATSAPP
-              const adminPhone = process.env.ADMIN_PHONE || "573007979419";
               const defaultPhoneId = process.env.ID_PHONE_WS || "1037050959491352";
-              if (adminPhone && from !== adminPhone) {
-                const platformLabel = body.object === "instagram" ? "Instagram" : "Facebook Messenger";
-                const alertMsg = `🚨 *Solicitud de Atención Humana (${platformLabel})*\n\nEl cliente *${waName}* (${from}) solicita hablar con un humano en ${platformLabel}.\n\n*Último mensaje:* "${rawText}"\n\n_Kira ha sido pausada en este chat. Por favor, asume la conversación._`;
-                await this.sendWhatsAppMessage(defaultPhoneId, adminPhone, alertMsg);
-              }
+              const platformLabel = body.object === "instagram" ? "Instagram" : "Facebook Messenger";
+              const alertMsg = `🚨 *Solicitud de Atención Humana (${platformLabel})*\n\nEl cliente *${metaName}* (${from}) solicita hablar con un humano en ${platformLabel}.\n\n*Último mensaje:* "${rawText}"\n\n_Kira ha sido pausada en este chat. Por favor, asume la conversación._`;
+              await this.notifyAdmins(defaultPhoneId, from, alertMsg);
 
               const chatMsg = await strapi.entityService.create("api::chat.chat", {
                 data: {
@@ -3279,13 +3283,10 @@ module.exports = {
                 );
 
                 // NOTIFICACIÓN AL ADMINISTRADOR POR WHATSAPP
-                const adminPhone = process.env.ADMIN_PHONE || "573007979419";
                 const defaultPhoneId = process.env.ID_PHONE_WS || "1037050959491352";
-                if (adminPhone && from !== adminPhone) {
-                  const platformLabel = body.object === "instagram" ? "Instagram" : "Facebook Messenger";
-                  const alertMsg = `🚨 *Solicitud de Atención Humana - IA (${platformLabel})*\n\nKira determinó que el cliente *${waName}* (${from}) en ${platformLabel} necesita ayuda humana.\n\n*Último mensaje:* "${rawText}"\n\n_Kira ha sido pausada en este chat. Por favor, asume la conversación._`;
-                  await this.sendWhatsAppMessage(defaultPhoneId, adminPhone, alertMsg);
-                }
+                const platformLabel = body.object === "instagram" ? "Instagram" : "Facebook Messenger";
+                const alertMsg = `🚨 *Solicitud de Atención Humana - IA (${platformLabel})*\n\nKira determinó que el cliente *${metaName}* (${from}) en ${platformLabel} necesita ayuda humana.\n\n*Último mensaje:* "${rawText}"\n\n_Kira ha sido pausada en este chat. Por favor, asume la conversación._`;
+                await this.notifyAdmins(defaultPhoneId, from, alertMsg);
 
                 const transferMessage = getTransferMessage();
 
