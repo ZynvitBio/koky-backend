@@ -15,6 +15,7 @@ module.exports = {
         strapi.io.emit('new_message', { 
           id: result.id,
           userId: usuario.id,
+          wamid: result.wamid || '',
           message: result.message,
           sender: result.sender,
           createdAt: result.createdAt,

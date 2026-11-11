@@ -142,6 +142,7 @@ module.exports = {
           if (whatsapp_token) {
             try {
               let messageText = "";
+              let metaResponse = null;
               if (newStatus === "PREPARING") {
                 const rawAddress = data.shipping_address !== undefined ? data.shipping_address : state.shippingAddress;
                 const cleanAddress = (rawAddress || "")
@@ -155,7 +156,7 @@ module.exports = {
 
                 try {
                   strapi.log.info(`[Lifecycle Order] Estado cambió a PREPARING. Enviando plantilla confirmacion_pedido_logistica a ${to} (dir: ${cleanAddress})...`);
-                  await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "confirmacion_pedido_logistica", [
+                  metaResponse = await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "confirmacion_pedido_logistica", [
                     { type: "text", text: safeCustomerName },
                     { type: "text", text: String(orderId) },
                     { type: "text", text: cleanAddress }
@@ -164,7 +165,7 @@ module.exports = {
                   messageText = `¡Pedido confirmado!\n\nHola ${safeCustomerName}, recibimos tu orden #${orderId} en Koky Food y entra a nuestra cocina esta noche para prepararse fresca. 👨‍🍳\n\nPara programar el despacho de mañana a tu dirección (${cleanAddress}) sin inconvenientes, por favor confírmanos tocando un botón abajo si los datos están bien o si debemos ajustar algún detalle.\n\n[🔘 Sí, todo correcto] [🔘 Tengo una indicación]`;
                 } catch (confirmErr) {
                   strapi.log.warn(`[Lifecycle Order] Falló confirmacion_pedido_logistica (${confirmErr.response?.data?.error?.message || confirmErr.message}). Respaldo a orden_en_cocina...`);
-                  await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "orden_en_cocina", [
+                  metaResponse = await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "orden_en_cocina", [
                     { type: "text", text: safeCustomerName },
                     { type: "text", text: String(orderId) }
                   ]);
@@ -182,7 +183,7 @@ module.exports = {
                 const greeting = hour < 12 ? "¡buenos días!" : "¡buenas tardes!";
 
                 strapi.log.info(`[Lifecycle Order] Estado cambió a READY. Enviando plantilla simple pedido_listo_cocina a ${to}...`);
-                await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_listo_cocina", [
+                metaResponse = await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_listo_cocina", [
                   { type: "text", text: customerName },
                   { type: "text", text: greeting },
                   { type: "text", text: String(orderId) }
@@ -195,7 +196,7 @@ module.exports = {
                   ? String(rawWindow).trim()
                   : "en el transcurso de la tarde";
                 strapi.log.info(`[Lifecycle Order] Estado cambió a SHIPPED. Enviando plantilla pedido_en_camino a ${to} con ventana: ${deliveryWindow}...`);
-                await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_en_camino", [
+                metaResponse = await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "pedido_en_camino", [
                   { type: "text", text: customerName },
                   { type: "text", text: String(orderId) },
                   { type: "text", text: deliveryWindow }
@@ -206,10 +207,14 @@ module.exports = {
 
               // Guardar registro en la base de datos de chat si se envió el mensaje
               if (messageText) {
-                await strapi.entityService.create("api::chat.chat", {
+                const templateWamid = metaResponse?.messages?.[0]?.id || null;
+                const createdChat = await strapi.entityService.create("api::chat.chat", {
                   data: {
                     sender: "Kira",
                     message: messageText,
+                    sent_to_meta: true,
+                    wamid: templateWamid,
+                    delivery_status: "sent",
                     timestamp: new Date(),
                     publishedAt: new Date(),
                     users_permissions_user: state.userId
@@ -219,8 +224,11 @@ module.exports = {
                 // Emitir WebSocket en vivo para actualizar la Bandeja Omnicanal de inmediato
                 if (strapi.io) {
                   strapi.io.emit("new_chat_message", {
+                    id: createdChat?.id,
                     sender: "Kira",
                     message: messageText,
+                    wamid: templateWamid,
+                    delivery_status: "sent",
                     timestamp: new Date(),
                     whatsapp_id: to
                   });
@@ -515,7 +523,7 @@ async function sendWhatsAppTemplate(phone_number_id, token, to, templateName, bo
       templatePayload.to = target.replace(/\D/g, '');
     }
 
-    await axios({
+    const response = await axios({
       method: "POST",
       url: `https://graph.facebook.com/v21.0/${phone_number_id}/messages`,
       data: templatePayload,
@@ -524,7 +532,9 @@ async function sendWhatsAppTemplate(phone_number_id, token, to, templateName, bo
         "Content-Type": "application/json"
       }
     });
-    strapi.log.info(`[Lifecycle Order] Plantilla de WhatsApp ${templateName} enviada con éxito a ${to}.`);
+    const sentWamid = response?.data?.messages?.[0]?.id || null;
+    strapi.log.info(`[Lifecycle Order] Plantilla de WhatsApp ${templateName} enviada con éxito a ${to}. (wamid: ${sentWamid || "N/A"})`);
+    return response.data;
   } catch (err) {
     strapi.log.error(
       `[Lifecycle Order] Error en API de Meta al enviar plantilla ${templateName}:`,
