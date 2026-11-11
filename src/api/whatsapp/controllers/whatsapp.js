@@ -607,7 +607,8 @@ function shouldTakeoverHuman(msgText) {
     "necesito hablar con alguien",
     "quiero hablar con alguien",
     "quiero un humano",
-    "necesito ayuda de una persona"
+    "necesito ayuda de una persona",
+    "tengo una indicacion"
   ];
 
   return explicitPhrases.some(phrase => {
@@ -3458,6 +3459,9 @@ Devuelve ÚNICAMENTE el mensaje mejorado final. No incluyas explicaciones, no in
         } else if (templateName === 'entrega_pedido_recetas' || templateName === 'pedido_entregado_recetas' || templateName === 'pedido_entregado_fresco') {
           const [cliente = 'Cliente', productos = 'tu pedido', detalle = 'en tu dirección'] = parameters;
           messageRecordText = `¡Tu pedido Koky ya fue entregado, ${cliente}!\n\nDetalle: ${detalle}\nConsejo: Recuerda refrigerarlo al recibirlo para conservar toda su frescura artesanal.\n\nLlevamos a tu mesa: ${productos}.\n\nMuchas gracias de corazón por permitirnos cocinar para ti. En el botón de abajo te compartimos ideas deliciosas para prepararlo. ¡Que lo disfrutes mucho!\n\n[🔘 Recetario Koky (https://koky.food/recetas)]`;
+        } else if (templateName === 'confirmacion_pedido_logistica') {
+          const [cliente = 'Cliente', ordenId = '', direccion = 'tu dirección registrada'] = parameters;
+          messageRecordText = `¡Pedido confirmado!\n\nHola ${cliente}, recibimos tu orden #${ordenId} en Koky Food y entra a nuestra cocina esta noche para prepararse fresca. 👨‍🍳\n\nPara programar el despacho de mañana a tu dirección (${direccion}) sin inconvenientes, por favor confírmanos tocando un botón abajo si los datos están bien o si debemos ajustar algún detalle.\n\n[🔘 Sí, todo correcto] [🔘 Tengo una indicación]`;
         } else if (templateName === 'orden_en_cocina' || templateName === 'pedido_en_cocina') {
           const [cliente = 'Cliente', ordenId = ''] = parameters;
           messageRecordText = `👨‍🍳 ¡Tu pedido va rumbo a la cocina!\n\nHola ${cliente}, ¡esperamos que estés muy bien! 👨‍🍳\n\nTe confirmamos que tu orden #${ordenId} ya se encuentra en manos de nuestro equipo en cocina para ser preparada fresca esta noche. 🥣\n\nMañana hacia el mediodía te avisaremos cuando tu pedido recién elaborado salga de cocina y se programe su despacho hacia tu dirección. ¡Muchas gracias por tu confianza!`;

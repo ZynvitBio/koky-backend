@@ -86,6 +86,7 @@ module.exports = {
             whatsappId: existingOrder.whatsapp_id,
             customerName: existingOrder.customer_name,
             orderId: existingOrder.id,
+            shippingAddress: existingOrder.shipping_address,
             shippingNotes: existingOrder.shipping_notes,
             deliveryWindow: existingOrder.delivery_window,
             userId: userId
@@ -142,13 +143,34 @@ module.exports = {
             try {
               let messageText = "";
               if (newStatus === "PREPARING") {
-                strapi.log.info(`[Lifecycle Order] Estado cambió a PREPARING. Enviando plantilla orden_en_cocina a ${to}...`);
-                await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "orden_en_cocina", [
-                  { type: "text", text: customerName },
-                  { type: "text", text: String(orderId) }
-                ]);
+                const rawAddress = data.shipping_address !== undefined ? data.shipping_address : state.shippingAddress;
+                const cleanAddress = (rawAddress || "")
+                  .replace(/[\r\n\t]+/g, " ")
+                  .replace(/\s{2,}/g, " ")
+                  .trim() || "tu dirección registrada";
+                const safeCustomerName = String(customerName)
+                  .replace(/[\r\n\t]+/g, " ")
+                  .replace(/\s{2,}/g, " ")
+                  .trim() || "Cliente";
 
-                messageText = `👨‍🍳 ¡Tu pedido va rumbo a la cocina!\n\nHola ${customerName}, ¡esperamos que estés muy bien! 👨‍🍳\n\nTe confirmamos que tu orden #${orderId} ya se encuentra en manos de nuestro equipo en cocina para ser preparada fresca esta noche. 🥣\n\nMañana hacia el mediodía te avisaremos cuando tu pedido recién elaborado salga de cocina y se programe su despacho hacia tu dirección. ¡Muchas gracias por tu confianza!`;
+                try {
+                  strapi.log.info(`[Lifecycle Order] Estado cambió a PREPARING. Enviando plantilla confirmacion_pedido_logistica a ${to} (dir: ${cleanAddress})...`);
+                  await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "confirmacion_pedido_logistica", [
+                    { type: "text", text: safeCustomerName },
+                    { type: "text", text: String(orderId) },
+                    { type: "text", text: cleanAddress }
+                  ]);
+
+                  messageText = `¡Pedido confirmado!\n\nHola ${safeCustomerName}, recibimos tu orden #${orderId} en Koky Food y entra a nuestra cocina esta noche para prepararse fresca. 👨‍🍳\n\nPara programar el despacho de mañana a tu dirección (${cleanAddress}) sin inconvenientes, por favor confírmanos tocando un botón abajo si los datos están bien o si debemos ajustar algún detalle.\n\n[🔘 Sí, todo correcto] [🔘 Tengo una indicación]`;
+                } catch (confirmErr) {
+                  strapi.log.warn(`[Lifecycle Order] Falló confirmacion_pedido_logistica (${confirmErr.response?.data?.error?.message || confirmErr.message}). Respaldo a orden_en_cocina...`);
+                  await sendWhatsAppTemplate(phone_number_id, whatsapp_token, to, "orden_en_cocina", [
+                    { type: "text", text: safeCustomerName },
+                    { type: "text", text: String(orderId) }
+                  ]);
+
+                  messageText = `👨‍🍳 ¡Tu pedido va rumbo a la cocina!\n\nHola ${safeCustomerName}, ¡esperamos que estés muy bien! 👨‍🍳\n\nTe confirmamos que tu orden #${orderId} ya se encuentra en manos de nuestro equipo en cocina para ser preparada fresca esta noche. 🥣\n\nMañana hacia el mediodía te avisaremos cuando tu pedido recién elaborado salga de cocina y se programe su despacho hacia tu dirección. ¡Muchas gracias por tu confianza!`;
+                }
               } else if (newStatus === "READY") {
                 // Calcular saludo según la hora de Bogotá (UTC-5)
                 const formatter = new Intl.DateTimeFormat("en-US", {
