@@ -258,22 +258,54 @@ async function geocodeAddress(address) {
   };
 }
 
+function buildWhatsappIdVariants(identifiers) {
+  const variants = new Set();
+  for (const raw of identifiers) {
+    if (!raw || raw === "undefined") continue;
+    const str = String(raw).trim();
+    if (!str) continue;
+    variants.add(str);
+
+    // Conservar BSUID tal como viene sin normalización numérica
+    if (/^[a-zA-Z]{2}\./.test(str)) continue;
+
+    const digits = str.replace(/\D/g, "");
+    if (!digits) continue;
+    variants.add(digits);
+    variants.add(`+${digits}`);
+
+    if (digits.startsWith("57") && digits.length > 10) {
+      const local = digits.slice(2);
+      variants.add(local);
+      variants.add(`+${local}`);
+    } else if (digits.length === 10 && digits.startsWith("3")) {
+      variants.add(`57${digits}`);
+      variants.add(`+57${digits}`);
+    }
+  }
+  return Array.from(variants);
+}
+
+async function findLatestOrderForUser(from, user) {
+  const filters = buildWhatsappIdVariants([from, user?.whatsapp_id]).map((variant) => ({
+    whatsapp_id: variant
+  }));
+  if (user?.id) filters.push({ users_permissions_users: { id: user.id } });
+
+  if (filters.length === 0) return null;
+
+  const lastOrders = await strapi.documents("api::order.order").findMany({
+    filters: { $or: filters },
+    sort: { id: "desc" },
+    limit: 1
+  });
+
+  return lastOrders && lastOrders.length > 0 ? lastOrders[0] : null;
+}
+
 async function getOrderContextForUser(from, user) {
   try {
-    const filters = [];
-    if (from) filters.push({ whatsapp_id: from });
-    if (user?.whatsapp_id) filters.push({ whatsapp_id: user.whatsapp_id });
-    if (user?.id) filters.push({ users_permissions_users: { id: user.id } });
-
-    if (filters.length === 0) return "- No se encontraron órdenes asociadas.";
-
-    const lastOrders = await strapi.entityService.findMany("api::order.order", {
-      filters: { $or: filters },
-      sort: { id: "desc" },
-      limit: 1
-    });
-
-    const lastOrder = lastOrders && lastOrders.length > 0 ? lastOrders[0] : null;
+    const lastOrder = await findLatestOrderForUser(from, user);
 
     if (!lastOrder) {
       return "- El cliente no tiene pedidos registrados en el sistema actualmente.";
@@ -288,7 +320,15 @@ async function getOrderContextForUser(from, user) {
       'CANCELLED': '🔴 Cancelado'
     };
 
+    const paymentMap = {
+      'APPROVED': '✅ PAGADO / APROBADO (YA ESTÁ PAGO - NO COBRAR NI PEDIR PAGO)',
+      'PENDING': '⏳ PENDIENTE DE PAGO',
+      'DECLINED': '❌ PAGO DECLINADO',
+      'ERROR': '❌ ERROR EN PAGO'
+    };
+
     const statusStr = statusMap[lastOrder.order_status] || lastOrder.order_status || 'PENDIENTE';
+    const paymentStr = paymentMap[lastOrder.payment_status] || (lastOrder.payment_status || '⏳ PENDIENTE DE PAGO');
     const notesStr = lastOrder.shipping_notes ? ` (Notas de transporte/envío: ${lastOrder.shipping_notes})` : '';
     const dateStr = lastOrder.createdAt ? new Date(lastOrder.createdAt).toLocaleDateString('es-CO') : '';
     const courierStr = lastOrder.cabify_parcel_id ? 'Cabify Express' : 'Envíos Domicilio (Yango / Mensajero)';
@@ -296,7 +336,8 @@ async function getOrderContextForUser(from, user) {
     return `Última Orden #${lastOrder.id}:
 - Fecha de Creación: ${dateStr}
 - Estado del Pedido: ${statusStr}${notesStr}
-- Estado del Pago: ${lastOrder.payment_status || 'PENDIENTE'}
+- Estado del Pago: ${paymentStr}
+- Método de Pago: ${lastOrder.payment_method || 'No especificado'}
 - Valor Total: $${Number(lastOrder.total_amount || 0).toLocaleString('es-CO')} COP
 - Dirección de Entrega: ${lastOrder.shipping_address || 'Bogotá'}
 - Método de Entrega: ${courierStr}`;
@@ -615,6 +656,18 @@ function shouldTakeoverHuman(msgText) {
     const cleanPhrase = phrase.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return clean.includes(cleanPhrase);
   });
+}
+
+function isOrderLogisticsConfirmation(msgText) {
+  if (!msgText) return false;
+  const clean = String(msgText)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return clean === "si todo correcto";
 }
 
 function isRecipeRequest(msgText) {
@@ -1410,15 +1463,12 @@ module.exports = {
               rawText = `🛒 [Carrito enviado]\n${listText}\nTotal: $${total.toLocaleString('es-CO')} COP`;
 
               // Buscar historial de pedidos del cliente para ver si tiene direcciones registradas
-              const cleanFrom = from.replace(/^\+?57/, "");
+              const pastOrderFilters = buildWhatsappIdVariants([from]).map((variant) => ({
+                whatsapp_id: variant
+              }));
               const pastOrders = await strapi.db.query("api::order.order").findMany({
                 where: {
-                  $or: [
-                    { whatsapp_id: from },
-                    { whatsapp_id: `+${from}` },
-                    { whatsapp_id: cleanFrom },
-                    { whatsapp_id: `+${cleanFrom}` }
-                  ]
+                  $or: pastOrderFilters
                 },
                 orderBy: { createdAt: "desc" },
                 limit: 50
@@ -1896,8 +1946,7 @@ module.exports = {
                           shipping_latitude: Number(selected.latitude),
                           shipping_longitude: Number(selected.longitude),
                           shipping_notes: selected.notes || "",
-                          users_permissions_users: [user.id],
-                          publishedAt: new Date()
+                          users_permissions_users: [user.id]
                         }
                       });
 
@@ -2089,8 +2138,7 @@ module.exports = {
                         shipping_latitude: Number(temp.latitude),
                         shipping_longitude: Number(temp.longitude),
                         shipping_notes: shippingNotes,
-                        users_permissions_users: [user.id],
-                        publishedAt: new Date()
+                        users_permissions_users: [user.id]
                       }
                     });
 
@@ -2184,8 +2232,7 @@ module.exports = {
                         shipping_latitude: Number(temp.latitude),
                         shipping_longitude: Number(temp.longitude),
                         shipping_notes: shippingNotes,
-                        users_permissions_users: [user.id],
-                        publishedAt: new Date()
+                        users_permissions_users: [user.id]
                       }
                     });
 
@@ -2299,8 +2346,7 @@ module.exports = {
                       shipping_latitude: Number(temp.latitude),
                       shipping_longitude: Number(temp.longitude),
                       shipping_notes: finalNotes,
-                      users_permissions_users: [user.id],
-                      publishedAt: new Date()
+                      users_permissions_users: [user.id]
                     }
                   });
 
@@ -2329,6 +2375,14 @@ module.exports = {
                     );
                   });
                 }
+              } else if (!skipStateMachine && isKiraActive && isOrderLogisticsConfirmation(rawText)) {
+                const latestOrder = await findLatestOrderForUser(from, user);
+                const orderLabel = latestOrder ? ` de tu orden #${latestOrder.id}` : "";
+                const customerGreeting = waName && waName !== "Cliente Koky" ? `, ${waName}` : "";
+                const confirmMsg = `¡Perfecto${customerGreeting}! Tus datos de entrega${orderLabel} quedaron confirmados para programar tu despacho sin inconvenientes. ¡Muchas gracias por tu compra!`;
+                systemInteractiveResponse = confirmMsg;
+                isSystemInteractive = true;
+                await this.sendWhatsAppMessage(phone_number_id, from, confirmMsg);
               }
 
 

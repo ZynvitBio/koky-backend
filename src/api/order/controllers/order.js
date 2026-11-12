@@ -76,13 +76,17 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
           `[Wompi Webhook] Orden encontrada ID: ${order.id}. Estado de pago anterior: ${order.payment_status || "PENDING"} -> Nuevo: ${status}`
         );
 
-        // Extraer email de la transacción de Wompi o de la orden
+        // Extraer email y método de pago de la transacción de Wompi o de la orden
         const customerEmail = transaction?.customer_email || order.customer_email;
+        const paymentMethodType = transaction?.payment_method_type || transaction?.payment_method?.type;
 
-        // Actualizar el estado de pago y el correo en la orden si no lo tenía
+        // Actualizar el estado de pago, el método de pago y el correo en la orden si aplica
         const updateData = {
           payment_status: status,
         };
+        if (paymentMethodType) {
+          updateData.payment_method = String(paymentMethodType);
+        }
         if (customerEmail && !order.customer_email) {
           updateData.customer_email = customerEmail;
         }
@@ -92,12 +96,7 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
           data: updateData,
         });
 
-        // Re-publicar para sincronizar draft y published
-        await strapi.documents("api::order.order").publish({
-          documentId: order.documentId,
-        });
-
-        // Obtenemos el documento oficial publicado para asegurar el ID definitivo
+        // Obtenemos el documento oficial actualizado
         let finalOrder = order;
         try {
           const pubDoc = await strapi.documents("api::order.order").findOne({
@@ -106,7 +105,7 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
           if (pubDoc) finalOrder = pubDoc;
         } catch (pubErr) {}
 
-        strapi.log.info(`[Wompi Webhook] Orden ID ${finalOrder.id} actualizada y re-publicada.`);
+        strapi.log.info(`[Wompi Webhook] Orden ID ${finalOrder.id} actualizada.`);
 
         // Emitir evento por WebSockets para refrescar panel de administración en tiempo real
         if (strapi.io) {
@@ -380,9 +379,6 @@ module.exports = createCoreController("api::order.order", ({ strapi }) => ({
         await strapi.documents("api::order.order").update({
           documentId: order.documentId,
           data: { customer_email: email.trim() }
-        });
-        await strapi.documents("api::order.order").publish({
-          documentId: order.documentId
         });
         order.customer_email = email.trim();
       }

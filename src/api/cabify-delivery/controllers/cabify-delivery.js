@@ -113,9 +113,6 @@ module.exports = {
             cabify_parcel_id: null,
           },
         });
-        await strapi.documents("api::order.order").publish({
-          documentId: documentId,
-        });
       }
 
       ctx.body = { 
@@ -194,9 +191,6 @@ module.exports = {
                 order_status: newOrderStatus,
                 shipping_notes: newShippingNotes
               }
-            });
-            await strapi.documents("api::order.order").publish({
-              documentId: matchingOrder.documentId
             });
             strapi.log.info(`[Cabify Webhook] Orden #${matchingOrder.id} actualizada a order_status: ${newOrderStatus}`);
           }

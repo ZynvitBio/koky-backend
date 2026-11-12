@@ -187,9 +187,6 @@ module.exports = {
           documentId: order.documentId,
           data: { reconciled: true },
         });
-        await strapi.documents("api::order.order").publish({
-          documentId: order.documentId,
-        });
       }
 
       ctx.body = { success: true, message: "Inventario conciliado con éxito" };

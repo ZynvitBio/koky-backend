@@ -119,9 +119,6 @@ module.exports = {
               stock_deducted: true,
             },
           });
-          await strapi.documents("api::order.order").publish({
-            documentId: result.documentId,
-          });
           strapi.log.info(`[Lifecycle Order] Stock marcado como descontado para la orden ID: ${result.id}`);
         } catch (err) {
           strapi.log.error(`[Lifecycle Order] Error al descontar stock en afterUpdate: ${err.message}`);
