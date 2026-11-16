@@ -200,6 +200,8 @@ async function geocodeAddress(address) {
 }
 
 // ---------- Cabify ----------
+const CABIFY_TIMEOUT_MS = 6000;
+
 async function getCabifyPrice(lat, lon, { useCache = false } = {}) {
   const cacheKey = `${Number(lat).toFixed(3)},${Number(lon).toFixed(3)}`;
   if (useCache) {
@@ -207,11 +209,17 @@ async function getCabifyPrice(lat, lon, { useCache = false } = {}) {
     if (cached && Date.now() - cached.at < QUOTE_CACHE_TTL_MS) return cached.amount;
   }
   try {
-    const result = await strapi.service("api::cabify-delivery.cabify-delivery").getPriceEstimate({
-      dropoff_location: { lat: Number(lat), lon: Number(lon) },
-      dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
-      weight: { value: 1000, unit: "g" },
-    });
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`Cabify timeout (${CABIFY_TIMEOUT_MS}ms)`)), CABIFY_TIMEOUT_MS)
+    );
+    const result = await Promise.race([
+      strapi.service("api::cabify-delivery.cabify-delivery").getPriceEstimate({
+        dropoff_location: { lat: Number(lat), lon: Number(lon) },
+        dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
+        weight: { value: 1000, unit: "g" },
+      }),
+      timeoutPromise,
+    ]);
     const amount = Number(result?.deliveries?.[0]?.estimation?.price?.amount);
     if (amount > 0) {
       quoteCache.set(cacheKey, { amount, at: Date.now() });
@@ -297,7 +305,18 @@ async function quoteForChat(text, location) {
     try {
       const geo = await geocodeAddress(address);
       if (geo.success) {
-        return quoteByCoords(geo.lat, geo.lng, address);
+        const coordsQuote = await quoteByCoords(geo.lat, geo.lng, address);
+        if (coordsQuote.type !== "unresolved") return coordsQuote;
+        // Cabify y zona_nearest fallaron: intentar con el barrio que Google incluye en la dirección formateada
+        // (ej: "Calle 97 #21-62, Chico, Bogotá..." → detecta "Chico" → precio de zona)
+        if (geo.formattedAddress) {
+          const fmtMention = detectZoneMention(geo.formattedAddress);
+          if (fmtMention) {
+            console.log(`📍 Precio obtenido del barrio en formattedAddress: "${geo.formattedAddress}"`);
+            return quoteFromMention(fmtMention);
+          }
+        }
+        return coordsQuote; // unresolved
       }
       if (geo.reason === "OUT_OF_COVERAGE") {
         return { type: "out_of_coverage", label: address };
@@ -305,7 +324,7 @@ async function quoteForChat(text, location) {
     } catch (err) {
       console.error("❌ Error geocodificando dirección para cotización:", err.message);
     }
-    // No se pudo ubicar la dirección: intentar con barrio/localidad mencionados
+    // Geocodeo falló: intentar con barrio/localidad mencionados en el texto
     const mention = detectZoneMention(text);
     if (mention) return quoteFromMention(mention);
     return { type: "unresolved", label: address };
@@ -348,7 +367,7 @@ function buildQuotePromptText(quote, deliveryFormatted) {
     case "out_of_coverage":
       return `- La dirección/ubicación del cliente (${quote.label}) está FUERA de nuestra zona de cobertura (solo Bogotá y alrededores cercanos). Díselo con amabilidad.`;
     case "unresolved":
-      return `- El cliente envió una dirección (${quote.label}) pero NO se pudo ubicar. Pídele amablemente el barrio para darle el valor aproximado. NO inventes un precio.`;
+      return `- El cliente dio una dirección (${quote.label}) pero no se pudo calcular el precio exacto de envío. Si en el historial del chat ya conoces su barrio o localidad, úsalo para dar el precio aproximado. Si no tienes ese dato, pídele el barrio amablemente. NO inventes un precio.`;
     default:
       return "";
   }
