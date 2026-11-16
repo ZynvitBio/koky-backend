@@ -1,0 +1,1068 @@
+{
+  "_info": "LISTA ÚNICA OFICIAL de tarifas de domicilio de Koky. La usan la web (checkout), el checkout de WhatsApp y Kira. Para cambiar un precio edita SOLO este archivo. 'lat'/'lon' de cada barrio se usan para encontrar el sector más cercano cuando Cabify falla. Barrios con \"strict\": true solo se reconocen en el chat si el cliente escribe 'barrio X' o un mensaje muy corto (evita confundirlos con fechas o palabras comunes). Barrios con \"match\": false nunca se reconocen por texto (solo se usan por coordenadas).",
+  "zones": [
+    {
+      "id": "suba-niza",
+      "label": "Suba - Niza / Pontevedra / Bulevar",
+      "localidad": "Suba",
+      "price": 7500,
+      "barrios": [
+        {
+          "name": "Niza",
+          "lat": 4.7295,
+          "lon": -74.0558
+        },
+        {
+          "name": "Pontevedra",
+          "lat": 4.7249,
+          "lon": -74.0652
+        },
+        {
+          "name": "Bulevar Niza",
+          "aliases": [
+            "Bulevar"
+          ],
+          "lat": 4.734,
+          "lon": -74.0612
+        }
+      ]
+    },
+    {
+      "id": "suba-colina",
+      "label": "Suba - Colina / San José de Bavaria / Mazurén",
+      "localidad": "Suba",
+      "price": 9500,
+      "barrios": [
+        {
+          "name": "Colina Campestre",
+          "aliases": [
+            "Colina"
+          ],
+          "lat": 4.7447,
+          "lon": -74.0536
+        },
+        {
+          "name": "San José de Bavaria",
+          "lat": 4.7472,
+          "lon": -74.0617
+        },
+        {
+          "name": "Mazurén",
+          "lat": 4.7399,
+          "lon": -74.0671
+        }
+      ]
+    },
+    {
+      "id": "suba-centro",
+      "label": "Suba - Centro / Rincón / Aures",
+      "localidad": "Suba",
+      "price": 12000,
+      "barrios": [
+        {
+          "name": "Suba Centro",
+          "lat": 4.7409,
+          "lon": -74.0924
+        },
+        {
+          "name": "El Rincón",
+          "aliases": [
+            "Rincón de Suba"
+          ],
+          "lat": 4.723,
+          "lon": -74.0948
+        },
+        {
+          "name": "Aures",
+          "lat": 4.7116,
+          "lon": -74.0938
+        }
+      ]
+    },
+    {
+      "id": "suba-gaitana",
+      "label": "Suba - Gaitana / Lisboa / Tibabuyes",
+      "localidad": "Suba",
+      "price": 14500,
+      "barrios": [
+        {
+          "name": "La Gaitana",
+          "aliases": [
+            "Gaitana"
+          ],
+          "lat": 4.7343,
+          "lon": -74.1007
+        },
+        {
+          "name": "Lisboa",
+          "strict": true,
+          "lat": 4.7488,
+          "lon": -74.1056
+        },
+        {
+          "name": "Tibabuyes",
+          "lat": 4.7591,
+          "lon": -74.1094
+        }
+      ]
+    },
+    {
+      "id": "suba-guaymaral",
+      "label": "Suba - Guaymaral / Corpas",
+      "localidad": "Suba",
+      "price": 17000,
+      "barrios": [
+        {
+          "name": "Guaymaral",
+          "lat": 4.7804,
+          "lon": -74.0434
+        },
+        {
+          "name": "Clínica Juan N. Corpas",
+          "aliases": [
+            "Corpas"
+          ],
+          "lat": 4.7622,
+          "lon": -74.0829
+        }
+      ]
+    },
+    {
+      "id": "usaquen-santabarbara",
+      "label": "Usaquén - Santa Bárbara / Unicentro",
+      "localidad": "Usaquén",
+      "price": 8500,
+      "barrios": [
+        {
+          "name": "Santa Bárbara",
+          "lat": 4.698,
+          "lon": -74.0369
+        },
+        {
+          "name": "Unicentro",
+          "lat": 4.6947,
+          "lon": -74.0441
+        }
+      ]
+    },
+    {
+      "id": "usaquen-cedritos",
+      "label": "Usaquén - Cedritos / Contador",
+      "localidad": "Usaquén",
+      "price": 9500,
+      "barrios": [
+        {
+          "name": "Cedritos",
+          "lat": 4.7121,
+          "lon": -74.0462
+        },
+        {
+          "name": "Contador",
+          "strict": true,
+          "lat": 4.7211,
+          "lon": -74.0376
+        }
+      ]
+    },
+    {
+      "id": "usaquen-sancristobal",
+      "label": "Usaquén - San Cristóbal Norte / Servitá",
+      "localidad": "Usaquén",
+      "price": 11500,
+      "barrios": [
+        {
+          "name": "San Cristóbal Norte",
+          "lat": 4.7378,
+          "lon": -74.0349
+        },
+        {
+          "name": "Servitá",
+          "lat": 4.756,
+          "lon": -74.0294
+        }
+      ]
+    },
+    {
+      "id": "usaquen-torca",
+      "label": "Usaquén - Torca / Autopista Norte",
+      "localidad": "Usaquén",
+      "price": 16000,
+      "barrios": [
+        {
+          "name": "Torca",
+          "lat": 4.7892,
+          "lon": -74.0387
+        },
+        {
+          "name": "Autopista Norte Calle 170",
+          "match": false,
+          "lat": 4.7849,
+          "lon": -74.047
+        }
+      ]
+    },
+    {
+      "id": "engativa-ferias",
+      "label": "Engativá - Las Ferias / Bonanza / Metrópolis",
+      "localidad": "Engativá",
+      "price": 10500,
+      "barrios": [
+        {
+          "name": "Las Ferias",
+          "lat": 4.6968,
+          "lon": -74.1017
+        },
+        {
+          "name": "Bonanza",
+          "lat": 4.7024,
+          "lon": -74.1072
+        },
+        {
+          "name": "Metrópolis",
+          "lat": 4.7066,
+          "lon": -74.1024
+        }
+      ]
+    },
+    {
+      "id": "engativa-alamos",
+      "label": "Engativá - Álamos / Minuto de Dios / Boyacá Real",
+      "localidad": "Engativá",
+      "price": 11500,
+      "barrios": [
+        {
+          "name": "Álamos",
+          "lat": 4.6996,
+          "lon": -74.1245
+        },
+        {
+          "name": "Minuto de Dios",
+          "lat": 4.6878,
+          "lon": -74.1083
+        },
+        {
+          "name": "Boyacá Real",
+          "lat": 4.7036,
+          "lon": -74.114
+        }
+      ]
+    },
+    {
+      "id": "engativa-centro",
+      "label": "Engativá - Centro / Villas de Granada / Garcés Navas",
+      "localidad": "Engativá",
+      "price": 13500,
+      "barrios": [
+        {
+          "name": "Engativá Centro",
+          "lat": 4.7056,
+          "lon": -74.1167
+        },
+        {
+          "name": "Villas de Granada",
+          "lat": 4.7128,
+          "lon": -74.1256
+        },
+        {
+          "name": "Garcés Navas",
+          "lat": 4.7064,
+          "lon": -74.1058
+        }
+      ]
+    },
+    {
+      "id": "engativa-pueblo",
+      "label": "Engativá - Engativá Pueblo / Aeropuerto",
+      "localidad": "Engativá",
+      "price": 15500,
+      "barrios": [
+        {
+          "name": "Engativá Pueblo",
+          "lat": 4.7127,
+          "lon": -74.142
+        },
+        {
+          "name": "Aeropuerto El Dorado",
+          "aliases": [
+            "Aeropuerto"
+          ],
+          "lat": 4.7016,
+          "lon": -74.1469
+        }
+      ]
+    },
+    {
+      "id": "fontibon-salitre",
+      "label": "Fontibón - Ciudad Salitre / Carlos Lleras",
+      "localidad": "Fontibón",
+      "price": 11500,
+      "barrios": [
+        {
+          "name": "Ciudad Salitre",
+          "aliases": [
+            "Salitre Occidental"
+          ],
+          "lat": 4.6626,
+          "lon": -74.112
+        },
+        {
+          "name": "Carlos Lleras",
+          "lat": 4.6757,
+          "lon": -74.1176
+        }
+      ]
+    },
+    {
+      "id": "fontibon-modelia",
+      "label": "Fontibón - Modelia / Hayuelos / Capellanía",
+      "localidad": "Fontibón",
+      "price": 13500,
+      "barrios": [
+        {
+          "name": "Modelia",
+          "lat": 4.6697,
+          "lon": -74.1294
+        },
+        {
+          "name": "Hayuelos",
+          "lat": 4.6629,
+          "lon": -74.1352
+        },
+        {
+          "name": "Capellanía",
+          "strict": true,
+          "lat": 4.6791,
+          "lon": -74.1364
+        }
+      ]
+    },
+    {
+      "id": "fontibon-centro",
+      "label": "Fontibón - Centro / Villemar / Fontibón Pueblo",
+      "localidad": "Fontibón",
+      "price": 16500,
+      "barrios": [
+        {
+          "name": "Fontibón Centro",
+          "aliases": [
+            "Fontibón Pueblo"
+          ],
+          "lat": 4.6718,
+          "lon": -74.1448
+        },
+        {
+          "name": "Villemar",
+          "lat": 4.6646,
+          "lon": -74.1399
+        }
+      ]
+    },
+    {
+      "id": "fontibon-zonafranca",
+      "label": "Fontibón - Zona Franca / HB / Puente Grande",
+      "localidad": "Fontibón",
+      "price": 18500,
+      "barrios": [
+        {
+          "name": "Zona Franca",
+          "lat": 4.6916,
+          "lon": -74.1613
+        },
+        {
+          "name": "Hacienda El Bosque",
+          "match": false,
+          "lat": 4.6805,
+          "lon": -74.1595
+        },
+        {
+          "name": "Puente Grande",
+          "lat": 4.6962,
+          "lon": -74.1551
+        }
+      ]
+    },
+    {
+      "id": "kennedy-castilla",
+      "label": "Kennedy - Castilla / Marsella / Américas",
+      "localidad": "Kennedy",
+      "price": 13500,
+      "barrios": [
+        {
+          "name": "Castilla",
+          "lat": 4.6451,
+          "lon": -74.1343
+        },
+        {
+          "name": "Marsella",
+          "lat": 4.6366,
+          "lon": -74.1281
+        },
+        {
+          "name": "Américas",
+          "aliases": [
+            "Las Américas"
+          ],
+          "lat": 4.6301,
+          "lon": -74.1226
+        }
+      ]
+    },
+    {
+      "id": "kennedy-central",
+      "label": "Kennedy - Kennedy Central / Timiza / Carvajal",
+      "localidad": "Kennedy",
+      "price": 15500,
+      "barrios": [
+        {
+          "name": "Kennedy Central",
+          "lat": 4.6241,
+          "lon": -74.1559
+        },
+        {
+          "name": "Timiza",
+          "lat": 4.609,
+          "lon": -74.1616
+        },
+        {
+          "name": "Carvajal",
+          "lat": 4.6087,
+          "lon": -74.1414
+        }
+      ]
+    },
+    {
+      "id": "kennedy-tintal",
+      "label": "Kennedy - Tintal / Calandaima",
+      "localidad": "Kennedy",
+      "price": 17500,
+      "barrios": [
+        {
+          "name": "Tintal",
+          "aliases": [
+            "El Tintal"
+          ],
+          "lat": 4.6353,
+          "lon": -74.1775
+        },
+        {
+          "name": "Calandaima",
+          "lat": 4.648,
+          "lon": -74.1624
+        }
+      ]
+    },
+    {
+      "id": "kennedy-patiobonito",
+      "label": "Kennedy - Patio Bonito / Corabastos / El Amparo",
+      "localidad": "Kennedy",
+      "price": 19000,
+      "barrios": [
+        {
+          "name": "Patio Bonito",
+          "lat": 4.6404,
+          "lon": -74.1693
+        },
+        {
+          "name": "Corabastos",
+          "lat": 4.6311,
+          "lon": -74.1613
+        },
+        {
+          "name": "El Amparo",
+          "lat": 4.6192,
+          "lon": -74.1707
+        }
+      ]
+    },
+    {
+      "id": "bosa-central",
+      "label": "Bosa - Bosa Central / Laureles",
+      "localidad": "Bosa",
+      "price": 18500,
+      "barrios": [
+        {
+          "name": "Bosa Centro",
+          "aliases": [
+            "Bosa Central"
+          ],
+          "lat": 4.6077,
+          "lon": -74.1837
+        },
+        {
+          "name": "Bosa Laureles",
+          "aliases": [
+            "Laureles"
+          ],
+          "lat": 4.6082,
+          "lon": -74.1975
+        }
+      ]
+    },
+    {
+      "id": "bosa-sanbernardino",
+      "label": "Bosa - San Bernardino / Bosa Porvenir",
+      "localidad": "Bosa",
+      "price": 21000,
+      "barrios": [
+        {
+          "name": "San Bernardino",
+          "lat": 4.616,
+          "lon": -74.206
+        },
+        {
+          "name": "Bosa Porvenir",
+          "aliases": [
+            "El Porvenir"
+          ],
+          "lat": 4.6447,
+          "lon": -74.2008
+        }
+      ]
+    },
+    {
+      "id": "chapinero-chico",
+      "label": "Chapinero - Chicó / El Virrey / Parque 93",
+      "localidad": "Chapinero",
+      "price": 9500,
+      "barrios": [
+        {
+          "name": "Chicó",
+          "aliases": [
+            "Chico Norte",
+            "El Chicó"
+          ],
+          "lat": 4.674,
+          "lon": -74.0441
+        },
+        {
+          "name": "El Virrey",
+          "aliases": [
+            "Virrey"
+          ],
+          "lat": 4.6709,
+          "lon": -74.0437
+        },
+        {
+          "name": "Parque 93",
+          "aliases": [
+            "Parque de la 93"
+          ],
+          "lat": 4.6768,
+          "lon": -74.0483
+        }
+      ]
+    },
+    {
+      "id": "chapinero-central",
+      "label": "Chapinero - Chapinero Central / Alto",
+      "localidad": "Chapinero",
+      "price": 11500,
+      "barrios": [
+        {
+          "name": "Chapinero Central",
+          "lat": 4.6478,
+          "lon": -74.0639
+        },
+        {
+          "name": "Chapinero Alto",
+          "lat": 4.6323,
+          "lon": -74.0633
+        }
+      ]
+    },
+    {
+      "id": "teusaquillo-galerias",
+      "label": "Teusaquillo - Galerías / Palermo / La Soledad",
+      "localidad": "Teusaquillo",
+      "price": 11500,
+      "barrios": [
+        {
+          "name": "Galerías",
+          "lat": 4.643,
+          "lon": -74.076
+        },
+        {
+          "name": "Palermo",
+          "lat": 4.6358,
+          "lon": -74.0734
+        },
+        {
+          "name": "La Soledad",
+          "lat": 4.6311,
+          "lon": -74.0729
+        }
+      ]
+    },
+    {
+      "id": "teusaquillo-salitre",
+      "label": "Teusaquillo - Salitre Oriental / CAN / Quinta Paredes",
+      "localidad": "Teusaquillo",
+      "price": 12500,
+      "barrios": [
+        {
+          "name": "Salitre Oriental",
+          "aliases": [
+            "El Salitre"
+          ],
+          "lat": 4.643,
+          "lon": -74.1008
+        },
+        {
+          "name": "Centro Administrativo Nacional",
+          "match": false,
+          "lat": 4.6516,
+          "lon": -74.1049
+        },
+        {
+          "name": "Quinta Paredes",
+          "lat": 4.6337,
+          "lon": -74.0928
+        }
+      ]
+    },
+    {
+      "id": "barriosunidos-polo",
+      "label": "Barrios Unidos - Polo / Castellana / Andes",
+      "localidad": "Barrios Unidos",
+      "price": 9500,
+      "barrios": [
+        {
+          "name": "Polo Club",
+          "aliases": [
+            "El Polo"
+          ],
+          "lat": 4.673,
+          "lon": -74.0628
+        },
+        {
+          "name": "La Castellana",
+          "aliases": [
+            "Castellana"
+          ],
+          "lat": 4.6821,
+          "lon": -74.0609
+        },
+        {
+          "name": "Los Andes",
+          "strict": true,
+          "lat": 4.6843,
+          "lon": -74.0674
+        }
+      ]
+    },
+    {
+      "id": "barriosunidos-12octubre",
+      "label": "Barrios Unidos - 12 de Octubre / 7 de Agosto",
+      "localidad": "Barrios Unidos",
+      "price": 10500,
+      "barrios": [
+        {
+          "name": "Doce de Octubre",
+          "aliases": [
+            "12 de Octubre"
+          ],
+          "strict": true,
+          "lat": 4.6715,
+          "lon": -74.0785
+        },
+        {
+          "name": "Siete de Agosto",
+          "aliases": [
+            "7 de Agosto"
+          ],
+          "strict": true,
+          "lat": 4.6557,
+          "lon": -74.0734
+        }
+      ]
+    },
+    {
+      "id": "puentearanda",
+      "label": "Puente Aranda - Ciudad Montes / Salazar Gómez / Trinidad",
+      "localidad": "Puente Aranda",
+      "price": 13500,
+      "barrios": [
+        {
+          "name": "Ciudad Montes",
+          "lat": 4.6023,
+          "lon": -74.1152
+        },
+        {
+          "name": "Salazar Gómez",
+          "lat": 4.6309,
+          "lon": -74.1143
+        },
+        {
+          "name": "Trinidad Galán",
+          "aliases": [
+            "La Trinidad"
+          ],
+          "lat": 4.6227,
+          "lon": -74.1245
+        }
+      ]
+    },
+    {
+      "id": "martires",
+      "label": "Los Mártires - Paloquemao / Santa Isabel / Ricaurte",
+      "localidad": "Los Mártires",
+      "price": 13500,
+      "barrios": [
+        {
+          "name": "Paloquemao",
+          "lat": 4.6165,
+          "lon": -74.0899
+        },
+        {
+          "name": "Santa Isabel",
+          "lat": 4.5992,
+          "lon": -74.0966
+        },
+        {
+          "name": "Ricaurte",
+          "lat": 4.6068,
+          "lon": -74.0905
+        }
+      ]
+    },
+    {
+      "id": "santafe-candelaria",
+      "label": "Santa Fe / La Candelaria - Centro Histórico / Las Aguas",
+      "localidad": "Santa Fe",
+      "localidadesExtra": [
+        "La Candelaria"
+      ],
+      "price": 14500,
+      "barrios": [
+        {
+          "name": "Centro Histórico",
+          "lat": 4.5921,
+          "lon": -74.0701
+        },
+        {
+          "name": "Las Aguas",
+          "lat": 4.6026,
+          "lon": -74.0685
+        }
+      ]
+    },
+    {
+      "id": "antonionarino",
+      "label": "Antonio Nariño - Restrepo / Santander / Ciudad Berna",
+      "localidad": "Antonio Nariño",
+      "price": 15500,
+      "barrios": [
+        {
+          "name": "Restrepo",
+          "aliases": [
+            "El Restrepo"
+          ],
+          "lat": 4.5882,
+          "lon": -74.1013
+        },
+        {
+          "name": "Santander",
+          "strict": true,
+          "lat": 4.5931,
+          "lon": -74.1094
+        },
+        {
+          "name": "Ciudad Berna",
+          "lat": 4.5841,
+          "lon": -74.0916
+        }
+      ]
+    },
+    {
+      "id": "tunjuelito",
+      "label": "Tunjuelito - Venecia / San Vicente / Tunjuelito",
+      "localidad": "Tunjuelito",
+      "price": 17000,
+      "barrios": [
+        {
+          "name": "Venecia",
+          "strict": true,
+          "lat": 4.5956,
+          "lon": -74.1426
+        },
+        {
+          "name": "San Vicente",
+          "strict": true,
+          "lat": 4.5819,
+          "lon": -74.1406
+        }
+      ]
+    },
+    {
+      "id": "rafaeluribe",
+      "label": "Rafael Uribe Uribe - Olaya / Quiroga / Marruecos",
+      "localidad": "Rafael Uribe Uribe",
+      "price": 18500,
+      "barrios": [
+        {
+          "name": "Olaya",
+          "lat": 4.5819,
+          "lon": -74.1072
+        },
+        {
+          "name": "Quiroga",
+          "lat": 4.5761,
+          "lon": -74.1179
+        },
+        {
+          "name": "Marruecos",
+          "strict": true,
+          "lat": 4.5588,
+          "lon": -74.1137
+        }
+      ]
+    },
+    {
+      "id": "sancristobal",
+      "label": "San Cristóbal - 20 de Julio / San Blas / Sur Oriental",
+      "localidad": "San Cristóbal",
+      "price": 19500,
+      "barrios": [
+        {
+          "name": "Veinte de Julio",
+          "aliases": [
+            "20 de Julio"
+          ],
+          "strict": true,
+          "lat": 4.5701,
+          "lon": -74.0939
+        },
+        {
+          "name": "San Blas",
+          "lat": 4.5653,
+          "lon": -74.0831
+        }
+      ]
+    },
+    {
+      "id": "ciudadbolivar-perdomo",
+      "label": "Ciudad Bolívar - Perdomo / Ismael Perdomo / Candelaria",
+      "localidad": "Ciudad Bolívar",
+      "price": 19500,
+      "barrios": [
+        {
+          "name": "Ismael Perdomo",
+          "aliases": [
+            "Perdomo"
+          ],
+          "lat": 4.5874,
+          "lon": -74.1654
+        },
+        {
+          "name": "Candelaria La Nueva",
+          "lat": 4.5702,
+          "lon": -74.1504
+        }
+      ]
+    },
+    {
+      "id": "ciudadbolivar-meissen",
+      "label": "Ciudad Bolívar - Meissen / San Francisco / Arborizadora",
+      "localidad": "Ciudad Bolívar",
+      "price": 22000,
+      "barrios": [
+        {
+          "name": "Meissen",
+          "lat": 4.5597,
+          "lon": -74.1364
+        },
+        {
+          "name": "San Francisco",
+          "strict": true,
+          "lat": 4.5668,
+          "lon": -74.1472
+        },
+        {
+          "name": "Arborizadora Alta",
+          "aliases": [
+            "Arborizadora"
+          ],
+          "lat": 4.5675,
+          "lon": -74.1582
+        }
+      ]
+    },
+    {
+      "id": "usme",
+      "label": "Usme - Usme Pueblo / Yomasa / Santa Librada",
+      "localidad": "Usme",
+      "price": 24000,
+      "barrios": [
+        {
+          "name": "Usme Pueblo",
+          "lat": 4.4739,
+          "lon": -74.1217
+        },
+        {
+          "name": "Yomasa",
+          "lat": 4.507,
+          "lon": -74.1135
+        },
+        {
+          "name": "Santa Librada",
+          "lat": 4.5174,
+          "lon": -74.1156
+        }
+      ]
+    },
+    {
+      "id": "chia-centro",
+      "label": "Chía - Centro / Fontanar / Saucedal",
+      "localidad": "Chía",
+      "municipio": true,
+      "price": 35000,
+      "barrios": [
+        {
+          "name": "Chía Centro",
+          "lat": 4.8613,
+          "lon": -74.0602
+        },
+        {
+          "name": "Fontanar",
+          "lat": 4.8501,
+          "lon": -74.0272
+        },
+        {
+          "name": "Saucedal",
+          "lat": 4.854,
+          "lon": -74.045
+        }
+      ]
+    },
+    {
+      "id": "chia-yerbabuena",
+      "label": "Chía - Yerbabuena / La Valvanera / Fagua",
+      "localidad": "Chía",
+      "municipio": true,
+      "price": 39000,
+      "barrios": [
+        {
+          "name": "Yerbabuena",
+          "lat": 4.8744,
+          "lon": -74.0044
+        },
+        {
+          "name": "La Valvanera",
+          "lat": 4.861,
+          "lon": -74.0614
+        },
+        {
+          "name": "Fagua",
+          "lat": 4.8952,
+          "lon": -74.0639
+        }
+      ]
+    },
+    {
+      "id": "cajica",
+      "label": "Cajicá - Centro / Manas / Capellanía",
+      "localidad": "Cajicá",
+      "municipio": true,
+      "price": 39000,
+      "barrios": [
+        {
+          "name": "Cajicá Centro",
+          "lat": 4.9173,
+          "lon": -74.0256
+        },
+        {
+          "name": "Manas",
+          "strict": true,
+          "lat": 4.9022,
+          "lon": -74.0262
+        }
+      ]
+    },
+    {
+      "id": "cota",
+      "label": "Cota - Centro / Siberia / Parcelaciones",
+      "localidad": "Cota",
+      "municipio": true,
+      "price": 30000,
+      "barrios": [
+        {
+          "name": "Cota Centro",
+          "lat": 4.7647,
+          "lon": -74.1521
+        },
+        {
+          "name": "Siberia",
+          "strict": true,
+          "lat": 4.7519,
+          "lon": -74.1485
+        }
+      ]
+    },
+    {
+      "id": "soacha",
+      "label": "Soacha - San Mateo / León XIII / Compartir",
+      "localidad": "Soacha",
+      "municipio": true,
+      "price": 28000,
+      "barrios": [
+        {
+          "name": "San Mateo",
+          "strict": true,
+          "lat": 4.5835,
+          "lon": -74.1964
+        },
+        {
+          "name": "León XIII",
+          "aliases": [
+            "Leon 13"
+          ],
+          "lat": 4.5759,
+          "lon": -74.1876
+        },
+        {
+          "name": "Compartir",
+          "strict": true,
+          "lat": 4.5676,
+          "lon": -74.1869
+        }
+      ]
+    },
+    {
+      "id": "mosquera-funza",
+      "label": "Mosquera / Funza - Centro / Parque Industrial",
+      "localidad": "Mosquera",
+      "localidadesExtra": [
+        "Funza"
+      ],
+      "municipio": true,
+      "price": 28000,
+      "barrios": [
+        {
+          "name": "Mosquera Centro",
+          "lat": 4.7067,
+          "lon": -74.2278
+        },
+        {
+          "name": "Funza Centro",
+          "lat": 4.7212,
+          "lon": -74.2088
+        }
+      ]
+    },
+    {
+      "id": "lacalera",
+      "label": "La Calera - Perímetro Urbano",
+      "localidad": "La Calera",
+      "municipio": true,
+      "price": 34000,
+      "barrios": [
+        {
+          "name": "La Calera Centro",
+          "match": false,
+          "lat": 4.7196,
+          "lon": -73.9701
+        }
+      ]
+    }
+  ]
+}

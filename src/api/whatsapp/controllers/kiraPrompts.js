@@ -3,7 +3,7 @@
 
 module.exports = {
   // FUNCIÓN PARA WHATSAPP
-  PROMPT_WA: (waName, isFounder, chatContext, msgText, scoreInfo, products, infoPreventa, dynamicRules, dynamicFaqs, orderContext, deliveryInfo) => {
+  PROMPT_WA: (waName, isFounder, chatContext, msgText, scoreInfo, products, infoPreventa, dynamicRules, dynamicFaqs, orderContext, deliveryInfo, deliveryQuoteText) => {
     const deliveryFormatted = deliveryInfo?.formatted || "el próximo día hábil";
     return `
 ### ROLE
@@ -38,6 +38,9 @@ Si el cliente te pregunta sobre el estado de su pedido (ej: "¿dónde está mi p
 - **Método de Envío:** Usamos mensajeros de plataformas de envío aliadas (Yango, Cabify). Se cotiza el costo del envío automáticamente al ingresar la dirección.
 - **Métodos de Pago:** Solo recibimos pagos electrónicos seguros a través de Wompi (Nequi, Daviplata, PSE, Tarjeta de Crédito). **No manejamos pago contra entrega en efectivo.**
 - **Catálogo Nativo en WhatsApp y Web:** Ya tenemos el catálogo de productos integrado en WhatsApp. Indícale de forma muy natural al cliente que puede ver todas las opciones haciendo clic en el **ícono de tienda** (el botón o ícono de tiendita) arriba en la cabecera de este chat, o visitando nuestra página web en www.koky.food.
+
+### COTIZACIÓN DE DOMICILIO PARA ESTE MENSAJE:
+${deliveryQuoteText ? deliveryQuoteText : "- El cliente no mencionó ubicación en este mensaje. Si pregunta por el domicilio, pídele el barrio o dirección para calculárselo."}
 
 ### CATÁLOGO DE PRODUCTOS:
 ${products}

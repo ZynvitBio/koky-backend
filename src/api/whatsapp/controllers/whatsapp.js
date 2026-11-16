@@ -53,28 +53,10 @@ const processedMessageIds = new Set();
 // Set en memoria para deduplicar comentarios de Instagram y evitar respuestas múltiples
 const processedCommentIds = new Set();
 
-// Mapa de localidades urbanas de Bogotá con tarifas de envío de la web ajustadas (+22% + $1.000) y coordenadas aproximadas
-const LOCALIDADES_BOGOTA = {
-  "1": { name: "Usaquén", price: 8300, lat: 4.7214, lon: -74.0253 },
-  "2": { name: "Suba", price: 7100, lat: 4.7431, lon: -74.0886 },
-  "3": { name: "Chapinero", price: 11400, lat: 4.6465, lon: -74.0612 },
-  "4": { name: "Teusaquillo", price: 11400, lat: 4.6397, lon: -74.0841 },
-  "5": { name: "Barrios Unidos", price: 10200, lat: 4.6685, lon: -74.0753 },
-  "6": { name: "Engativá", price: 10200, lat: 4.7003, lon: -74.1166 },
-  "7": { name: "Fontibón", price: 12600, lat: 4.6757, lon: -74.1376 },
-  "8": { name: "Kennedy", price: 15600, lat: 4.6231, lon: -74.1486 },
-  "9": { name: "Puente Aranda", price: 12600, lat: 4.6166, lon: -74.1167 },
-  "10": { name: "Santa Fe", price: 14400, lat: 4.6067, lon: -74.0712 },
-  "11": { name: "La Candelaria", price: 14400, lat: 4.5956, lon: -74.0736 },
-  "12": { name: "Los Mártires", price: 13200, lat: 4.6061, lon: -74.0906 },
-  "13": { name: "Antonio Nariño", price: 15600, lat: 4.5912, lon: -74.0991 },
-  "14": { name: "Tunjuelito", price: 16900, lat: 4.5778, lon: -74.1353 },
-  "15": { name: "Bosa", price: 18100, lat: 4.6146, lon: -74.1953 },
-  "16": { name: "Rafael Uribe Uribe", price: 18100, lat: 4.5663, lon: -74.1105 },
-  "17": { name: "San Cristóbal", price: 19300, lat: 4.5728, lon: -74.0864 },
-  "18": { name: "Ciudad Bolívar", price: 19300, lat: 4.5593, lon: -74.1472 },
-  "19": { name: "Usme", price: 23000, lat: 4.4716, lon: -74.1105 }
-};
+// Utilidad unificada de zonas y cotizaciones de domicilio
+const DeliveryQuote = require("../../../utils/delivery-quote");
+const { resolveCheckoutDeliveryCost, quoteForChat, buildQuotePromptText,
+        buildSectorListMessage, parseSectorReply, zoneCenter } = DeliveryQuote;
 
 function getExtensionFromMime(mimeType) {
   const map = {
@@ -904,7 +886,7 @@ module.exports = {
     }
   },
 
-  async sendDeliveryFlow(phone_number_id, to, listText, subtotal) {
+  async sendDeliveryFlow(phone_number_id, to, listText, subtotal, prefillAddress) {
     const flowId = process.env.WHATSAPP_FLOW_ID;
     if (!flowId) {
       console.warn("⚠️ WHATSAPP_FLOW_ID no está configurada en las variables de entorno.");
@@ -912,6 +894,16 @@ module.exports = {
     }
     const target = String(to).trim();
     const isBSUID = /^[a-zA-Z]{2}\./.test(target);
+
+    // Datos del flow: si hay dirección pre-llenada, se incluye para que el formulario la muestre
+    const flowScreenData = {
+      cart_total_text: `Subtotal de comida: $${subtotal.toLocaleString('es-CO')} COP`,
+      items_summary: `Detalles de tus productos:\n${listText}`
+    };
+    if (prefillAddress) {
+      flowScreenData.prefill_address = prefillAddress;
+    }
+
     const flowPayload = {
       messaging_product: "whatsapp",
       recipient_type: "individual",
@@ -939,10 +931,7 @@ module.exports = {
                 mode: process.env.WHATSAPP_FLOW_MODE || "published",
                 flow_action_payload: {
                   screen: "DELIVERY_SCREEN",
-                  data: {
-                    cart_total_text: `Subtotal de comida: $${subtotal.toLocaleString('es-CO')} COP`,
-                    items_summary: `Detalles de tus productos:\n${listText}`
-                  }
+                  data: flowScreenData
                 }
               }
             }
@@ -1702,27 +1691,9 @@ module.exports = {
                     data: { kira_score: user.kira_score }
                   });
 
-                  const localityMsg = `📍 *Por favor indícanos a qué localidad pertenece tu dirección seleccionando el número correspondiente:*\n\n` +
-                    `1. *Usaquén*\n` +
-                    `2. *Suba*\n` +
-                    `3. *Chapinero*\n` +
-                    `4. *Teusaquillo*\n` +
-                    `5. *Barrios Unidos*\n` +
-                    `6. *Engativá*\n` +
-                    `7. *Fontibón*\n` +
-                    `8. *Kennedy*\n` +
-                    `9. *Puente Aranda*\n` +
-                    `10. *Santa Fe*\n` +
-                    `11. *La Candelaria*\n` +
-                    `12. *Los Mártires*\n` +
-                    `13. *Antonio Nariño*\n` +
-                    `14. *Tunjuelito*\n` +
-                    `15. *Bosa*\n` +
-                    `16. *Rafael Uribe Uribe*\n` +
-                    `17. *San Cristóbal*\n` +
-                    `18. *Ciudad Bolívar*\n` +
-                    `19. *Usme*`;
-                  
+                  const localityMsg = buildSectorListMessage(
+                    "📍 No pudimos ubicar tu dirección automáticamente. Elige el sector más cercano:"
+                  );
                   await this.sendWhatsAppMessage(phone_number_id, from, localityMsg);
                   systemInteractiveResponse = `Dirección no geocodificada. Preguntando localidad al usuario en chat.`;
                   isSystemInteractive = true;
@@ -1784,29 +1755,42 @@ module.exports = {
                 const checkoutState = user.kira_score.checkout_state;
 
                 if (checkoutState === "AWAITING_LOCALITY") {
-                  const selectedLocality = LOCALIDADES_BOGOTA[msgText];
-                  if (!selectedLocality) {
-                    const errorMsg = `❌ No logramos reconocer la localidad que ingresaste. Por favor, escribe únicamente el NÚMERO (1 al 19) de tu localidad del listado anterior.`;
-                    await this.sendWhatsAppMessage(phone_number_id, from, errorMsg);
+                  const sectorReply = parseSectorReply(rawText);
+                  if (!sectorReply) {
+                    const retryMsg = `❌ No reconocimos ese sector. Por favor escribe el *número* de la lista o el nombre de tu barrio.`;
+                    await this.sendWhatsAppMessage(phone_number_id, from, retryMsg);
                     return;
                   }
 
+                  // Zona ambigua: varios sectores de la misma localidad → pedir que aclare
+                  if (sectorReply.ambiguous) {
+                    const opts = sectorReply.ambiguous;
+                    const retryMsg = buildSectorListMessage(
+                      `Hay varios sectores en esa localidad. Por favor elige el tuyo:`,
+                      opts
+                    );
+                    await this.sendWhatsAppMessage(phone_number_id, from, retryMsg);
+                    return;
+                  }
+
+                  const selectedZone = sectorReply.zone;
                   const temp = user.kira_score.temp_checkout;
                   if (!temp) {
                     throw new Error("No se encontraron detalles temporales del checkout.");
                   }
 
-                  // Guardar datos de la localidad en el checkout temporal
-                  temp.latitude = selectedLocality.lat;
-                  temp.longitude = selectedLocality.lon;
-                  temp.delivery_cost = selectedLocality.price;
+                  // Guardar datos del sector en el checkout temporal
+                  const zoneC = zoneCenter(selectedZone);
+                  temp.latitude = zoneC ? zoneC.lat : DeliveryQuote.KITCHEN.lat;
+                  temp.longitude = zoneC ? zoneC.lon : DeliveryQuote.KITCHEN.lon;
+                  temp.delivery_cost = selectedZone.price;
                   temp.manual_address = true;
-                  temp.locality_name = selectedLocality.name;
+                  temp.locality_name = selectedZone.label;
                   user.kira_score.temp_checkout = temp;
 
                   // Formatear dirección para confirmación
-                  const formattedAddress = `${temp.shipping_address} (${selectedLocality.name})`;
-                  const confirmMsg = `📍 Dirección registrada: *${formattedAddress}*\nTarifa fija de envío: *$${selectedLocality.price.toLocaleString()} COP*`;
+                  const formattedAddress = `${temp.shipping_address} (${selectedZone.label})`;
+                  const confirmMsg = `📍 Dirección registrada: *${formattedAddress}*\nEnvío aprox.: *$${selectedZone.price.toLocaleString("es-CO")} COP*`;
                   
                   const cleanAddressLoc = temp.shipping_address.toLowerCase();
                   const hasApartmentInfoLoc = /\b(apt|apto|apartamento|dep|depto|casa\s*\d+|casa\s*[a-z]|torre|bloque|interior|int|conjunto|edificio|edif)\b/i.test(cleanAddressLoc);
@@ -1829,7 +1813,7 @@ module.exports = {
                     await this.sendHousingConfirmation(phone_number_id, from, formattedAddress, false);
                   }
 
-                  systemInteractiveResponse = `📍 Localidad seleccionada: ${selectedLocality.name}. Preguntando tipo de vivienda.`;
+                  systemInteractiveResponse = `📍 Sector seleccionado: ${selectedZone.label}. Preguntando tipo de vivienda.`;
                   isSystemInteractive = true;
                   return;
                 } else if (checkoutState === "AWAITING_ADDRESS_SELECTION") {
@@ -1914,21 +1898,15 @@ module.exports = {
                       
                       const activeCart = user.kira_score.active_cart;
 
-                      let deliveryCost = 10000;
-                      try {
-                        const cabifyResult = await strapi
-                          .service("api::cabify-delivery.cabify-delivery")
-                          .getPriceEstimate({
-                            dropoff_location: { lat: selected.latitude, lon: selected.longitude },
-                            dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
-                            weight: { value: 1000, unit: "g" },
-                          });
-                        if (cabifyResult?.deliveries?.[0]?.estimation?.price?.amount) {
-                          deliveryCost = cabifyResult.deliveries[0].estimation.price.amount;
-                        }
-                      } catch (e) {
-                        console.error("❌ Error calculando Cabify para dirección histórica:", e.message);
+                      const resolvedHistoric = await resolveCheckoutDeliveryCost({
+                        lat: selected.latitude,
+                        lon: selected.longitude,
+                      });
+                      if (!resolvedHistoric) {
+                        await this.sendWhatsAppMessage(phone_number_id, from, "❌ No pudimos calcular el costo de envío para esa dirección. Por favor intenta con otra dirección.");
+                        return;
                       }
+                      const deliveryCost = resolvedHistoric.cost;
 
                       const totalAmount = activeCart.subtotal + deliveryCost;
 
@@ -2100,23 +2078,16 @@ module.exports = {
                       throw new Error("No se encontraron detalles temporales del checkout.");
                     }
 
-                    let deliveryCost = temp.manual_address ? (temp.delivery_cost || 10000) : 10000;
-                    if (!temp.manual_address) {
-                      try {
-                        const cabifyResult = await strapi
-                          .service("api::cabify-delivery.cabify-delivery")
-                          .getPriceEstimate({
-                            dropoff_location: { lat: temp.latitude, lon: temp.longitude },
-                            dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
-                            weight: { value: 1000, unit: "g" },
-                          });
-                        if (cabifyResult?.deliveries?.[0]?.estimation?.price?.amount) {
-                          deliveryCost = cabifyResult.deliveries[0].estimation.price.amount;
-                        }
-                      } catch (cabifyErr) {
-                        console.error("❌ Error consultando Cabify:", cabifyErr.message);
-                      }
+                    const resolvedSimple = await resolveCheckoutDeliveryCost({
+                      lat: temp.latitude,
+                      lon: temp.longitude,
+                      manualPrice: temp.manual_address ? temp.delivery_cost : null,
+                    });
+                    if (!resolvedSimple) {
+                      await this.sendWhatsAppMessage(phone_number_id, from, "❌ No pudimos calcular el costo de envío. Por favor intenta de nuevo o escríbenos tu sector.");
+                      return;
                     }
+                    const deliveryCost = resolvedSimple.cost;
 
                     const totalAmount = temp.active_cart.subtotal + deliveryCost;
                     const ref = `WA_${Date.now()}`;
@@ -2194,23 +2165,16 @@ module.exports = {
                       throw new Error("No se encontraron detalles temporales del checkout.");
                     }
 
-                    let deliveryCost = temp.manual_address ? (temp.delivery_cost || 10000) : 10000;
-                    if (!temp.manual_address) {
-                      try {
-                        const cabifyResult = await strapi
-                          .service("api::cabify-delivery.cabify-delivery")
-                          .getPriceEstimate({
-                            dropoff_location: { lat: temp.latitude, lon: temp.longitude },
-                            dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
-                            weight: { value: 1000, unit: "g" },
-                          });
-                        if (cabifyResult?.deliveries?.[0]?.estimation?.price?.amount) {
-                          deliveryCost = cabifyResult.deliveries[0].estimation.price.amount;
-                        }
-                      } catch (cabifyErr) {
-                        console.error("❌ Error consultando Cabify:", cabifyErr.message);
-                      }
+                    const resolvedHousing = await resolveCheckoutDeliveryCost({
+                      lat: temp.latitude,
+                      lon: temp.longitude,
+                      manualPrice: temp.manual_address ? temp.delivery_cost : null,
+                    });
+                    if (!resolvedHousing) {
+                      await this.sendWhatsAppMessage(phone_number_id, from, "❌ No pudimos calcular el costo de envío. Por favor intenta de nuevo o escríbenos tu sector.");
+                      return;
                     }
+                    const deliveryCost = resolvedHousing.cost;
 
                     const totalAmount = temp.active_cart.subtotal + deliveryCost;
                     const ref = `WA_${Date.now()}`;
@@ -2312,23 +2276,16 @@ module.exports = {
                     finalNotes = `[Dirección manual - Localidad: ${temp.locality_name || "Desconocida"}] ${finalNotes}`;
                   }
 
-                  let deliveryCost = temp.manual_address ? (temp.delivery_cost || 10000) : 10000;
-                  if (!temp.manual_address) {
-                    try {
-                      const cabifyResult = await strapi
-                        .service("api::cabify-delivery.cabify-delivery")
-                        .getPriceEstimate({
-                          dropoff_location: { lat: temp.latitude, lon: temp.longitude },
-                          dimensions: { height: 10, length: 10, width: 10, unit: "cm" },
-                          weight: { value: 1000, unit: "g" },
-                        });
-                      if (cabifyResult?.deliveries?.[0]?.estimation?.price?.amount) {
-                        deliveryCost = cabifyResult.deliveries[0].estimation.price.amount;
-                      }
-                    } catch (cabifyErr) {
-                      console.error("Error consultando Cabify:", cabifyErr.message);
-                    }
+                  const resolvedApto = await resolveCheckoutDeliveryCost({
+                    lat: temp.latitude,
+                    lon: temp.longitude,
+                    manualPrice: temp.manual_address ? temp.delivery_cost : null,
+                  });
+                  if (!resolvedApto) {
+                    await this.sendWhatsAppMessage(phone_number_id, from, "❌ No pudimos calcular el costo de envío. Por favor intenta de nuevo o escríbenos tu sector.");
+                    return;
                   }
+                  const deliveryCost = resolvedApto.cost;
 
                   const totalAmount = temp.active_cart.subtotal + deliveryCost;
                   const ref = `WA_${Date.now()}`;
@@ -2534,6 +2491,36 @@ module.exports = {
                 const orderContext = await getOrderContextForUser(from, user);
                 const deliveryInfo = calculateNextDeliveryDate();
 
+                // Cotización de domicilio previa: si el cliente mencionó barrio/localidad/dirección,
+                // la calculamos ANTES de llamar a Kira y la inyectamos en el prompt.
+                let deliveryQuoteText = "";
+                try {
+                  const sharedLoc = message?.location
+                    ? { lat: message.location.latitude, lon: message.location.longitude, name: message.location.name, address: message.location.address }
+                    : null;
+                  const chatQuote = await quoteForChat(rawText, sharedLoc);
+                  deliveryQuoteText = buildQuotePromptText(chatQuote, deliveryInfo?.formatted);
+
+                  // Si la cita fue de una dirección completa geocodificada (no solo barrio/localidad),
+                  // guardarla en kira_score para pre-llenar el formulario de entrega si el cliente compra.
+                  if (
+                    chatQuote &&
+                    chatQuote.type === "exact" &&
+                    chatQuote.source === "cabify" &&
+                    chatQuote.label &&
+                    DeliveryQuote.detectAddress(rawText)
+                  ) {
+                    user.kira_score = user.kira_score || {};
+                    user.kira_score.pending_address = chatQuote.label;
+                    await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                      data: { kira_score: user.kira_score }
+                    });
+                    console.log(`📍 Dirección pre-llenada guardada para ${from}: "${chatQuote.label}"`);
+                  }
+                } catch (qErr) {
+                  console.error("⚠️ Error en cotización previa de Kira:", qErr.message);
+                }
+
                 const systemPrompt = KiraPrompts.PROMPT_WA(
                   waName,
                   user.is_founder,
@@ -2545,7 +2532,8 @@ module.exports = {
                   rulesStr,
                   faqsStr,
                   orderContext,
-                  deliveryInfo
+                  deliveryInfo,
+                  deliveryQuoteText
                 );
 
                 const result = await generateContentWithRetry(systemPrompt);
@@ -2699,7 +2687,16 @@ module.exports = {
                   });
 
                   if (parsedCart) {
-                    await this.sendDeliveryFlow(phone_number_id, from, parsedCart.listText, parsedCart.subtotal);
+                    // Pasar la pending_address al Flow si el cliente ya dio su dirección completa antes
+                    const pendingAddr = user.kira_score?.pending_address || null;
+                    await this.sendDeliveryFlow(phone_number_id, from, parsedCart.listText, parsedCart.subtotal, pendingAddr);
+                    // Limpiar la dirección guardada después de usarla (ya está en el formulario)
+                    if (pendingAddr) {
+                      user.kira_score.pending_address = null;
+                      await strapi.entityService.update("plugin::users-permissions.user", user.id, {
+                        data: { kira_score: user.kira_score }
+                      });
+                    }
                   }
                 }
 

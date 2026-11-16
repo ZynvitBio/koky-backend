@@ -63,5 +63,15 @@ module.exports = {
         middlewares: [],
       },
     },
+    {
+      method: "GET",
+      path: "/cabify-delivery/zones",
+      handler: "cabify-delivery.getZones",
+      config: {
+        auth: false,
+        policies: [],
+        middlewares: [],
+      },
+    },
   ],
 };

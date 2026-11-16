@@ -1,6 +1,8 @@
 // @ts-nocheck
 "use strict";
 
+const { getPublicZones } = require("../../../utils/delivery-quote");
+
 module.exports = {
   /**
    * Obtiene la estimación de precio para un envío de Cabify.
@@ -232,6 +234,16 @@ module.exports = {
         .registerWebhook(callbackUrl);
 
       ctx.body = { success: true, data: resultado };
+    } catch (err) {
+      ctx.status = 500;
+      ctx.body = { success: false, error: err.message };
+    }
+  },
+
+  /** Lista pública de zonas de entrega con precios (web Angular y otros clientes). */
+  async getZones(ctx) {
+    try {
+      ctx.body = { success: true, data: getPublicZones() };
     } catch (err) {
       ctx.status = 500;
       ctx.body = { success: false, error: err.message };
