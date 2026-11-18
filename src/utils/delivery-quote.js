@@ -94,6 +94,7 @@ const LOCALIDAD_ALIASES = {
   "La Calera": ["calera"],
   "Barrios Unidos": [],
   "Cota": [],
+  "Chía": ["chia"],
 };
 const STRICT_LOCALIDADES = new Set(["Cota"]);
 
@@ -161,8 +162,12 @@ async function geocodeAddress(address) {
   }
 
   let queryAddress = address;
-  if (!address.toLowerCase().includes("bogota") && !address.toLowerCase().includes("bogotá")) {
+  const lower = address.toLowerCase();
+  const hasCity = lower.includes("bogota") || lower.includes("bogotá") || lower.includes("chía") || lower.includes("chia") || lower.includes("cota") || lower.includes("cajica") || lower.includes("cajicá") || lower.includes("calera") || lower.includes("soacha");
+  if (!hasCity) {
     queryAddress = `${address}, Bogotá, Colombia`;
+  } else if (!lower.includes("colombia")) {
+    queryAddress = `${address}, Colombia`;
   }
 
   const response = await axios.get("https://maps.googleapis.com/maps/api/geocode/json", {
@@ -365,7 +370,7 @@ function buildQuotePromptText(quote, deliveryFormatted) {
     case "localidad":
       return `- El cliente solo mencionó la localidad "${quote.label}". DOMICILIO APROXIMADO: ${formatCOP(quote.price)} (promedio de la localidad). Da UN SOLO precio: "alrededor de ${formatCOP(quote.price)} aprox.". Ofrece, sin exigirlo, afinarlo si te dice el barrio o la dirección. NO listes barrios.`;
     case "out_of_coverage":
-      return `- La dirección/ubicación del cliente (${quote.label}) está FUERA de nuestra zona de cobertura (solo Bogotá y alrededores cercanos). Díselo con amabilidad.`;
+      return `- La dirección/ubicación del cliente (${quote.label}) está FUERA de nuestra zona de cobertura (solo cubrimos Bogotá y Chía). Díselo con amabilidad.`;
     case "unresolved":
       return `- El cliente dio una dirección (${quote.label}) pero no se pudo calcular el precio exacto de envío. Si en el historial del chat ya conoces su barrio o localidad, úsalo para dar el precio aproximado. Si no tienes ese dato, pídele el barrio amablemente. NO inventes un precio.`;
     default:

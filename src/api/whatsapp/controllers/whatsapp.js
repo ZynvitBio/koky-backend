@@ -209,8 +209,12 @@ async function geocodeAddress(address) {
   }
   
   let queryAddress = address;
-  if (!address.toLowerCase().includes("bogota") && !address.toLowerCase().includes("bogotá")) {
+  const lower = address.toLowerCase();
+  const hasCity = lower.includes("bogota") || lower.includes("bogotá") || lower.includes("chía") || lower.includes("chia") || lower.includes("cota") || lower.includes("cajica") || lower.includes("cajicá") || lower.includes("calera") || lower.includes("soacha");
+  if (!hasCity) {
     queryAddress = `${address}, Bogotá, Colombia`;
+  } else if (!lower.includes("colombia")) {
+    queryAddress = `${address}, Colombia`;
   }
 
   const url = `https://maps.googleapis.com/maps/api/geocode/json`;

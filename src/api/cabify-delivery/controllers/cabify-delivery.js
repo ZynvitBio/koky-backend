@@ -24,7 +24,7 @@ module.exports = {
         ctx.body = {
           success: false,
           outOfCoverage: true,
-          error: "La ubicación se encuentra fuera de la zona de cobertura de entregas en Bogotá D.C."
+          error: "La ubicación se encuentra fuera de la zona de cobertura de entregas en Bogotá y Chía."
         };
         return;
       }
